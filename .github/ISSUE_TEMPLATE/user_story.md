@@ -11,7 +11,7 @@ labels: story
 Expected result:
 
 ### Definition of Done
-Tests passed in CI
-Code reviewed by one teammate
-Merged into main
-Docs updated
+- Tests passed in CI
+- Code reviewed by one teammate
+- Merged into main
+- Docs updated
