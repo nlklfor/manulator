@@ -10,7 +10,7 @@ const STEPS = [
 ];
 
 export function UploadPageCard() {
-  const { selectedFile, uploadError, selectFile } = useFileSelection();
+  const { selectedFile, uploadError, uploadStatus, selectFile } = useFileSelection();
 
   return (
     <div className="mx-auto w-full max-w-2xl">
@@ -21,7 +21,11 @@ export function UploadPageCard() {
         </div>
       )}
 
-      <UploadDropzone selectedFile={selectedFile} onFileSelected={selectFile} />
+      <UploadDropzone
+        selectedFile={selectedFile}
+        uploadStatus={uploadStatus}
+        onFileSelected={selectFile}
+      />
 
       <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
         {STEPS.map((step, index) => (

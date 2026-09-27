@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { validateFile } from "./validateFile";
-import type { SelectedFile, UploadError } from "../types/upload";
+import type { SelectedFile, UploadError, UploadStatus } from "../types/upload";
+import { uploadImage } from "../api/uploadImage";
 
-const ERROR_DISPLAY_DURATION = 10000;
+const ERROR_DISPLAY_DURATION = 5000;
 
 export function useFileSelection() {
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus>("idle");
   const [uploadError, setUploadError] = useState<UploadError | null>(null);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -29,20 +31,35 @@ export function useFileSelection() {
     };
   }, [selectedFile]);
 
-  const selectFile = useCallback((file: File) => {
-    const validationError = validateFile(file);
-
-    if (validationError) {
-      setUploadError(validationError);
-      return;
+  const startUpload = useCallback(async (file: File) => {
+    setUploadStatus("uploading");
+    try {
+      await uploadImage(file);
+      setUploadStatus("uploaded");
+    } catch {
+      setUploadStatus("upload-failed");
     }
-
-    setUploadError(null);
-    setSelectedFile((prev) => {
-      if (prev) URL.revokeObjectURL(prev.previewUrl);
-      return { file, previewUrl: URL.createObjectURL(file) };
-    });
   }, []);
 
-  return { selectedFile, uploadError, selectFile };
+  const selectFile = useCallback(
+    (file: File) => {
+      const validationError = validateFile(file);
+
+      if (validationError) {
+        setUploadError(validationError);
+        return;
+      }
+
+      setUploadError(null);
+      setSelectedFile((prev) => {
+        if (prev) URL.revokeObjectURL(prev.previewUrl);
+        return { file, previewUrl: URL.createObjectURL(file) };
+      });
+
+      void startUpload(file);
+    },
+    [startUpload],
+  );
+
+  return { selectedFile, uploadError, uploadStatus, selectFile };
 }

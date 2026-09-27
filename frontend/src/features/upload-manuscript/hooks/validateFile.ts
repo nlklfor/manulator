@@ -5,7 +5,7 @@ const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 
 export function validateFile(file: File): UploadError | null {
   if (!ACCEPTED_FILE_TYPES.includes(file.type)) {
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "unkown";
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "unknown";
     return {
       fileName: file.name,
       reason: "invalid-type",

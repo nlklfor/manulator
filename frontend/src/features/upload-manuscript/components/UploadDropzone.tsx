@@ -1,15 +1,20 @@
 "use client";
 
 import { useRef, useState, type DragEvent } from "react";
-import type { SelectedFile } from "../types/upload";
+import type { SelectedFile, UploadStatus } from "../types/upload";
 import { FileUp, Upload } from "lucide-react";
 
 interface UploadDropzoneProps {
   selectedFile: SelectedFile | null;
+  uploadStatus: UploadStatus;
   onFileSelected: (file: File) => void;
 }
 
-export function UploadDropzone({ selectedFile, onFileSelected }: UploadDropzoneProps) {
+export function UploadDropzone({
+  selectedFile,
+  uploadStatus,
+  onFileSelected,
+}: UploadDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragActive, setIsDragActive] = useState(false);
 
@@ -52,6 +57,15 @@ export function UploadDropzone({ selectedFile, onFileSelected }: UploadDropzoneP
             className="h-32 w-auto rounded-md border border-stone-200 object-contain shadow-sm"
           />
           <p className="text-sm font-medium text-stone-800">{selectedFile.file.name}</p>
+
+          {uploadStatus === "uploading" && <p className="text-sm text-stone-500">Uploading…</p>}
+          {uploadStatus === "uploaded" && <p className="text-sm text-green-700">Uploaded</p>}
+          {uploadStatus === "upload-failed" && (
+            <p className="text-sm text-red-700">
+              Upload failed. Check your connection and try again.
+            </p>
+          )}
+
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
