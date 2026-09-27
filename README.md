@@ -17,7 +17,7 @@ Team project for the Advanced Software Engineering course (Swiss Joint Master of
 frontend/   Next.js app
 backend/    FastAPI app
 ml/         models and experiments
-doc/        project documentation
+docs/       project documentation
 ```
 
 ## Getting started (frontend)
