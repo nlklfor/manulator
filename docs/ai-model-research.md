@@ -19,12 +19,12 @@ Model gets the whole page and marks where each line of text is.Reading models on
 
 ### Findings 
 
-| Paper | Model | Architecture | Manuscripts used | Result | Available? | Output |
+| Paper | Model | Architecture | Manuscripts used | How well it worked | Available? | Output |
 | --- | --- | --- | --- | --- | --- | --- |
-| Kiessling et al. 2019 + Kraken docs | Kraken segmenter | U-Net (pretrained ResNet-34 encoder) + rules | Arabic/Persian manuscripts; Latin-script archives 1470–1930 | F = 0.95 (simple pages) | Yes (Zenodo) | Baseline + outline, straightened line images |
-| Grüning et al. 2019 | ARU-Net | U-Net + attention + rules | 11th–20th c. archives, incl. medieval Latin | F = 0.98 simple / 0.92 complex pages | Code on GitHub | Baseline |
-| Alberti et al. 2019 | Segmentation + seam carving | ResNet-18 pixel classifier + seam-carving rules | 11th c. Latin, 14th c. Italian | Line IU 100 (near perfect) | Code on GitHub | Line outlines |
-| Kiessling 2022 | CurT | Transformer, predicts lines as curves | European archives, Latin script | F = 0.91 | Not stated | Baseline (curve) |
+| Kiessling et al. 2019 + Kraken docs | Kraken segmenter | U-Net + rules | Arabic/Persian manuscripts; Latin-script archives 1470–1930 | Found almost all lines on simple pages; weaker on margins and decorated text | Yes | Baseline + outline, straightened line images |
+| Grüning et al. 2019 | ARU-Net | U-Net + attention + rules | 11th–20th c. archives, incl. medieval Latin | Found almost all lines on simple pages; still good on complex pages | Code on GitHub | Baseline |
+| Alberti et al. 2019 | Segmentation + seam carving | ResNet-18 + rules | 11th c. Latin, 14th c. Italian | Near perfect on medieval pages | Code on GitHub | Line outlines |
+| Kiessling 2022 | CurT | Transformer | European archives, Latin script | Good, slightly below the others | Not stated | Baseline (curve) |
 
 Note: Kraken's segmenter was not tested on medieval Latin in the paper.
 
@@ -46,11 +46,11 @@ suggestion: use Kraken for line finding. Start with its pretrained model and onl
 
 ### Findings 
 
-| Paper | Model | Architecture | Manuscripts used | Result | Available? | Needs lines cut first? |
+| Paper | Model | Architecture | Manuscripts used | How well it worked | Available? | Needs lines cut first? |
 | --- | --- | --- | --- | --- | --- | --- |
-| Meoded 2025 | TrOCR | Transformer encoder–decoder | 16th c. Latin, one writer | CER ~2% after fine-tuning | Yes (Hugging Face) | Yes |
-| Torres Aguilar & Jolivet 2023 | CNN + LSTM (runs in Kraken) | CNN + BiLSTM + CTC | 12th–15th c. Latin and French, many writers | CER 6–17% on unseen manuscripts; 15.6% → 9.5% with 10 pages fine-tuning | Yes (Zenodo) | Yes |
-| Semnani et al. 2025 | CHURRO | Vision-language model (Qwen 2.5 VL, 3B) | 99k pages, 46 languages | ~70% similarity | Yes (GitHub) | No |
+| Meoded 2025 | TrOCR | Transformer encoder–decoder | 16th c. Latin, one writer | About 2 wrong characters per 100 after fine-tuning (only one writer) | Yes | Yes |
+| Torres Aguilar & Jolivet 2023 | CNN + LSTM (runs in Kraken) | CNN + BiLSTM | 12th–15th c. Latin and French, many writers | 6–17 wrong characters per 100 on new manuscripts; clearly better after fine-tuning on 10 pages | Yes | Yes |
+| Semnani et al. 2025 | CHURRO | Vision-language model | 99k pages, 46 languages | Roughly 30 wrong characters per 100 on handwriting; sometimes invents text | Yes | No |
 
 
 - CNN + LSTM (e.g. Kraken models): the CNN picks up the stroke shapes, and the LSTM reads them from left to right. Reads one line at a time, so it needs line finding first. Pretrained medieval models exist and can be fine-tuned on a few pages.
@@ -69,11 +69,13 @@ The Latin text from gets translated into a modern language
 
 ### Findings
 
-| Paper | Model | Architecture | Texts used | Result | Available? | Key point for us |
+### Translation
+
+| Paper | Model | Architecture | Texts used | How well it worked | Available? | Key point for us |
 | --- | --- | --- | --- | --- | --- | --- |
-| Bui et al. 2026 | HTR model + GPT-4o | Specialized HTR + LLM that sees image and text | Medieval manuscripts, Latin → English | chrF 26 (best pipeline) | Paid API | Simplest pipeline worked best; extra steps didn't help |
-| Rosu 2025 | LITERA | Chain of LLM calls (GPT-4o) | Clean classical and early modern Latin → English | BLEU 58 / 47 | Paid; free Llama version weaker | Literal translation works well and is easy to check |
-| Momtaz et al. 2025 | ByT5 (correction step) | Byte-level transformer | 15th c. printed books, Latin | - | Free (Hugging Face) | Fixes reading errors, but didn't improve translation in Bui et al. |
+| Bui et al. 2026 | HTR model + GPT-4o | Specialized HTR + LLM that sees image and text | Medieval manuscripts, Latin → English | Moderate: meaning often right, but details missing or wrong | Paid | Simplest setup worked best |
+| Rosu 2025 | LITERA | Chain of LLM calls | Clean Latin → English | Good on clean text | Paid; free version weaker | Literal translation works well |
+| Momtaz et al. 2025 | ByT5 (correction step) | Byte-level transformer | 15th c. printed books, Latin | Fixed some reading errors | Free | Didn't improve translation in Bui et al. |
 
 
 - one paper matched our pipeline for medieval Latin manuscripts: a specialized reading model, then an LLM that gets both the image and the transcription and translates it. 
