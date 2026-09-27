@@ -67,6 +67,11 @@ To run the backend tests, execute the following command in the `backend` directo
 ```bash
 python -m pytest
 ```
+or if uv is installed, you can use the uv command:
+
+```bash
+uv run pytest
+```
 
 ### FastAPI CLI
 
