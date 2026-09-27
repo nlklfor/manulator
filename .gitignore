@@ -3,6 +3,25 @@
 
 # Dependencies
 node_modules/
+backend/.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local environment configuration
+
+.env.*
+!.env.example
+
+# JetBrains IDE files
+.idea/
+*.iml
 
 # OS files
 .DS_Store
