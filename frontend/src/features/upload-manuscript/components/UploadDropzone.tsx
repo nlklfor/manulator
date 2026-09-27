@@ -38,7 +38,10 @@ export function UploadDropzone({ onFileSelected }: UploadDropzoneProps) {
         type="file"
         accept="image/jpeg,image/png"
         className="hidden"
-        onChange={(event) => handleFiles(event.target.files)}
+        onChange={(event) => {
+          handleFiles(event.currentTarget.files);
+          event.currentTarget.value = "";
+        }}
       />
 
       <div className="flex flex-col items-center gap-4">

@@ -39,7 +39,10 @@ export function CompactUploadBar({ onFileSelected }: CompactUploadBarProps) {
         type="file"
         accept="image/jpeg,image/png"
         className="hidden"
-        onChange={(e) => handleFiles(e.target.files)}
+        onChange={(event) => {
+          handleFiles(event.currentTarget.files);
+          event.currentTarget.value = "";
+        }}
       />
 
       <Upload className="h-4 w-4 shrink-0 text-mt-text-subtle" />

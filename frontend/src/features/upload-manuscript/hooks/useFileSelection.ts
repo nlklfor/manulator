@@ -9,6 +9,7 @@ export function useFileSelection() {
   const [libraryEntries, setLibraryEntries] = useState<LibraryEntry[]>([]);
   const [uploadError, setUploadError] = useState<UploadError | null>(null);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewUrlsRef = useRef(new Set<string>());
 
   // Auto-dismiss the error message after a certain duration
   useEffect(() => {
@@ -25,8 +26,10 @@ export function useFileSelection() {
 
   // Clean up all object URLs when the component unmounts
   useEffect(() => {
+    const previewUrls = previewUrlsRef.current;
     return () => {
-      libraryEntries.forEach((entry) => URL.revokeObjectURL(entry.previewUrl));
+      previewUrls.forEach((previewUrl) => URL.revokeObjectURL(previewUrl));
+      previewUrls.clear();
     };
   }, []);
 
@@ -48,10 +51,12 @@ export function useFileSelection() {
       setUploadError(null);
 
       const id = crypto.randomUUID();
+      const previewUrl = URL.createObjectURL(file);
+      previewUrlsRef.current.add(previewUrl);
       const newEntry: LibraryEntry = {
         id,
         fileName: file.name,
-        previewUrl: URL.createObjectURL(file),
+        previewUrl,
         status: "uploading",
       };
 
