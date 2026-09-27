@@ -30,8 +30,8 @@ export function CompactUploadBar({ onFileSelected }: CompactUploadBarProps) {
       }}
       onDragLeave={() => setIsDragActive(false)}
       onDrop={handleDrop}
-      className={`flex items-center gap-3 rounded-lg border border-dashed px-4 py-3 transition-colors ${
-        isDragActive ? "border-blue-500 bg-blue-50" : "border-stone-300 bg-stone-50"
+      className={`flex items-center gap-3 rounded-mt-md border border-dashed px-4 py-3 transition-colors ${
+        isDragActive ? "border-mt-accent bg-mt-accent-soft" : "border-mt-border bg-mt-surface"
       }`}
     >
       <input
@@ -42,20 +42,20 @@ export function CompactUploadBar({ onFileSelected }: CompactUploadBarProps) {
         onChange={(e) => handleFiles(e.target.files)}
       />
 
-      <Upload className="h-4 w-4 shrink-0 text-stone-400" />
+      <Upload className="h-4 w-4 shrink-0 text-mt-text-subtle" />
 
-      <p className="text-sm text-stone-700">
+      <p className="text-sm text-mt-text">
         Drop page scans here, or{" "}
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="font-medium text-blue-700 underline underline-offset-2 hover:text-blue-800"
+          className="font-medium text-mt-accent-text underline underline-offset-2 hover:text-mt-accent-hover"
         >
           browse files
         </button>
       </p>
 
-      <span className="ml-auto shrink-0 text-xs text-stone-500">
+      <span className="ml-auto shrink-0 text-xs text-mt-text-subtle">
         JPG or PNG · up to 20 MB per file
       </span>
     </div>

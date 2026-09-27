@@ -17,15 +17,15 @@ export function UploadPageCard() {
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <h1 className="text-2xl font-semibold text-stone-900">All pages</h1>
-      <p className="mt-1 text-sm text-stone-600">
+      <h1 className="text-2xl font-semibold text-mt-text">All pages</h1>
+      <p className="mt-1 text-sm text-mt-text-muted">
         {hasEntries
           ? `${libraryEntries.length} page${libraryEntries.length > 1 ? "s" : ""}`
           : "No pages yet"}
       </p>
 
       {uploadError && (
-        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="mt-4 rounded-mt-md border border-mt-danger bg-mt-danger-bg px-4 py-3 text-sm text-mt-danger-fg">
           <span className="font-medium">Could not upload file: </span>
           {uploadError.message}
         </div>
@@ -43,12 +43,12 @@ export function UploadPageCard() {
             <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
               {STEPS.map((step, index) => (
                 <div key={step.title} className="flex gap-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-stone-300 text-xs font-medium text-stone-600">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-mt-border-strong text-xs font-medium text-mt-text-muted">
                     {index + 1}
                   </span>
                   <div>
-                    <p className="text-sm font-semibold text-stone-900">{step.title}</p>
-                    <p className="text-sm text-stone-600">{step.description}</p>
+                    <p className="text-sm font-semibold text-mt-text">{step.title}</p>
+                    <p className="text-sm text-mt-text-muted">{step.description}</p>
                   </div>
                 </div>
               ))}
