@@ -31,6 +31,52 @@ npm install      # also sets up the git hooks (Husky)
 npm run dev      # http://localhost:3000
 ```
 
+## Getting started (backend)
+
+Requirements: Python 3.12 or newer and [uv](https://docs.astral.sh/uv/).
+
+The backend dependencies are listed in `backend/requirements.txt`. From the repository root,
+create a virtual environment, install the dependencies, and start the development server:
+
+```bash
+cd backend
+uv venv
+uv pip install -r requirements.txt
+uv run uvicorn app.main:app --reload
+```
+
+The API is available at `http://127.0.0.1:8000`. FastAPI also provides interactive
+documentation at `http://127.0.0.1:8000/docs` and the alternative OpenAPI reference at
+`http://127.0.0.1:8000/redoc`.
+
+The current endpoints are:
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/` | Returns a welcome message |
+
+
+You can test these endpoints with the requests in `backend/test_main.http`, or with a browser
+and a tool such as `curl`.
+
+### Run tests
+To run the backend tests, execute the following command in the `backend` directory:
+
+```bash
+uv run pytest
+```
+
+### FastAPI CLI
+
+`uvicorn` is the recommended development command for the current dependency file. If you want
+to use `fastapi dev`, install FastAPI's standard extras in the backend environment first:
+
+```bash
+cd backend
+uv pip install "fastapi[standard]"
+uv run fastapi dev
+```
+
 ## Workflow
 
 ### Branches
