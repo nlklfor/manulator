@@ -47,6 +47,8 @@ python -m pip install -r requirements.txt
 python -m uvicorn app.main:app --reload
 ```
 
+It is recommended to install [uv](https://docs.astral.sh/uv/getting-started/installation/)   as a development dependency to run the backend with `uv run dev` instead of `python -m uvicorn`. This will automatically activate the virtual environment and use the correct Python version.
+
 The API is available at `http://127.0.0.1:8000`. FastAPI also provides interactive
 documentation at `http://127.0.0.1:8000/docs` and the alternative OpenAPI reference at
 `http://127.0.0.1:8000/redoc`.
