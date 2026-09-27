@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { validateFile } from "./validateFile";
-import type { SelectedFile, UploadError, UploadStatus } from "../types/upload";
+import type { LibraryEntry, UploadError } from "../types/upload";
 import { uploadImage } from "../api/uploadImage";
 
 const ERROR_DISPLAY_DURATION = 5000;
 
 export function useFileSelection() {
-  const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
-  const [uploadStatus, setUploadStatus] = useState<UploadStatus>("idle");
+  const [libraryEntries, setLibraryEntries] = useState<LibraryEntry[]>([]);
   const [uploadError, setUploadError] = useState<UploadError | null>(null);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -24,21 +23,17 @@ export function useFileSelection() {
     };
   }, [uploadError]);
 
-  // Clean up the object URL when the component unmounts or when a new file is selected
+  // Clean up all object URLs when the component unmounts
   useEffect(() => {
     return () => {
-      if (selectedFile) URL.revokeObjectURL(selectedFile.previewUrl);
+      libraryEntries.forEach((entry) => URL.revokeObjectURL(entry.previewUrl));
     };
-  }, [selectedFile]);
+  }, []);
 
-  const startUpload = useCallback(async (file: File) => {
-    setUploadStatus("uploading");
-    try {
-      await uploadImage(file);
-      setUploadStatus("uploaded");
-    } catch {
-      setUploadStatus("upload-failed");
-    }
+  const updateEntryStatus = useCallback((id: string, status: LibraryEntry["status"]) => {
+    setLibraryEntries((prev) =>
+      prev.map((entry) => (entry.id === id ? { ...entry, status } : entry)),
+    );
   }, []);
 
   const selectFile = useCallback(
@@ -51,15 +46,23 @@ export function useFileSelection() {
       }
 
       setUploadError(null);
-      setSelectedFile((prev) => {
-        if (prev) URL.revokeObjectURL(prev.previewUrl);
-        return { file, previewUrl: URL.createObjectURL(file) };
-      });
 
-      void startUpload(file);
+      const id = crypto.randomUUID();
+      const newEntry: LibraryEntry = {
+        id,
+        fileName: file.name,
+        previewUrl: URL.createObjectURL(file),
+        status: "uploading",
+      };
+
+      setLibraryEntries((prev) => [newEntry, ...prev]);
+
+      uploadImage(file)
+        .then(() => updateEntryStatus(id, "uploaded"))
+        .catch(() => updateEntryStatus(id, "upload-failed"));
     },
-    [startUpload],
+    [updateEntryStatus],
   );
 
-  return { selectedFile, uploadError, uploadStatus, selectFile };
+  return { libraryEntries, uploadError, selectFile };
 }

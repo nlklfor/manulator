@@ -1,5 +1,5 @@
 export type UploadErrorReason = "invalid-type" | "file-too-large";
-export type UploadStatus = "idle" | "uploading" | "uploaded" | "upload-failed";
+export type UploadStatus = "uploading" | "uploaded" | "upload-failed";
 
 export interface UploadError {
   fileName: string;
@@ -7,7 +7,9 @@ export interface UploadError {
   message: string;
 }
 
-export interface SelectedFile {
-  file: File;
+export interface LibraryEntry {
+  id: string;
+  fileName: string;
   previewUrl: string;
+  status: UploadStatus;
 }
