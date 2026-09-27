@@ -76,7 +76,7 @@ to use `fastapi dev`, install FastAPI's standard extras in the backend environme
 ```bash
 cd backend
 python -m pip install "fastapi[standard]"
-python -m fastapi dev app/main.py
+uv run fastapi dev
 ```
 
 ## Workflow
