@@ -75,7 +75,6 @@ The Latin text from gets translated into a modern language
 | --- | --- | --- | --- | --- | --- | --- |
 | Bui et al. 2026 | HTR model + GPT-4o | Specialized HTR + LLM that sees image and text | Medieval manuscripts, Latin → English | Moderate: meaning often right, but details missing or wrong | Paid | Simplest setup worked best |
 | Rosu 2025 | LITERA | Chain of LLM calls | Clean Latin → English | Good on clean text | Paid; free version weaker | Literal translation works well |
-| Momtaz et al. 2025 | ByT5 (correction step) | Byte-level transformer | 15th c. printed books, Latin | Fixed some reading errors | Free | Didn't improve translation in Bui et al. |
 
 
 - one paper matched our pipeline for medieval Latin manuscripts: a specialized reading model, then an LLM that gets both the image and the transcription and translates it. 
