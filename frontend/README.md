@@ -2,7 +2,13 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+Copy the environment file and adjust values if needed:
+
+```bash
+cp .env.example .env.local
+```
+
+Then, run the development server:
 
 ```bash
 npm run dev
@@ -40,7 +46,7 @@ Frontend source code lives in `src/`. Use the following guide when adding files:
 
 Add code to a feature folder first when it has a clear feature owner. Move it into a shared folder only when multiple parts of the application use it. Route groups can have their own `layout.tsx`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load IBM Plex Sans, IBM Plex Mono, and Literata.
 
 ## Learn More
 
