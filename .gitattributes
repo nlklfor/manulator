@@ -1,0 +1,2 @@
+# Always use LF line endings, so Prettier and ruff behave the same on every OS
+* text=auto eol=lf
