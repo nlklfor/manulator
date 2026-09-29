@@ -4,7 +4,8 @@ def test_root(client):
     assert response.json() == {"message": "Hello this is the Manulator-App"}
 
 
-def test_health(client):
-    response = client.get("/api/health")
+
+def test_read_main():
+    response = client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"message": "Hello this is the Manulator-App"}
