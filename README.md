@@ -33,58 +33,17 @@ npm run dev      # http://localhost:3000
 
 ## Getting started (backend)
 
-Requirements: Python 3.12 or newer.
-
-The backend dependencies are listed in `backend/requirements.txt`. From the repository root,
-create a virtual environment, install the dependencies with `pip`, and start the development
-server:
+Requirements: [uv](https://docs.astral.sh/uv/getting-started/installation/). It installs
+Python 3.12 and all dependencies for you.
 
 ```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\activate
-python -m pip install -r requirements.txt
-python -m uvicorn app.main:app --reload
+cd manulator/backend
+uv sync                                  # install dependencies
+uv run uvicorn app.main:app --reload     # http://localhost:8000
 ```
 
-It is recommended to install [uv](https://docs.astral.sh/uv/getting-started/installation/)   as a development dependency to run the backend with `uv run dev` instead of `python -m uvicorn`. This will automatically activate the virtual environment and use the correct Python version.
-
-The API is available at `http://127.0.0.1:8000`. FastAPI also provides interactive
-documentation at `http://127.0.0.1:8000/docs` and the alternative OpenAPI reference at
-`http://127.0.0.1:8000/redoc`.
-
-The current endpoints are:
-
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/` | Returns a welcome message |
-
-
-You can test these endpoints with the requests in `backend/test_main.http`, or with a browser
-and a tool such as `curl`.
-
-### Run tests
-To run the backend tests, execute the following command in the `backend` directory:
-
-```bash
-python -m pytest
-```
-or if uv is installed, you can use the uv command:
-
-```bash
-uv run pytest
-```
-
-### FastAPI CLI
-
-`uvicorn` is the recommended development command for the current dependency file. If you want
-to use `fastapi dev`, install FastAPI's standard extras in the backend environment first:
-
-```bash
-cd backend
-python -m pip install "fastapi[standard]"
-uv run fastapi dev
-```
+Interactive API docs are at http://localhost:8000/docs. See [backend/README.md](backend/README.md)
+for tests, linting, endpoints and configuration.
 
 ## Workflow
 
@@ -113,4 +72,4 @@ We use [Conventional Commits](https://www.conventionalcommits.org): `<type>: <sh
 ### Automatic checks
 
 - **On every commit (Husky):** ESLint and Prettier check the frontend, and commitlint checks the commit message. If something fails, the commit is stopped. Fix formatting with `npm run format`.
-- **On every pull request (GitHub Actions):** the same lint and format checks, plus a production build.
+- **On every pull request and push to `dev`/`main` (GitHub Actions):** the frontend gets the same lint and format checks plus a production build; the backend gets `ruff check`, `ruff format --check` and `pytest`.
