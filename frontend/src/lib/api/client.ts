@@ -16,5 +16,5 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
   if (!response.ok) {
     throw new ApiError(`Request to ${path} failed with status ${response.status}`, response.status);
   }
-  return response;
+  return (await response.json()) as Response;
 }
