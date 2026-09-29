@@ -10,11 +10,11 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, init);
 
   if (!response.ok) {
     throw new ApiError(`Request to ${path} failed with status ${response.status}`, response.status);
   }
-  return (await response.json()) as Response;
+  return (await response.json()) as T;
 }
