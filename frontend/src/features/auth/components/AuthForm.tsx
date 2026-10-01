@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { login } from "@/features/auth/api/login";
+import { login, LoginFormData } from "@/features/auth/api/login";
 
 
 export default function AuthForm() {
@@ -17,11 +17,20 @@ export default function AuthForm() {
     setIsSubmitting(true);
     try {
       const formData = new FormData(event.currentTarget);
-      const email = formData.get("email") as string;
-      const password = formData.get("password") as string;
-      await login(email, password);
-      router.replace("/");
-      router.refresh();
+      const authData: LoginFormData = {
+        email: formData.get("email") as string,
+        password: formData.get("password") as string,
+      };
+      await login(authData).then((response) => {
+        if (!response.success) {
+          setError(response.message ?? "Sign in failed. Please check your credentials and try again.");
+          setIsSubmitting(false);
+          return;
+        }
+        router.replace("/");
+        router.refresh();
+      });
+
     } catch {
       setError("Sign in failed. Please check your credentials and try again.");
       setIsSubmitting(false);
