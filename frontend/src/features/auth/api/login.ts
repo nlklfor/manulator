@@ -1,4 +1,5 @@
 import { ApiError, apiFetch } from "@/lib/api/client";
+import { setAuthToken } from "@/lib/auth/session";
 
 const LOGIN_ENDPOINT = "/api/auth/";
 
@@ -28,8 +29,7 @@ export async function login(authData: LoginFormData): Promise<AuthenticationStat
       body,
     });
     if (response.success && response.jwtToken) {
-      // handle token storage here if needed, e.g., localStorage.setItem('jwtToken', response.jwtToken);
-      const token = response.jwtToken;
+      setAuthToken(response.jwtToken);
       return { isAuthenticated: true, message: "Login successful" };
     }else{
       return { isAuthenticated: false, message: "Invalid JWT token" };
