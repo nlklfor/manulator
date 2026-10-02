@@ -8,30 +8,34 @@ export interface LoginFormData {
 
 export interface LoginResponse {
   success: boolean;
-  message?: string;
   jwtToken: string | null;
 }
 
-export async function login(authData: LoginFormData): Promise<LoginResponse> {
+export interface AuthenticationState {
+  isAuthenticated: boolean;
+  message: string;
+}
+
+export async function login(authData: LoginFormData): Promise<AuthenticationState> {
   try {
-    const response =  await apiFetch<LoginResponse>(LOGIN_ENDPOINT, {
+    const response = await apiFetch<LoginResponse>(LOGIN_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(authData),
     });
-    if (response.success){
-      // handle token storage or any other logic here if needed
+    if (response.success && response.jwtToken) {
+      return { isAuthenticated: true, message: "Login successful" };
+    }else{
+      return { isAuthenticated: false, message: "Invalid JWT token" };
     }
-    return response;
   } catch (error) {
     if (error instanceof ApiError) {
       if (error.status === 401) {
-        return { success: false, message: "Invalid credentials", jwtToken: null };
+        return { isAuthenticated: false, message: "Invalid credentials. Please check your email and password and try again." };
       }
       return {
-        success: false,
+        isAuthenticated: false,
         message: `Login failed with status ${error.status}`,
-        jwtToken: null,
       };
     }
     throw error;

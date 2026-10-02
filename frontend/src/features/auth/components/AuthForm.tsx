@@ -22,8 +22,8 @@ export default function AuthForm() {
         password: formData.get("password") as string,
       };
       await login(authData).then((response) => {
-        if (!response.success) {
-          setError(response.message ?? "Sign in failed. Please check your credentials and try again.");
+        if (!response.isAuthenticated) {
+          setError(() => response.message);
           setIsSubmitting(false);
           return;
         }
@@ -32,7 +32,7 @@ export default function AuthForm() {
       });
 
     } catch {
-      setError("Sign in failed. Please check your credentials and try again.");
+      setError("Something went wrong. Please try again later.");
       setIsSubmitting(false);
     }
   }
