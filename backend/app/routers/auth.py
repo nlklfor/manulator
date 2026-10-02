@@ -2,7 +2,7 @@ from datetime import timedelta, timezone, datetime
 
 from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 from fastapi.params import Depends
 
 from app.schemas.auth import LoginResponse
@@ -36,9 +36,9 @@ def create_access_token(username: str, expires_delta: timedelta, user_id: int) -
 def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> LoginResponse:
     print(form_data.username, form_data.password)
     if authenticate_user(form_data.username, form_data.password):
-        # In a real application, you would generate a JWT token here
+        # Generate a JWT token with a 20-minute expiration time
         jwt_token = create_access_token(username = form_data.username, user_id=1, expires_delta=timedelta(minutes=20))
 
         return LoginResponse(success=True, jwtToken=jwt_token, username=form_data.username, tokenType='bearer')
 
-    return LoginResponse(success=False, jwtToken=None, username=None, tokenType=None)
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
