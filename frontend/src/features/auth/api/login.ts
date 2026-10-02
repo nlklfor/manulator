@@ -1,9 +1,10 @@
 import { ApiError, apiFetch } from "@/lib/api/client";
-const LOGIN_ENDPOINT = "/api/login";
+
+const LOGIN_ENDPOINT = "/api/auth/";
 
 export interface LoginFormData {
   password: string;
-  email: string;
+  username: string;
 }
 
 export interface LoginResponse {
@@ -18,12 +19,17 @@ export interface AuthenticationState {
 
 export async function login(authData: LoginFormData): Promise<AuthenticationState> {
   try {
+    const body = new URLSearchParams();
+    body.append("username", authData.username);
+    body.append("password", authData.password);
+
     const response = await apiFetch<LoginResponse>(LOGIN_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(authData),
+      body,
     });
     if (response.success && response.jwtToken) {
+      // handle token storage here if needed, e.g., localStorage.setItem('jwtToken', response.jwtToken);
+      const token = response.jwtToken;
       return { isAuthenticated: true, message: "Login successful" };
     }else{
       return { isAuthenticated: false, message: "Invalid JWT token" };

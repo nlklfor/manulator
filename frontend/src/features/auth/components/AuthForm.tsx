@@ -18,17 +18,15 @@ export default function AuthForm() {
     try {
       const formData = new FormData(event.currentTarget);
       const authData: LoginFormData = {
-        email: formData.get("email") as string,
+        username: formData.get("username") as string,
         password: formData.get("password") as string,
       };
       await login(authData).then((response) => {
         if (!response.isAuthenticated) {
           setError(() => response.message);
           setIsSubmitting(false);
-          return;
         }
-        router.replace("/");
-        router.refresh();
+         router.replace("/");
       });
 
     } catch {
@@ -45,9 +43,9 @@ export default function AuthForm() {
         </label>
         <input
           required
-          id="email"
-          name="email"
-          type="email"
+          id="username"
+          name="username"
+          type="text"
           autoComplete="email"
           className="mt-1 w-full rounded-mt-md border border-mt-border bg-mt-raised px-3 py-2 text-sm text-mt-text focus:border-mt-accent focus:outline-none"
         />
