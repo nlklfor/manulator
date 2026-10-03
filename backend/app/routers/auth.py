@@ -27,3 +27,11 @@ def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> LoginRe
         tokenType="bearer",
         username=form_data.username,
     )
+
+
+@router.post("/forgot-password")
+def forgot_password():
+    return {"success": True, "message": "If an account exists for this email, we sent you a reset link."}
+
+
+
