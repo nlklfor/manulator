@@ -15,11 +15,13 @@ def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> LoginRe
     try:
         response = authenticate_user(form_data.username, form_data.password)
     except AuthApiError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Invalid username or password")
 
     # no session means the account cannot log in yet, e.g. an unconfirmed email
     if response.session is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Invalid username or password")
 
     return LoginResponse(
         success=True,

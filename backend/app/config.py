@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     max_upload_mb: int = 20
     allowed_content_types: list[str] = ["image/jpeg", "image/png", "application/pdf"]
 
+    supabase_url: str = ""
+    supabase_secret_key: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
