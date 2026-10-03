@@ -31,13 +31,16 @@ export async function login(authData: LoginFormData): Promise<AuthenticationStat
     if (response.success && response.jwtToken) {
       setAuthToken(response.jwtToken);
       return { isAuthenticated: true, message: "Login successful" };
-    }else{
+    } else {
       return { isAuthenticated: false, message: "Invalid JWT token" };
     }
   } catch (error) {
     if (error instanceof ApiError) {
       if (error.status === 401) {
-        return { isAuthenticated: false, message: "Invalid credentials. Please check your email and password and try again." };
+        return {
+          isAuthenticated: false,
+          message: "Invalid credentials. Please check your email and password and try again.",
+        };
       }
       return {
         isAuthenticated: false,
