@@ -11,7 +11,7 @@ from app.config import settings
 def get_supabase_client() -> Client:
     return create_client(settings.supabase_url, settings.supabase_secret_key)
 
-
+# Authenticate the user with Supabase using the provided username and password. Returns an AuthResponse object containing the authentication result.
 def authenticate_user(username: str, password: str) -> AuthResponse:
     supabase = get_supabase_client()
     return supabase.auth.sign_in_with_password(
