@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from supabase_auth.errors import AuthApiError
 
-from app.schemas.auth import LoginResponse
+from app.schemas.auth import LoginResponse, MessageResponse
 from app.services.auth import authenticate_user
+
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -15,11 +16,17 @@ def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> LoginRe
     try:
         response = authenticate_user(form_data.username, form_data.password)
     except AuthApiError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+        )
 
     # no session means the account cannot log in yet, e.g. an unconfirmed email
     if response.session is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+        )
 
     return LoginResponse(
         success=True,
@@ -29,9 +36,9 @@ def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> LoginRe
     )
 
 
-@router.post("/forgot-password")
-def forgot_password():
-    return {"success": True, "message": "If an account exists for this email, we sent you a reset link."}
-
-
-
+@router.post("/forgot-password", response_model=MessageResponse)
+def forgot_password() -> MessageResponse:
+    return MessageResponse(
+        success=True,
+        message="If an account exists for this email, we sent you a reset link.",
+    )

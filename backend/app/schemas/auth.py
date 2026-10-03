@@ -6,3 +6,8 @@ class LoginResponse(BaseModel):
     jwtToken: str | None
     tokenType: str | None
     username: str | None
+
+
+class MessageResponse(BaseModel):
+    success: bool
+    message: str
