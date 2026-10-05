@@ -45,6 +45,24 @@ uv run uvicorn app.main:app --reload     # http://localhost:8000
 Interactive API docs are at http://localhost:8000/docs. See [backend/README.md](backend/README.md)
 for tests, linting, endpoints and configuration.
 
+## Run everything with Docker
+
+Requirement: [Docker Desktop](https://www.docker.com/products/docker-desktop/) is installed and running.
+
+```bash
+docker compose up          # start frontend and backend (first run takes a few minutes)
+docker compose up --build  # use this after dependencies changed (package.json or pyproject.toml)
+docker compose down        # stop everything
+```
+
+| URL | What |
+| --- | --- |
+| http://localhost:3000 | Frontend |
+| http://localhost:8000/docs | Backend API docs |
+
+Code changes reload automatically, no rebuild needed. The database runs on Supabase, so the
+`.env` files described in [docs/database.md](docs/database.md) are still needed.
+
 ## Workflow
 
 ### Branches
