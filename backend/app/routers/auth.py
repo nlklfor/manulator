@@ -16,7 +16,6 @@ from app.services.auth import (
     send_password_reset_email,
 )
 
-
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
