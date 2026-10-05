@@ -5,15 +5,25 @@ from supabase_auth import AuthResponse
 
 from app.config import settings
 
+
 # @lru_cache is used to cache the Supabase client instance, so it is only created once and reused for subsequent calls.
 # This improves performance by avoiding repeated client creation.
 @lru_cache(maxsize=1)
 def get_supabase_client() -> Client:
     return create_client(settings.supabase_url, settings.supabase_secret_key)
 
+
 # Authenticate the user with Supabase using the provided username and password. Returns an AuthResponse object containing the authentication result.
 def authenticate_user(username: str, password: str) -> AuthResponse:
     supabase = get_supabase_client()
     return supabase.auth.sign_in_with_password(
         {"email": username, "password": password}
+    )
+
+
+# Ask Supabase to email the user a link to reset their password
+def send_password_reset_email(email: str) -> None:
+    supabase = get_supabase_client()
+    supabase.auth.reset_password_for_email(
+        email, {"redirect_to": f"{settings.frontend_url}/reset-password"}
     )

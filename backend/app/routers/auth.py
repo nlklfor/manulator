@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from supabase_auth.errors import AuthApiError
 
 from app.schemas.auth import ForgotPasswordRequest, LoginResponse, MessageResponse
-from app.services.auth import authenticate_user
+from app.services.auth import authenticate_user, send_password_reset_email
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -38,6 +38,7 @@ def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> LoginRe
 
 @router.post("/forgot-password", response_model=MessageResponse)
 def forgot_password(request: ForgotPasswordRequest) -> MessageResponse:
+    send_password_reset_email(request.email)
     return MessageResponse(
         success=True,
         message="If an account exists for this email, we sent you a reset link.",
