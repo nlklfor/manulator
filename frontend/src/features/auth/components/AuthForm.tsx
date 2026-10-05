@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { login, LoginFormData } from "@/features/auth/api/login";
 
-
 export default function AuthForm() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,9 +25,8 @@ export default function AuthForm() {
           setError(() => response.message);
           setIsSubmitting(false);
         }
-         router.replace("/");
+        router.replace("/");
       });
-
     } catch {
       setError("Something went wrong. Please try again later.");
       setIsSubmitting(false);

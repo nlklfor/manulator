@@ -18,6 +18,7 @@ function isValidSession(token: string | undefined): boolean {
 
   // Each Jwt Token has three parts separated by dots: header, payload, and signature
   const parts = token.split(".");
+
   // if the token has not three parts, it is invalid
   if (parts.length !== 3) {
     return false;
@@ -25,8 +26,10 @@ function isValidSession(token: string | undefined): boolean {
 
   try {
     // take the payload part of the token, decode it from base64, and parse it as JSON
-    const payloadBase64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const payloadJson = Buffer.from(payloadBase64, "base64").toString("utf-8");
+    const payloadPart = parts[1];
+    // decode the payload from base64 to a JSON string
+    const payloadJson = Buffer.from(payloadPart, "base64").toString("utf-8");
+    // Create a JSON object from the JSON string
     const payload = JSON.parse(payloadJson) as { exp?: number };
 
     // if no exp field is present, the token is invalid
@@ -43,7 +46,9 @@ function isValidSession(token: string | undefined): boolean {
 export default async function proxy(req: NextRequest) {
   // 1. Check if the current route is protected or public
   const path = req.nextUrl.pathname;
-  const isPublicRoute = PUBLIC_ROUTES.some((route) => path === route || path.startsWith(`${route}/`));
+  const isPublicRoute = PUBLIC_ROUTES.some(
+    (route) => path === route || path.startsWith(`${route}/`),
+  );
 
   // 2. Validate the JWT stored in the session cookie
   const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
