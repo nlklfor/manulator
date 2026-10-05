@@ -5,6 +5,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from supabase_auth import AuthResponse, Session, User
 from supabase_auth.errors import AuthApiError
+
 from app.services import auth
 
 URL = "/api/auth/"
