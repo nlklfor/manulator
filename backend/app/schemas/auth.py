@@ -15,3 +15,8 @@ class MessageResponse(BaseModel):
 
 class ForgotPasswordRequest(BaseModel):
     email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    access_token: str
+    new_password: str
