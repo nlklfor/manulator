@@ -40,11 +40,11 @@ You don't need to activate the venv, because `uv run <command>` uses it automati
 uv run uvicorn app.main:app --reload
 ```
 
-| URL | What |
-| --- | --- |
-| http://localhost:8000 | API |
-| http://localhost:8000/docs | Interactive API docs (try endpoints here) |
-| http://localhost:8000/openapi.json | OpenAPI schema (Postman: Import → Link) |
+| URL                                | What                                      |
+| ---------------------------------- | ----------------------------------------- |
+| http://localhost:8000              | API                                       |
+| http://localhost:8000/docs         | Interactive API docs (try endpoints here) |
+| http://localhost:8000/openapi.json | OpenAPI schema (Postman: Import → Link)   |
 
 `--reload` restarts the server automatically when you save a file.
 
@@ -94,11 +94,17 @@ the work, and the schema defines the JSON that is returned.
 
 ## Endpoints
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/` | Welcome message |
-| `GET` | `/api/health` | Health check |
+| Method | Path                      | Description                                       |
+| ------ | ------------------------- | ------------------------------------------------- |
+| `GET`  | `/`                       | Welcome message                                   |
+| `GET`  | `/api/health`             | Health check                                      |
+| `POST` | `/api/auth/register`      | Register an account with Supabase Auth            |
 | `POST` | `/api/upload-manuscripts` | Upload a manuscript (JPEG, PNG or PDF, max 20 MB) |
+
+Registration expects a JSON body with `email`, `display name` and `password`. It returns `201` when
+Supabase accepts the request, `409` when Supabase reports that the email is already
+registered, and `400` for invalid registration data. Email confirmation follows the
+Supabase project settings; registration does not create an application session.
 
 Upload expects `multipart/form-data` with the file in a field named `file`. It returns
 `201` on success, `415` for an unsupported type and `413` if the file is too large.
