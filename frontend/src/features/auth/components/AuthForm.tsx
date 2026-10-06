@@ -1,44 +1,23 @@
 "use client";
 
-import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { login, LoginFormData } from "@/features/auth/api/login";
+import { CircleAlert } from "lucide-react";
+import PasswordField from "@/features/auth/components/PasswordField";
+import TextField from "@/features/auth/components/TextField";
+import { useLoginForm } from "@/features/auth/hooks/useLoginForm";
 
 type AuthFormProps = {
   registrationSuccess?: boolean;
 };
 
 export default function AuthForm({ registrationSuccess = false }: AuthFormProps) {
-  const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { values, errors, formError, isSubmitting, handleChange, handleBlur, handleSubmit } =
+    useLoginForm();
 
-  async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      const formData = new FormData(event.currentTarget);
-      const authData: LoginFormData = {
-        username: formData.get("username") as string,
-        password: formData.get("password") as string,
-      };
-      await login(authData).then((response) => {
-        if (!response.isAuthenticated) {
-          setError(() => response.message);
-          setIsSubmitting(false);
-        }
-        router.replace("/");
-      });
-    } catch {
-      setError("Something went wrong. Please try again later.");
-      setIsSubmitting(false);
-    }
-  }
+  const fieldProps = { onChange: handleChange, onBlur: handleBlur, disabled: isSubmitting };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+    <form noValidate onSubmit={handleSubmit} className="mt-6 space-y-5">
       {registrationSuccess && (
         <p
           role="status"
@@ -48,66 +27,58 @@ export default function AuthForm({ registrationSuccess = false }: AuthFormProps)
         </p>
       )}
 
-      <div>
-        <label htmlFor="email" className="block text-sm font-medium text-mt-text">
-          Email
-        </label>
-        <input
-          required
-          id="username"
-          name="username"
-          type="text"
-          autoComplete="email"
-          className="mt-1 w-full rounded-mt-md border border-mt-border bg-mt-raised px-3 py-2 text-sm text-mt-text focus:border-mt-accent focus:outline-none"
-        />
-      </div>
-
-      <div>
-        <div className="flex justify-between">
-          <label htmlFor="password" className="block text-sm font-medium text-mt-text">
-            Password
-          </label>
-          <Link
-            href="/auth/forgot-password"
-            className="justify-end text-sm text-mt-text underline hover:text-mt-accent-hover"
-          >
-            Forgot password?
-          </Link>
-        </div>
-
-        <input
-          required
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          className="mt-1 w-full rounded-mt-md border border-mt-border bg-mt-raised px-3 py-2 text-sm text-mt-text focus:border-mt-accent focus:outline-none"
-        />
-      </div>
-
-      {error && (
-        <p
+      {formError && (
+        <div
           role="alert"
-          className="rounded-mt-md border border-mt-danger bg-mt-danger-bg px-3 py-2 text-sm text-mt-danger-fg"
+          className="flex items-start gap-2 rounded-mt-md bg-mt-danger-bg px-3 py-2.5 text-sm text-mt-danger-fg"
         >
-          {error}
-        </p>
+          <CircleAlert aria-hidden="true" size={16} className="mt-0.5 shrink-0" />
+          <p>{formError}</p>
+        </div>
       )}
+
+      <TextField
+        {...fieldProps}
+        id="login-email"
+        name="email"
+        type="email"
+        label="Email"
+        autoComplete="email"
+        value={values.email}
+        error={errors.email}
+      />
+
+      <PasswordField
+        {...fieldProps}
+        id="login-password"
+        name="password"
+        label="Password"
+        autoComplete="current-password"
+        value={values.password}
+        error={errors.password}
+      >
+        <Link
+          href="/auth/forgot-password"
+          className="mt-1.5 block text-right text-sm text-mt-text underline underline-offset-2"
+        >
+          Forgot password?
+        </Link>
+      </PasswordField>
 
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full rounded-mt-md bg-mt-accent px-4 py-2 text-sm font-medium text-mt-accent-fg hover:bg-mt-accent-hover disabled:opacity-60"
+        className="w-full rounded-mt-md bg-mt-accent px-4 py-3 text-sm font-medium text-mt-accent-fg transition hover:bg-mt-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-accent disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isSubmitting ? "Signing in..." : "Sign in"}
       </button>
 
-      <Link
-        href="/register"
-        className="block text-center text-sm text-mt-accent-text hover:text-mt-accent-hover"
-      >
-        New to manulator? Create an account
-      </Link>
+      <p className="pt-1 text-center text-sm text-mt-text-muted">
+        New to manulator?{" "}
+        <Link href="/register" className="text-mt-text underline underline-offset-2">
+          Create an account
+        </Link>
+      </p>
     </form>
   );
 }
