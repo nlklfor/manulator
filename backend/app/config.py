@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     # Base URL of the frontend application, used for redirect links in auth emails
     frontend_url: str = "http://localhost:3000"
 
-    # Supabase project URL, e.g. https://your-project-ref.supabase.co
+    # Set in backend/.env (SUPABASE_URL, SUPABASE_SECRET_KEY), never commit real values
     supabase_url: str = ""
     # Supabase secret key, bypasses RLS so it must stay on the backend
     supabase_secret_key: str = ""
@@ -19,7 +19,10 @@ class Settings(BaseSettings):
     max_upload_mb: int = 20
     allowed_content_types: list[str] = ["image/jpeg", "image/png", "application/pdf"]
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # Load the values above from backend/.env (from any folder the server starts in)
+    model_config = SettingsConfigDict(
+        env_file=Path(__file__).parent.parent / ".env", extra="ignore"
+    )
 
 
 settings = Settings()
