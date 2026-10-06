@@ -5,7 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { login, LoginFormData } from "@/features/auth/api/login";
 
-export default function AuthForm() {
+type AuthFormProps = {
+  registrationSuccess?: boolean;
+};
+
+export default function AuthForm({ registrationSuccess = false }: AuthFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +39,15 @@ export default function AuthForm() {
 
   return (
     <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+      {registrationSuccess && (
+        <p
+          role="status"
+          className="rounded-mt-md border border-mt-success-fg/20 bg-mt-success-bg px-3 py-2 text-sm text-mt-success-fg"
+        >
+          Account created. Check your email to verify your account, then sign in.
+        </p>
+      )}
+
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-mt-text">
           Email

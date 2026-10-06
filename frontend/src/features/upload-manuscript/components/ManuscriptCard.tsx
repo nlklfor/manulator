@@ -1,9 +1,10 @@
 import { Check, Loader2, AlertCircle } from "lucide-react";
-import type { LibraryEntry } from "../types/upload";
+import type { LibraryEntry } from "@/features/upload-manuscript/types/upload";
+import { ReactNode } from "react";
 
 const STATUS_CONFIG: Record<
   LibraryEntry["status"],
-  { label: string; badgeClass: string; icon: React.ReactNode }
+  { label: string; badgeClass: string; icon: ReactNode }
 > = {
   uploading: {
     label: "Uploading",

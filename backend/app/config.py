@@ -5,6 +5,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000"]
+    # Base URL of the frontend application, used for redirect links in auth emails
+    frontend_url: str = "http://localhost:3000"
 
     # Set in backend/.env (SUPABASE_URL, SUPABASE_SECRET_KEY), never commit real values
     supabase_url: str = ""
