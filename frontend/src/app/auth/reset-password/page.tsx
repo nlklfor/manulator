@@ -3,23 +3,47 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ApiError } from "@/lib/api/client";
+import { resetPassword } from "@/features/auth/api/password";
 
 const inputClass =
   "mt-1 w-full rounded-mt-md border border-mt-border bg-mt-raised px-3 py-2 text-sm text-mt-text focus:border-mt-accent focus:outline-none";
 
+// Opened from the email link: /auth/reset-password#access_token=...&type=recovery
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const password = form.get("password") as string;
 
-    if (form.get("password") !== form.get("confirm")) {
+    if (password !== form.get("confirm")) {
       setError("Passwords do not match.");
       return;
     }
-    router.replace("/auth");
+
+    const accessToken = new URLSearchParams(window.location.hash.slice(1)).get("access_token");
+    if (!accessToken) {
+      setError("This reset link is invalid or has expired. Please request a new one.");
+      return;
+    }
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      await resetPassword(accessToken, password);
+      router.replace("/auth");
+    } catch (err) {
+      setError(
+        err instanceof ApiError && err.status === 400
+          ? "This reset link is invalid or has expired, or the password is too weak."
+          : "Could not change your password right now. Please try again later.",
+      );
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -69,9 +93,10 @@ export default function ResetPasswordPage() {
 
         <button
           type="submit"
-          className="w-full rounded-mt-md bg-mt-accent px-4 py-2 text-sm font-medium text-mt-accent-fg hover:bg-mt-accent-hover"
+          disabled={isSubmitting}
+          className="w-full rounded-mt-md bg-mt-accent px-4 py-2 text-sm font-medium text-mt-accent-fg hover:bg-mt-accent-hover disabled:opacity-60"
         >
-          Reset password
+          {isSubmitting ? "Saving..." : "Reset password"}
         </button>
 
         <Link

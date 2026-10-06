@@ -1,29 +1,58 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
+import { ApiError } from "@/lib/api/client";
+import { sendResetLink } from "@/features/auth/api/password";
 
 export default function ForgotPasswordPage() {
-  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sentTo, setSentTo] = useState<string | null>(null);
 
-  function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const email = new FormData(event.currentTarget).get("email") as string;
+    setError(null);
+    setIsSubmitting(true);
 
-    if (!email) {
-      setError("Email is required.");
-      return;
+    try {
+      await sendResetLink(email);
+      setSentTo(email);
+    } catch (err) {
+      setError(
+        err instanceof ApiError && err.status === 429
+          ? "Too many requests. Please try again later."
+          : "We could not send the email right now. Please try again later.",
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-    router.push(`/auth/verify?email=${encodeURIComponent(email)}&purpose=reset`);
+  }
+
+  if (sentTo) {
+    return (
+      <>
+        <h1 className="text-2xl font-semibold text-mt-text">Check your email</h1>
+        <p className="mt-1 text-sm text-mt-text-muted">
+          If an account exists for <span className="font-medium text-mt-text">{sentTo}</span>, we
+          sent a link to reset your password.
+        </p>
+        <Link
+          href="/auth"
+          className="mt-6 block text-center text-sm text-mt-accent-text hover:text-mt-accent-hover"
+        >
+          Back to sign in
+        </Link>
+      </>
+    );
   }
 
   return (
     <>
       <h1 className="text-2xl font-semibold text-mt-text">Forgot password</h1>
       <p className="mt-1 text-sm text-mt-text-muted">
-        Enter your email and we will send you a verification code.
+        Enter your email and we will send you a link to reset your password.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -32,6 +61,7 @@ export default function ForgotPasswordPage() {
             Email
           </label>
           <input
+            required
             id="email"
             name="email"
             type="email"
@@ -51,9 +81,10 @@ export default function ForgotPasswordPage() {
 
         <button
           type="submit"
-          className="w-full rounded-mt-md bg-mt-accent px-4 py-2 text-sm font-medium text-mt-accent-fg hover:bg-mt-accent-hover"
+          disabled={isSubmitting}
+          className="w-full rounded-mt-md bg-mt-accent px-4 py-2 text-sm font-medium text-mt-accent-fg hover:bg-mt-accent-hover disabled:opacity-60"
         >
-          Send code
+          {isSubmitting ? "Sending..." : "Send reset link"}
         </button>
 
         <Link

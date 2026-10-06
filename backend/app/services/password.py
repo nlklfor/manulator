@@ -6,7 +6,7 @@ from app.services.database import get_supabase_client
 def send_password_reset_email(email: str) -> None:
     supabase = get_supabase_client()
     supabase.auth.reset_password_for_email(
-        email, {"redirect_to": f"{settings.frontend_url}/reset-password"}
+        email, {"redirect_to": f"{settings.frontend_url}/auth/reset-password"}
     )
 
 

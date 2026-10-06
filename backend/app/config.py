@@ -7,9 +7,9 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000"]
 
     # Supabase project URL, e.g. https://your-project-ref.supabase.co
-    supabase_url: str = ""
+    supabase_url: str = "https://gwkstgdpcghnnuijajsv.supabase.co"
     # Supabase secret key, bypasses RLS so it must stay on the backend
-    supabase_secret_key: str = ""
+    supabase_secret_key: str = "sb_publishable_Wep_-9XsISJiaHkASOsMQg_-nTQ0wpF"
     # address of the frontend, used to build the link in the reset password email
     frontend_url: str = "http://localhost:3000"
 
