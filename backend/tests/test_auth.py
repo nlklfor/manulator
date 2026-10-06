@@ -13,24 +13,24 @@ URL = "/api/auth/"
 REGISTER_URL = "/api/auth/register"
 EMAIL = "user@example.com"
 PASSWORD = "Test-password1"
-FULL_NAME = "Test User"
+DISPLAY_NAME = "Test User"
 
 DUPLICATE_EMAIL_RESPONSE = {"detail": "An account with this email already exists."}
 UNAVAILABLE_RESPONSE = {"detail": "Registration service is temporarily unavailable."}
 
 
 def registration_payload(**overrides):
-    payload = {"full_name": FULL_NAME, "email": EMAIL, "password": PASSWORD}
+    payload = {"display_name": DISPLAY_NAME, "email": EMAIL, "password": PASSWORD}
     payload.update(overrides)
     return payload
 
 
-def expected_sign_up_call(full_name: str = FULL_NAME):
+def expected_sign_up_call(display_name: str = DISPLAY_NAME):
     return {
         "email": EMAIL,
         "password": PASSWORD,
         "options": {
-            "data": {"full_name": full_name},
+            "data": {"display_name": display_name},
             "email_redirect_to": f"{settings.frontend_url}/auth",
         },
     }
@@ -153,18 +153,18 @@ def test_registration_success(client, supabase_client, new_user):
     supabase_client.auth.sign_up.assert_called_once_with(expected_sign_up_call())
 
 
-def test_registration_trims_full_name(client, supabase_client, new_user):
+def test_registration_trims_display_name(client, supabase_client, new_user):
     supabase_client.auth.sign_up.return_value = AuthResponse(
         user=new_user, session=None
     )
 
     response = client.post(
-        REGISTER_URL, json=registration_payload(full_name="  Test User  ")
+        REGISTER_URL, json=registration_payload(display_name="  Test User  ")
     )
 
     assert response.status_code == 201
     supabase_client.auth.sign_up.assert_called_once_with(
-        expected_sign_up_call(full_name="Test User")
+        expected_sign_up_call(display_name="Test User")
     )
 
 
@@ -247,18 +247,18 @@ def test_registration_reports_network_error(client, supabase_client):
 @pytest.mark.parametrize(
     ("data", "invalid_field"),
     [
-        # full name
-        ({"email": EMAIL, "password": PASSWORD}, "full_name"),
-        (registration_payload(full_name=""), "full_name"),
-        (registration_payload(full_name="   "), "full_name"),
-        (registration_payload(full_name="a" * 101), "full_name"),
+        # display name
+        ({"email": EMAIL, "password": PASSWORD}, "display_name"),
+        (registration_payload(display_name=""), "display_name"),
+        (registration_payload(display_name="   "), "display_name"),
+        (registration_payload(display_name="a" * 101), "display_name"),
         # email
-        ({"full_name": FULL_NAME, "password": PASSWORD}, "email"),
+        ({"display_name": DISPLAY_NAME, "password": PASSWORD}, "email"),
         (registration_payload(email=""), "email"),
         (registration_payload(email="abc"), "email"),
         (registration_payload(email="user@example"), "email"),
         # password
-        ({"full_name": FULL_NAME, "email": EMAIL}, "password"),
+        ({"display_name": DISPLAY_NAME, "email": EMAIL}, "password"),
         (registration_payload(password=""), "password"),
         (registration_payload(password="Ab1!"), "password"),
         (registration_payload(password="Aa1!" + "a" * 69), "password"),
