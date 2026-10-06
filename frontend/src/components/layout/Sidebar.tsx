@@ -1,5 +1,11 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ChartNoAxesColumn, LayoutGrid, Search } from "lucide-react";
+import { Avatar } from "@/components/ui/Avatar";
+import { useProfile } from "@/features/profile/ProfileProvider";
+import { getInitials, getShownName } from "@/features/profile/profileDisplay";
 
 // Placeholder data until manuscripts and the logged-in user come from the backend (JUST A MOCKUP)
 const PLACEHOLDER_MANUSCRIPTS = [
@@ -9,14 +15,26 @@ const PLACEHOLDER_MANUSCRIPTS = [
 ];
 
 // Placeholder data until the logged-in user come from the backend (JUST A MOCKUP)
-const PLACEHOLDER_USER = { initial: "A", name: "Your name", team: "Project team" };
 
 // Shared look of one row in the sidebar
 const ROW = "flex h-9 w-full items-center gap-2.5 rounded-mt-md px-2.5 text-sm font-medium";
 // Rows that do not lead anywhere yet
 const ROW_INACTIVE = `${ROW} cursor-not-allowed text-mt-text-muted`;
+// The row of the page that is open right now
+const ROW_CURRENT = `${ROW} bg-mt-accent-soft text-mt-accent-text`;
+// A link to a page that is not open right now
+const ROW_LINK = `${ROW} text-mt-text-muted hover:bg-mt-hover hover:text-mt-text`;
 
 export function Sidebar() {
+  // The address of the open page, used to highlight the matching link
+  const pathname = usePathname();
+  const onLibrary = pathname === "/";
+  const onProfile = pathname === "/profile";
+
+  // The logged-in user, loaded once by ProfileProvider (null while loading)
+  const { profile } = useProfile();
+  const userName = profile ? getShownName(profile) : "";
+
   return (
     <nav
       aria-label="Main"
@@ -33,12 +51,12 @@ export function Sidebar() {
         <span className="text-[17px] font-semibold text-mt-text">manulator</span>
       </Link>
 
-      {/* Main links: Library is the current page, Search is not built yet */}
+      {/* Main links: Search is not built yet */}
       <div className="flex flex-col gap-0.5">
         <Link
           href="/"
-          aria-current="page"
-          className={`${ROW} bg-mt-accent-soft text-mt-accent-text`}
+          aria-current={onLibrary ? "page" : undefined}
+          className={onLibrary ? ROW_CURRENT : ROW_LINK}
         >
           <LayoutGrid className="size-4" aria-hidden="true" />
           Library
@@ -81,17 +99,29 @@ export function Sidebar() {
           </span>
         </button>
 
-        {/* User */}
-        <div className="mt-1.5 flex items-center gap-2.5 border-t border-mt-border p-2.5">
-          <span className="flex size-7 flex-none items-center justify-center rounded-full bg-mt-neutral-bg text-xs font-semibold text-mt-neutral-fg">
-            {PLACEHOLDER_USER.initial}
-          </span>
-          <span className="flex min-w-0 flex-col">
-            <span className="truncate text-[13px] font-medium text-mt-text">
-              {PLACEHOLDER_USER.name}
+        {/* User: opens the profile page */}
+        <div className="mt-1.5 border-t border-mt-border pt-1.5">
+          <Link
+            href="/profile"
+            aria-current={onProfile ? "page" : undefined}
+            className={`flex items-center gap-2.5 rounded-mt-md p-2.5 ${
+              onProfile ? "bg-mt-accent-soft" : "hover:bg-mt-hover"
+            }`}
+          >
+            <Avatar
+              initials={profile ? getInitials(userName) : ""}
+              imageUrl={profile?.avatar_url}
+            />
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate text-[13px] font-medium text-mt-text">
+                {profile ? userName : "Loading…"}
+              </span>
+              {/* Show the email below the name, unless the email already is the name */}
+              {profile && userName !== profile.email && (
+                <span className="truncate text-xs text-mt-text-subtle">{profile.email}</span>
+              )}
             </span>
-            <span className="truncate text-xs text-mt-text-subtle">{PLACEHOLDER_USER.team}</span>
-          </span>
+          </Link>
         </div>
       </div>
     </nav>
