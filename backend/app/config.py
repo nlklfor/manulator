@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     # Supabase secret key, bypasses RLS so it must stay on the backend
     supabase_secret_key: str = ""
+    # address of the frontend, used to build the link in the reset password email
+    frontend_url: str = "http://localhost:3000"
 
     upload_dir: Path = Path("uploads")
     max_upload_mb: int = 20
