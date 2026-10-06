@@ -43,6 +43,8 @@ function isValidSession(token: string | undefined): boolean {
   }
 }
 
+const RESET_PASSWORD_ROUTE = "/auth/reset-password";
+
 export default async function proxy(req: NextRequest) {
   // 1. Check if the current route is protected or public
   const path = req.nextUrl.pathname;
@@ -59,8 +61,10 @@ export default async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL("/auth", req.nextUrl));
   }
 
-  // 4. Redirect to / if the user is already authenticated on a public route
-  if (isPublicRoute && isAuthenticated) {
+  // 4. Redirect to / if the user is already authenticated on a public route.
+  // The reset-password page stays reachable, so a reset link from an email
+  // also works while the user is still logged in.
+  if (isPublicRoute && isAuthenticated && path !== RESET_PASSWORD_ROUTE) {
     return NextResponse.redirect(new URL("/", req.nextUrl));
   }
 
