@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000"]
-    # Base URL of the frontend application, used for constructing redirect URLs after authentication
+    # Base URL of the frontend application, used for redirect links in auth emails
     frontend_url: str = "http://localhost:3000"
 
     # Supabase project URL, e.g. https://your-project-ref.supabase.co

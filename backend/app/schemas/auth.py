@@ -4,6 +4,7 @@ PASSWORD_MIN_LENGTH = 8
 PASSWORD_MAX_LENGTH = 72
 PASSWORD_SPECIAL_CHARACTERS = "!@#$%^&*()-_=+[]{}|;:,.<>?/~`"
 
+
 class RegistrationRequest(BaseModel):
     full_name: str = Field(min_length=1, max_length=100)
     email: str = Field(
@@ -39,6 +40,7 @@ class RegistrationRequest(BaseModel):
                 + PASSWORD_SPECIAL_CHARACTERS
             )
         return password
+
 
 class RegistrationResponse(BaseModel):
     success: bool

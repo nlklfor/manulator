@@ -1,7 +1,7 @@
 from supabase_auth import AuthResponse
 
+from app.config import settings
 from app.services.database import get_supabase_client
-from backend.app.config import Settings
 
 
 # Authenticate the user with Supabase using the provided username and password.
@@ -12,7 +12,8 @@ def authenticate_user(username: str, password: str) -> AuthResponse:
         {"email": username, "password": password}
     )
 
-# Create a new user account with Supabase using the provided full name, email, and password.
+
+# Create a new user account with Supabase using the provided full name, email, password
 # Returns an AuthResponse object containing the registration result.
 def register_user(full_name: str, email: str, password: str) -> AuthResponse:
     supabase = get_supabase_client()
@@ -22,8 +23,7 @@ def register_user(full_name: str, email: str, password: str) -> AuthResponse:
             "password": password,
             "options": {
                 "data": {"full_name": full_name},
-                "email_redirect_to": f"{Settings.frontend_url}/auth",
+                "email_redirect_to": f"{settings.frontend_url}/auth",
             },
         }
     )
-
