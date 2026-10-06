@@ -1,6 +1,6 @@
 // Constants for registration form validation and error messages
 // These constants mirror the backend's RegistrationRequest schema
-export const DISPLAY_NAME_MAX_LENGTH = 100;
+export const DISPLAY_NAME_MAX_LENGTH = 50;
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 72;
 export const PASSWORD_SPECIAL_CHARACTERS = "!@#$%^&*()-_=+[]{}|;:,.<>?/~`";

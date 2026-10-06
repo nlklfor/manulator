@@ -251,7 +251,7 @@ def test_registration_reports_network_error(client, supabase_client):
         ({"email": EMAIL, "password": PASSWORD}, "display_name"),
         (registration_payload(display_name=""), "display_name"),
         (registration_payload(display_name="   "), "display_name"),
-        (registration_payload(display_name="a" * 101), "display_name"),
+        (registration_payload(display_name="a" * 51), "display_name"),
         # email
         ({"display_name": DISPLAY_NAME, "password": PASSWORD}, "email"),
         (registration_payload(email=""), "email"),

@@ -6,7 +6,7 @@ PASSWORD_SPECIAL_CHARACTERS = "!@#$%^&*()-_=+[]{}|;:,.<>?/~`"
 
 
 class RegistrationRequest(BaseModel):
-    display_name: str = Field(min_length=1, max_length=100)
+    display_name: str = Field(min_length=1, max_length=50)
     email: str = Field(
         min_length=3,
         max_length=320,

@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,6 +7,8 @@ from supabase_auth.errors import AuthApiError, AuthError
 
 from app.schemas.auth import LoginResponse, RegistrationRequest, RegistrationResponse
 from app.services.auth import authenticate_user, register_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -46,6 +49,12 @@ def register(request: RegistrationRequest) -> RegistrationResponse:
     try:
         response = register_user(request.display_name, request.email, request.password)
     except AuthApiError as error:
+        logger.warning(
+            "Supabase sign up failed: status=%s, code=%s, message=%s",
+            error.status,
+            error.code,
+            error.message,
+        )
         if error.code in {"user_already_exists", "email_exists"}:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
