@@ -24,7 +24,11 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   const response = await fetch(`${API_BASE_URL}${path}`, init);
 
   if (!response.ok) {
-    throw new ApiError(`Request to ${path} failed with status ${response.status}`, response.status, await readErrorDetail(response));
+    throw new ApiError(
+      `Request to ${path} failed with status ${response.status}`,
+      response.status,
+      await readErrorDetail(response),
+    );
   }
   return (await response.json()) as T;
 }
