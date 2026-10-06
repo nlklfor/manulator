@@ -1,5 +1,5 @@
 import { ApiError, apiFetch } from "@/lib/api/client";
-import { setAuthToken } from "@/lib/auth/session";
+import { markJustLoggedIn, setAuthToken } from "@/lib/auth/session";
 
 const LOGIN_ENDPOINT = "/api/auth/";
 
@@ -30,6 +30,7 @@ export async function login(authData: LoginFormData): Promise<AuthenticationStat
     });
     if (response.success && response.jwtToken) {
       setAuthToken(response.jwtToken);
+      markJustLoggedIn(); // lets the dashboard show the welcome message once
       return { isAuthenticated: true, message: "Login successful" };
     } else {
       return { isAuthenticated: false, message: "Invalid JWT token" };
