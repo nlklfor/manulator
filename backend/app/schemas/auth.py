@@ -6,7 +6,7 @@ PASSWORD_SPECIAL_CHARACTERS = "!@#$%^&*()-_=+[]{}|;:,.<>?/~`"
 
 
 class RegistrationRequest(BaseModel):
-    full_name: str = Field(min_length=1, max_length=100)
+    display_name: str = Field(min_length=1, max_length=100)
     email: str = Field(
         min_length=3,
         max_length=320,
@@ -17,13 +17,13 @@ class RegistrationRequest(BaseModel):
         max_length=PASSWORD_MAX_LENGTH,
     )
 
-    @field_validator("full_name")
+    @field_validator("display_name")
     @classmethod
-    def validate_full_name(cls, full_name: str) -> str:
-        full_name = full_name.strip()
-        if not full_name:
-            raise ValueError("Full name cannot be empty or whitespace.")
-        return full_name
+    def validate_display_name(cls, display_name: str) -> str:
+        display_name = display_name.strip()
+        if not display_name:
+            raise ValueError("Display name cannot be empty or whitespace.")
+        return display_name
 
     @field_validator("password")
     @classmethod

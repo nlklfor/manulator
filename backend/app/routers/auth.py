@@ -44,7 +44,7 @@ def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> LoginRe
 )
 def register(request: RegistrationRequest) -> RegistrationResponse:
     try:
-        response = register_user(request.full_name, request.email, request.password)
+        response = register_user(request.display_name, request.email, request.password)
     except AuthApiError as error:
         if error.code in {"user_already_exists", "email_exists"}:
             raise HTTPException(
