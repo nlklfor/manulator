@@ -13,7 +13,8 @@ def authenticate_user(username: str, password: str) -> AuthResponse:
     )
 
 
-# Create a new user account with Supabase using the provided display name, email, password
+# Create a new user account with Supabase using the provided
+# display name, email, and password
 # Returns an AuthResponse object containing the registration result.
 def register_user(display_name: str, email: str, password: str) -> AuthResponse:
     supabase = get_supabase_client()
