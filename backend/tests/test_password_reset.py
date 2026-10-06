@@ -20,6 +20,29 @@ def test_forgot_password_sends_email(client, monkeypatch):
     assert sent_to == ["isabelle@example.com"]
 
 
+def test_forgot_password_rate_limited(client, monkeypatch):
+    def fake_send(email):
+        raise AuthApiError("Email rate limit exceeded", 429, None)
+
+    monkeypatch.setattr(password, "send_password_reset_email", fake_send)
+
+    response = client.post(URL, json={"email": "isabelle@example.com"})
+
+    assert response.status_code == 429
+    assert "try again later" in response.json()["detail"]
+
+
+def test_forgot_password_supabase_error(client, monkeypatch):
+    def fake_send(email):
+        raise AuthApiError("Something went wrong", 500, None)
+
+    monkeypatch.setattr(password, "send_password_reset_email", fake_send)
+
+    response = client.post(URL, json={"email": "isabelle@example.com"})
+
+    assert response.status_code == 503
+
+
 RESET_URL = "/api/auth/reset-password"
 
 

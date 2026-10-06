@@ -15,7 +15,20 @@ router = APIRouter(prefix="/auth", tags=["password"])
 
 @router.post("/forgot-password", response_model=MessageResponse)
 def forgot_password(request: ForgotPasswordRequest) -> MessageResponse:
-    send_password_reset_email(request.email)
+    try:
+        send_password_reset_email(request.email)
+    except AuthApiError as error:
+        # Supabase limits how many emails we can send (about 2 per hour)
+        if error.status == 429:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many requests. Please try again later.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="We could not send the email right now. Please try again later.",
+        )
+
     return MessageResponse(
         success=True,
         message="If an account exists for this email, we sent you a reset link.",
