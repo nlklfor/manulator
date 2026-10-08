@@ -6,6 +6,7 @@ import { ChartNoAxesColumn, LayoutGrid, Search } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { useProfile } from "@/features/profile/ProfileProvider";
 import { getInitials, getShownName } from "@/features/profile/profileDisplay";
+import { ProfileMenu } from "@/components/layout/ProfileMenu";
 
 // Placeholder data until manuscripts and the logged-in user come from the backend (JUST A MOCKUP)
 const PLACEHOLDER_MANUSCRIPTS = [
@@ -30,10 +31,6 @@ export function Sidebar() {
   const pathname = usePathname();
   const onLibrary = pathname === "/";
   const onProfile = pathname === "/profile";
-
-  // The logged-in user, loaded once by ProfileProvider (null while loading)
-  const { profile } = useProfile();
-  const userName = profile ? getShownName(profile) : "";
 
   return (
     <nav
@@ -100,28 +97,8 @@ export function Sidebar() {
         </button>
 
         {/* User: opens the profile page */}
-        <div className="mt-1.5 border-t border-mt-border pt-1.5">
-          <Link
-            href="/profile"
-            aria-current={onProfile ? "page" : undefined}
-            className={`flex items-center gap-2.5 rounded-mt-md p-2.5 ${
-              onProfile ? "bg-mt-accent-soft" : "hover:bg-mt-hover"
-            }`}
-          >
-            <Avatar
-              initials={profile ? getInitials(userName) : ""}
-              imageUrl={profile?.avatar_url}
-            />
-            <span className="flex min-w-0 flex-col">
-              <span className="truncate text-[13px] font-medium text-mt-text">
-                {profile ? userName : "Loading…"}
-              </span>
-              {/* Show the email below the name, unless the email already is the name */}
-              {profile && userName !== profile.email && (
-                <span className="truncate text-xs text-mt-text-subtle">{profile.email}</span>
-              )}
-            </span>
-          </Link>
+        <div className="mt-1.5 border-t border-mt-border">
+          <ProfileMenu onProfileMenu={onProfile} />
         </div>
       </div>
     </nav>
