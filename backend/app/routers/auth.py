@@ -54,9 +54,7 @@ def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> LoginRe
 
 @router.post("/logout", response_model=LogoutResponse)
 def logout(
-    credentials: Annotated[
-        HTTPAuthorizationCredentials | None, Depends(bearer_scheme)
-    ],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> LogoutResponse:
     if credentials is None:
         raise HTTPException(

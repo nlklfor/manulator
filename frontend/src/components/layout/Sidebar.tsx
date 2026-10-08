@@ -3,9 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChartNoAxesColumn, LayoutGrid, Search } from "lucide-react";
-import { Avatar } from "@/components/ui/Avatar";
-import { useProfile } from "@/features/profile/ProfileProvider";
-import { getInitials, getShownName } from "@/features/profile/profileDisplay";
 import { ProfileMenu } from "@/components/layout/ProfileMenu";
 
 // Placeholder data until manuscripts and the logged-in user come from the backend (JUST A MOCKUP)

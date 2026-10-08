@@ -9,16 +9,16 @@ interface LogoutResponse {
 }
 
 export async function logout(): Promise<LogoutResponse> {
-  const token = getAuthToken()
+  const token = getAuthToken();
   if (!token) {
-    return  { success: false, message: "No auth token found" };
+    return { success: false, message: "No auth token found" };
   }
   try {
     const response = await apiFetch<LogoutResponse>(LOGOUT_ENDPOINT, {
       method: "POST",
       headers: {
-        "Authorization": "Bearer " + token,
-      }
+        Authorization: "Bearer " + token,
+      },
     });
     if (response.success) {
       // Clear the auth token from local storage or cookies

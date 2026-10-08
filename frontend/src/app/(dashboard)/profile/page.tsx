@@ -18,7 +18,7 @@ export default function ProfilePage() {
         <DisplayNameCard />
         <button
           onClick={handleLogout}
-          type="submit"
+          type="button"
           disabled={isLoggingOut}
           className="h-9 rounded-mt-md bg-mt-accent px-3.5 text-sm font-medium text-mt-accent-fg hover:bg-mt-accent-hover disabled:cursor-not-allowed disabled:opacity-45"
         >
