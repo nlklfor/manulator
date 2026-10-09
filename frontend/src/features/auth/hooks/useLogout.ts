@@ -21,7 +21,7 @@ export function useLogout() {
     if (logoutResponse.success) {
       // Clear the current session
       clearAuthToken();
-      // Save the message so it can be reused in the auth page
+      // Save the message so it can be reused in the auth page after successfully logged out
       storeLogoutMessage(logoutResponse.message);
       // navigate to the auth page and refresh the page to clear any cached data
       router.replace("/auth");

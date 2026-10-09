@@ -21,7 +21,6 @@ export async function logout(): Promise<LogoutResponse> {
       },
     });
     if (response.success) {
-      // Clear the auth token from local storage or cookies
       return { success: true, message: "Successfully logged out" };
     } else {
       return { success: false, message: "Logout failed" };
