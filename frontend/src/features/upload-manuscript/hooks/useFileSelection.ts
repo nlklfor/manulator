@@ -56,6 +56,7 @@ export function useFileSelection() {
       const newEntry: LibraryEntry = {
         id,
         fileName: file.name,
+        fileType: file.type,
         previewUrl,
         status: "uploading",
       };

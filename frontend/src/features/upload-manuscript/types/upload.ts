@@ -10,6 +10,7 @@ export interface UploadError {
 export interface LibraryEntry {
   id: string;
   fileName: string;
+  fileType: string;
   previewUrl: string;
   status: UploadStatus;
 }
