@@ -99,6 +99,7 @@ the work, and the schema defines the JSON that is returned.
 | `GET`  | `/`                       | Welcome message                                   |
 | `GET`  | `/api/health`             | Health check                                      |
 | `POST` | `/api/auth/register`      | Register an account with Supabase Auth            |
+| `POST` | `/api/auth/logout`        | End the Supabase session of the bearer token      |
 | `POST` | `/api/upload-manuscripts` | Upload a manuscript (JPEG, PNG or PDF, max 20 MB) |
 
 Registration expects a JSON body with `email`, `display name` and `password`. It returns `201` when

@@ -1,18 +1,31 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { CircleAlert } from "lucide-react";
 import PasswordField from "@/features/auth/components/PasswordField";
 import TextField from "@/features/auth/components/TextField";
 import { useLoginForm } from "@/features/auth/hooks/useLoginForm";
+import { clearLogoutMessage } from "@/lib/auth/session";
 
 type AuthFormProps = {
   registrationSuccess?: boolean;
+  logoutMessage?: string | null;
 };
 
-export default function AuthForm({ registrationSuccess = false }: AuthFormProps) {
+export default function AuthForm({
+  registrationSuccess = false,
+  logoutMessage = null,
+}: AuthFormProps) {
   const { values, errors, formError, isSubmitting, handleChange, handleBlur, handleSubmit } =
     useLoginForm();
+
+  // Show the logout message only once: delete its cookie after it is rendered
+  useEffect(() => {
+    if (logoutMessage) {
+      clearLogoutMessage();
+    }
+  }, [logoutMessage]);
 
   const fieldProps = { onChange: handleChange, onBlur: handleBlur, disabled: isSubmitting };
 
@@ -24,6 +37,15 @@ export default function AuthForm({ registrationSuccess = false }: AuthFormProps)
           className="rounded-mt-md border border-mt-success-fg/20 bg-mt-success-bg px-3 py-2 text-sm text-mt-success-fg"
         >
           Account created. Check your email to verify your account, then sign in.
+        </p>
+      )}
+
+      {logoutMessage && (
+        <p
+          role="status"
+          className="rounded-mt-md border border-mt-success-fg/20 bg-mt-success-bg px-3 py-2 text-sm text-mt-success-fg"
+        >
+          {logoutMessage}
         </p>
       )}
 
