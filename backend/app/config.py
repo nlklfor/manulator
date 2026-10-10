@@ -12,10 +12,12 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     # Supabase secret key, bypasses RLS so it must stay on the backend
     supabase_secret_key: str = ""
+    # Supabase Storage buckets (create both in the dashboard)
+    storage_bucket: str = "uploads"  # private: manuscripts, signed 1-hour links
+    public_bucket: str = "avatars"  # public: avatars, permanent links
     # address of the frontend, used to build the link in the reset password email
     frontend_url: str = "http://localhost:3000"
 
-    upload_dir: Path = Path("uploads")
     max_upload_mb: int = 20
     allowed_content_types: list[str] = ["image/jpeg", "image/png", "application/pdf"]
 

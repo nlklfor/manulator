@@ -1,4 +1,4 @@
-import { Check, Loader2, AlertCircle } from "lucide-react";
+import { Check, Loader2, AlertCircle, FileText } from "lucide-react";
 import type { LibraryEntry } from "@/features/upload-manuscript/types/upload";
 import { ReactNode } from "react";
 
@@ -32,12 +32,18 @@ export function ManuscriptCard({ entry }: ManuscriptCardProps) {
 
   return (
     <div className="overflow-hidden rounded-mt-lg border border-mt-border bg-mt-raised shadow-sm">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={entry.previewUrl}
-        alt={entry.fileName}
-        className="aspect-[3/4] w-full object-cover"
-      />
+      {entry.fileType === "application/pdf" ? (
+        <div className="flex aspect-[3/4] w-full items-center justify-center bg-mt-surface text-mt-text-subtle">
+          <FileText className="h-10 w-10" strokeWidth={1.5} aria-label="PDF document" />
+        </div>
+      ) : (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={entry.previewUrl}
+          alt={entry.fileName}
+          className="aspect-[3/4] w-full object-cover"
+        />
+      )}
       <div className="p-2.5">
         <p className="truncate text-sm font-medium text-mt-text">{entry.fileName}</p>
         <span

@@ -1,12 +1,14 @@
 import { apiFetch } from "@/lib/api/client";
+import { getAuthToken } from "@/lib/auth/session";
 
 const UPLOAD_ENDPOINT = "/api/upload-manuscripts";
 
 export interface UploadResponse {
-  id: string;
+  id: string; // storage path
   filename: string;
   content_type: string;
   size: number;
+  url: string; // temporary link to the file
 }
 
 export async function uploadImage(file: File): Promise<UploadResponse> {
@@ -15,6 +17,7 @@ export async function uploadImage(file: File): Promise<UploadResponse> {
 
   return apiFetch<UploadResponse>(UPLOAD_ENDPOINT, {
     method: "POST",
+    headers: { Authorization: `Bearer ${getAuthToken()}` },
     body: formData,
   });
 }
