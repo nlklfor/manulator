@@ -148,7 +148,7 @@ await supabase.auth.signUp({
 });
 ```
 
-The database also allows editing the picture URL (the current profile UI edits the name):
+The database also allows editing the picture URL. The profile page edits the name this way; the picture goes through the backend (see [Profile picture uploads](#profile-picture-uploads)):
 
 ```ts
 await supabase.from("profiles").update({ display_name, avatar_url }).eq("id", user.id);
@@ -183,6 +183,18 @@ Deleting a manuscript or user removes the related database rows through the fore
 but it does not remove the actual uploaded objects. File cleanup must use the
 [Supabase Storage API](https://supabase.com/docs/guides/storage/management/delete-objects).
 Keep the object paths before deleting their metadata so the app can clean up the files.
+
+### Profile picture uploads
+
+The picture itself is stored in the public Storage bucket `avatars`, and only its link is saved in `avatar_url`.
+The frontend never uploads to Storage directly; it calls the backend:
+
+| Request | What it does |
+| ------- | ------------ |
+| `POST /api/profile/avatar` (form field `file`) | Checks the image (JPG, PNG or WebP, max 5 MB, must really be an image), converts it to WebP (max 512 × 512 px), saves it as `avatars/<user_id>/avatar/<random>.webp`, stores the link in `avatar_url` and deletes the previous picture. Returns the updated profile. |
+| `DELETE /api/profile/avatar` | Sets `avatar_url` to null and deletes the picture file. Returns the updated profile. |
+
+Both need the `Authorization: Bearer <token>` header. The bucket must exist (Dashboard → Storage → New bucket → `avatars`, *Public bucket* on).
 
 ## Setting up a Supabase project
 
@@ -344,6 +356,8 @@ REVOKE EXECUTE ON FUNCTION public.handle_user_email_change() FROM PUBLIC, anon, 
 REVOKE ALL ON TABLE public.profiles FROM anon, authenticated;
 GRANT SELECT ON TABLE public.profiles TO authenticated;
 GRANT UPDATE (display_name, avatar_url) ON TABLE public.profiles TO authenticated;
+-- The backend (secret key) reads profiles and changes the picture link (POST/DELETE /api/profile/avatar)
+GRANT SELECT, UPDATE (avatar_url) ON TABLE public.profiles TO service_role;
 
 -- Enables Row Level Security (RLS) to protect user data
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
