@@ -48,6 +48,8 @@ def get_current_user_id(
     if token is None or "sub" not in token["claims"]:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Please log in again.")
     return token["claims"]["sub"]
+
+
 # End the Supabase session that belongs to the given access token.
 # "local" only ends this session, so the user stays logged in on other devices.
 # Supabase revokes the refresh token; the access token itself stays valid
