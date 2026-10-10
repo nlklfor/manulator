@@ -48,3 +48,10 @@ def get_current_user_id(
     if token is None or "sub" not in token["claims"]:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Please log in again.")
     return token["claims"]["sub"]
+# End the Supabase session that belongs to the given access token.
+# "local" only ends this session, so the user stays logged in on other devices.
+# Supabase revokes the refresh token; the access token itself stays valid
+# until it expires, which is why the frontend also deletes it.
+def sign_out_user(access_token: str) -> None:
+    supabase = get_supabase_client()
+    supabase.auth.admin.sign_out(access_token, "local")
