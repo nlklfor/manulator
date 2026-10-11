@@ -122,7 +122,6 @@ interface CropImageProps {
   onError?: () => void;
 }
 
-
 function CropImage({ imageUrl, crop, onError }: CropImageProps) {
   return (
     <Image

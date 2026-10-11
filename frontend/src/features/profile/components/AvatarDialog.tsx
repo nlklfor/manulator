@@ -23,12 +23,6 @@ interface PickError {
 const BUTTON = "h-9 rounded-mt-md px-3.5 text-sm font-medium disabled:opacity-45";
 const SECONDARY = `${BUTTON} border border-mt-border-strong bg-mt-raised text-mt-text hover:bg-mt-hover`;
 
-/**
- * "Change profile picture" in two steps:
- * 1. choose a picture (drop it or browse files), 2. position it and save.
- * Uses the browser's own <dialog>: it keeps keyboard focus inside and
- * closes on Escape.
- */
 export function AvatarDialog({ onClose, onSave }: AvatarDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
