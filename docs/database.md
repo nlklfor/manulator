@@ -148,7 +148,7 @@ await supabase.auth.signUp({
 });
 ```
 
-The database also allows editing the picture URL. The profile page edits the name this way; the picture goes through the backend (see [Profile picture uploads](#profile-picture-uploads)):
+The profile page saves the name and the picture link this way (the picture file itself is uploaded first, see [Profile picture uploads](#profile-picture-uploads)):
 
 ```ts
 await supabase.from("profiles").update({ display_name, avatar_url }).eq("id", user.id);
@@ -176,8 +176,8 @@ The Supabase project has two buckets:
 
 Public avatar URLs can be viewed by anyone with the URL. Private manuscript downloads require
 authorized access or a signed URL. Table RLS and Storage access rules are configured separately.
-At present there are no policies on `storage.objects`; direct uploads from the browser are not
-configured by the SQL below. The buckets are prepared for the Storage integration.
+The `avatars` bucket has access policies, so the browser uploads profile pictures directly
+(see [Avatar storage](#avatar-storage)). The `uploads` bucket has no policies yet.
 
 Deleting a manuscript or user removes the related database rows through the foreign keys,
 but it does not remove the actual uploaded objects. File cleanup must use the
@@ -186,15 +186,23 @@ Keep the object paths before deleting their metadata so the app can clean up the
 
 ### Profile picture uploads
 
-The picture itself is stored in the public Storage bucket `avatars`, and only its link is saved in `avatar_url`.
-The frontend never uploads to Storage directly; it calls the backend:
+The frontend uploads the picture straight to Supabase, with the logged-in user's token
+(`frontend/src/features/profile/api/profile.ts`). There is no backend code for it.
 
-| Request | What it does |
-| ------- | ------------ |
-| `POST /api/profile/avatar` (form field `file`) | Checks the image (JPG, PNG or WebP, max 5 MB, must really be an image), converts it to WebP (max 512 × 512 px), saves it as `avatars/<user_id>/avatar/<random>.webp`, stores the link in `avatar_url` and deletes the previous picture. Returns the updated profile. |
-| `DELETE /api/profile/avatar` | Sets `avatar_url` to null and deletes the picture file. Returns the updated profile. |
+1. In the "Change profile picture" dialog the user chooses a picture and positions it (drag,
+   arrow keys, zoom). The browser cuts out the part inside the circle, shrinks it to at most
+   512 × 512 px and encodes it as WebP (JPEG in browsers that cannot create WebP), see
+   `resizeAvatar.ts`.
+2. It uploads the file to `avatars/<user id>/avatar`, replacing the previous picture
+   (header `x-upsert: true`). Each user has exactly one file, so old pictures never pile up.
+3. It saves the public link in `profiles.avatar_url`, with `?v=<time>` at the end so browsers
+   load the new picture instead of a cached old one.
 
-Both need the `Authorization: Bearer <token>` header. The bucket must exist (Dashboard → Storage → New bucket → `avatars`, *Public bucket* on).
+Removing the picture first sets `avatar_url` to null, then deletes the file.
+
+The [Avatar storage](#avatar-storage) policies only let a user write into the folder named after
+their own id. The bucket only accepts WebP and JPEG files up to 1 MB (the resized picture is
+much smaller). Supabase checks the declared file type and size, not the image contents.
 
 ## Setting up a Supabase project
 
@@ -210,8 +218,9 @@ Both need the `Authorization: Bearer <token>` header. The bucket must exist (Das
      [Supabase's redirect URL guide](https://supabase.com/docs/guides/auth/redirect-urls).
 3. **Run the SQL:** open *SQL Editor* and run the three [Setup SQL](#setup-sql) blocks in order:
    profiles, manuscripts, then manuscript files. Run them before registering application users.
-4. **Storage:** create `uploads` with **Public bucket off** and `avatars` with **Public bucket on**.
-   Storage access policies are separate from the table policies and are not included in the Setup SQL.
+4. **Storage:** create `uploads` with **Public bucket off** and `avatars` with **Public bucket on**,
+   then run the [Avatar storage](#avatar-storage) SQL. It sets the bucket limits and lets users
+   upload their own profile picture.
 5. **Environment:** fill in the frontend and backend files below, then restart both servers.
 
 ## Updating an existing project
@@ -250,6 +259,8 @@ CREATE POLICY "Users can update own profile"
     USING ((select auth.uid()) = id)
     WITH CHECK ((select auth.uid()) = id);
 ```
+
+If profile pictures cannot be uploaded yet, run the [Avatar storage](#avatar-storage) SQL once.
 
 If the library tables have not been created yet, run [Library part 1](#library-part-1-manuscripts)
 and then [Library part 2](#library-part-2-manuscript-files). The current project already has both.
@@ -356,8 +367,6 @@ REVOKE EXECUTE ON FUNCTION public.handle_user_email_change() FROM PUBLIC, anon, 
 REVOKE ALL ON TABLE public.profiles FROM anon, authenticated;
 GRANT SELECT ON TABLE public.profiles TO authenticated;
 GRANT UPDATE (display_name, avatar_url) ON TABLE public.profiles TO authenticated;
--- The backend (secret key) reads profiles and changes the picture link (POST/DELETE /api/profile/avatar)
-GRANT SELECT, UPDATE (avatar_url) ON TABLE public.profiles TO service_role;
 
 -- Enables Row Level Security (RLS) to protect user data
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -505,3 +514,38 @@ CREATE POLICY "Users can delete own files"
     ON public.manuscript_files FOR DELETE
     USING ((select auth.uid()) = owner_id);
 ```
+
+### Avatar storage
+
+Run after creating the public `avatars` bucket. Every user has one folder named after their id,
+and the policies only allow access to that folder.
+
+```sql
+-- The bucket itself only accepts small WebP or JPEG files (the browser resizes pictures before upload)
+UPDATE storage.buckets
+SET file_size_limit = 1048576, -- 1 MB
+    allowed_mime_types = '{image/webp,image/jpeg}'
+WHERE id = 'avatars';
+
+-- Logged in users can upload a picture only into their own folder: avatars/<user id>/...
+CREATE POLICY "Users can upload own avatar"
+    ON storage.objects FOR INSERT TO authenticated
+    WITH CHECK (bucket_id = 'avatars' AND (storage.foldername(name))[1] = (select auth.uid())::text);
+
+-- Replacing a file (upsert) first looks it up, so users also need to read their own folder
+CREATE POLICY "Users can read own avatar"
+    ON storage.objects FOR SELECT TO authenticated
+    USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = (select auth.uid())::text);
+
+-- Allows users to replace their own picture
+CREATE POLICY "Users can replace own avatar"
+    ON storage.objects FOR UPDATE TO authenticated
+    USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = (select auth.uid())::text);
+
+-- Allows users to delete their own picture
+CREATE POLICY "Users can delete own avatar"
+    ON storage.objects FOR DELETE TO authenticated
+    USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = (select auth.uid())::text);
+```
+
+Showing the pictures needs no policy: anyone with the link can view files in a public bucket.
