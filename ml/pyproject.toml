@@ -5,3 +5,7 @@ requires-python = ">=3.12"
 dependencies = [
     "kraken>=7.1.1",
 ]
+
+[tool.uv]
+# Kraken pins scipy<1.16, but those builds crash on macOS 27 
+override-dependencies = ["scipy>=1.16"]
