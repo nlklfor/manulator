@@ -4,6 +4,8 @@ import { useFileSelection } from "../hooks/useFileSelection";
 import { UploadDropzone } from "./UploadDropzone";
 import { CompactUploadBar } from "./CompactUploadBar";
 import { ManuscriptLibrary } from "./ManuscriptLibrary";
+import { useCallback, useState } from "react";
+import { Toast } from "@/components/ui/Toast";
 
 const STEPS = [
   { title: "Upload a scan", description: "One image per manuscript page." },
@@ -12,11 +14,30 @@ const STEPS = [
 ];
 
 export function UploadPageCard() {
-  const { libraryEntries, uploadError, selectFile } = useFileSelection();
+  const { libraryEntries, uploadError, selectFile, removeManuscript } = useFileSelection();
+  const [toast, setToast] = useState<{ message: string; success: boolean } | null>(null);
   const hasEntries = libraryEntries.length > 0;
+
+  function handleDeleted(id: string, success: boolean, message: string) {
+    if (success) {
+      removeManuscript(id)
+    }
+    setToast({ message, success });
+  }
+
+  // Stable function, so the Toast timer is not restarted on every render
+  const closeToast = useCallback(() => setToast(null), []);
 
   return (
     <div className="mx-auto w-full max-w-5xl">
+      {toast && (
+        <Toast
+          message={toast.message}
+          variant={toast.success ? "success" : "error"}
+          onClose={closeToast}
+        />
+      )}
+
       <h1 className="text-2xl font-semibold text-mt-text">All pages</h1>
       <p className="mt-1 text-sm text-mt-text-muted">
         {hasEntries
@@ -35,7 +56,7 @@ export function UploadPageCard() {
         {hasEntries ? (
           <div className="space-y-6">
             <CompactUploadBar onFileSelected={selectFile} />
-            <ManuscriptLibrary entries={libraryEntries} />
+            <ManuscriptLibrary entries={libraryEntries} onDeleted={handleDeleted} />
           </div>
         ) : (
           <>

@@ -1,6 +1,8 @@
 import { Check, Loader2, AlertCircle, FileText } from "lucide-react";
 import type { LibraryEntry } from "@/features/upload-manuscript/types/upload";
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
+import { DeleteButton } from "@/components/ui/DeleteButton";
+import { deleteManuscript } from "@/features/upload-manuscript/api/deleteManuscripts";
 
 const STATUS_CONFIG: Record<
   LibraryEntry["status"],
@@ -25,10 +27,24 @@ const STATUS_CONFIG: Record<
 
 interface ManuscriptCardProps {
   entry: LibraryEntry;
+  onDeleted: (id: string, success: boolean, message: string) => void;
 }
 
-export function ManuscriptCard({ entry }: ManuscriptCardProps) {
+export function ManuscriptCard({ entry, onDeleted }: ManuscriptCardProps) {
   const status = STATUS_CONFIG[entry.status];
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  async function handleDelete() {
+    if (deleteLoading) {
+      return;
+    }
+    setDeleteLoading(true);
+
+    // NOTE: Here we need to replace the entry.id by the real manuscript ID
+    const { success, message } = await deleteManuscript(entry.id);
+    setDeleteLoading(false);
+    onDeleted(entry.id, success, message);
+  }
 
   return (
     <div className="overflow-hidden rounded-mt-lg border border-mt-border bg-mt-raised shadow-sm">
@@ -46,12 +62,22 @@ export function ManuscriptCard({ entry }: ManuscriptCardProps) {
       )}
       <div className="p-2.5">
         <p className="truncate text-sm font-medium text-mt-text">{entry.fileName}</p>
-        <span
-          className={`mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${status.badgeClass}`}
-        >
-          {status.icon}
-          {status.label}
-        </span>
+        <div className="flex justify-between">
+          <div>
+            <span
+              className={`mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${status.badgeClass}`}
+            >
+              {status.icon}
+              {status.label}
+            </span>
+          </div>
+          <DeleteButton
+            onClick={handleDelete}
+            disabled={deleteLoading}
+            isLoading={deleteLoading}
+            ariaLabel={`Delete ${entry.fileName}`}
+          />
+        </div>
       </div>
     </div>
   );

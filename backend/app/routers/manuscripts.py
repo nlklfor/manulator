@@ -10,3 +10,7 @@ router = APIRouter(prefix="/upload-manuscripts", tags=["manuscripts"])
 @router.post("", response_model=UploadResponse, status_code=201)
 def upload_manuscript(file: UploadFile, user_id: str = Depends(get_current_user_id)):
     return storage.save_upload(file, user_id)
+
+@router.delete("/delete/{file_id}", status_code=204)
+def delete_manuscript(file_id: str, user_id: str = Depends(get_current_user_id)):
+    return storage.delete_manuscript(file_id, user_id)
