@@ -266,6 +266,43 @@ If the library tables have not been created yet, run [Library part 1](#library-p
 and then [Library part 2](#library-part-2-manuscript-files). The current project already has both.
 Do not rerun table creation or the profile update above when those tables or columns already exist.
 
+## Email
+
+Manulator uses [Resend](https://resend.com) with the custom domain `mail.manulator.app` to send
+confirmation and password-reset emails. Without a custom domain, Supabase's built-in mail rate-limits
+to ~2 emails per hour and only works reliably for team members.
+
+### Setup summary (already done)
+
+1. Domain `manulator.app` registered via Name.com (GitHub Student Pack — free for 1 year).
+2. DNS records added in Name.com's DNS management (DKIM, SPF x2, DMARC) — verified by Resend.
+3. Resend → Supabase integration connected: project = Manulator, domain = `mail.manulator.app`,
+   sender = `Manulator <no-reply@mail.manulator.app>`.
+4. Supabase **Authentication → SMTP settings** filled in:
+   - Host: `smtp.resend.com`, Port: `465`
+   - Username: `resend`, Password: Resend API key
+
+### Email templates
+
+HTML templates live in `docs/email-templates/`. Paste each one into
+**Supabase → Authentication → Email Templates** (replace the default body):
+
+| Template | File | Subject line |
+|---|---|---|
+| Confirm signup | `confirm-signup.html` | `Confirm your Manulator account` |
+| Reset password | `reset-password.html` | `Reset your Manulator password` |
+
+Template variables used: `{{ .ConfirmationURL }}`, `{{ .Email }}`,
+`{{ if .Data.display_name }}{{ .Data.display_name }}{{ else }}there{{ end }}`.
+
+### Verified badge
+
+`AccountCard.tsx` calls `fetchEmailVerified()` (in `profile.ts`) on mount.
+That function hits `GET /auth/v1/user` and returns `Boolean(user.email_confirmed_at)`.
+A green **✓ Verified** pill (mt-success colours) or a yellow **Not verified** pill
+(mt-warning colours) is shown next to the email address in the Account card.
+No database schema change is needed — the field lives on Supabase's auth user object.
+
 ## Keys and environment variables
 
 Each person creates their own `.env` files with the content below and fills in the values.

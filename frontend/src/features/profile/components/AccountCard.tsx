@@ -1,15 +1,31 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
+import { Check } from "lucide-react";
 import { Toast } from "@/components/ui/Toast";
 import { useLogout } from "@/features/auth/hooks/useLogout";
+import { fetchEmailVerified } from "../api/profile";
 import { useProfile } from "../ProfileProvider";
 
 // Account details as label / value / action rows (see the profile design)
 export function AccountCard() {
   const { profile } = useProfile();
-  // Same logout as in the sidebar profile menu (Romano's useLogout hook)
   const { message, isLoggingOut, handleLogout, clearMessage } = useLogout();
+
+  const [verified, setVerified] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchEmailVerified()
+      .then((isVerified) => {
+        if (!cancelled) setVerified(isVerified);
+      })
+      .catch(() => undefined); // badge just stays hidden if the request fails
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <section
@@ -21,7 +37,13 @@ export function AccountCard() {
       </h2>
 
       <dl className="flex flex-col">
-        <AccountRow label="Email">{profile ? profile.email : "Loading…"}</AccountRow>
+        {/* The badge appears once the verification check resolves */}
+        <AccountRow
+          label="Email"
+          action={verified !== null ? <EmailBadge verified={verified} /> : undefined}
+        >
+          {profile ? profile.email : "Loading…"}
+        </AccountRow>
 
         <AccountRow
           label="Session"
@@ -43,6 +65,23 @@ export function AccountCard() {
       {/* Only shown if the logout request failed */}
       {message && <Toast message={message} onClose={clearMessage} />}
     </section>
+  );
+}
+
+// Green "✓ Verified" or yellow "Not verified" pill next to the email address
+function EmailBadge({ verified }: { verified: boolean }) {
+  if (verified) {
+    return (
+      <span className="inline-flex h-[22px] items-center gap-1.5 rounded-full bg-mt-success-bg px-2 text-xs font-medium text-mt-success-fg">
+        <Check className="size-3" strokeWidth={2.4} aria-hidden="true" />
+        Verified
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex h-[22px] items-center rounded-full bg-mt-warning-bg px-2 text-xs font-medium text-mt-warning-fg">
+      Not verified
+    </span>
   );
 }
 

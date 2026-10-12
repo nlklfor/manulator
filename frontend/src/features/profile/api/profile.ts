@@ -119,3 +119,20 @@ export async function removeAvatar(): Promise<Profile> {
 
   return profile;
 }
+
+// Checks whether the logged-in user has clicked the confirmation link in their email.
+// Supabase sets `email_confirmed_at` on the auth user object when they do.
+// We read it from /auth/v1/user instead of the profiles table, so no schema change is needed.
+export async function fetchEmailVerified(): Promise<boolean> {
+  const { url, key, token } = getSession();
+
+  const response = await fetch(`${url}/auth/v1/user`, {
+    headers: { apikey: key, Authorization: `Bearer ${token}` },
+  });
+
+  handleExpiredToken(response);
+  if (!response.ok) return false;
+
+  const user = (await response.json()) as { email_confirmed_at?: string | null };
+  return Boolean(user.email_confirmed_at);
+}
