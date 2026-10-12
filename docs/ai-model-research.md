@@ -63,6 +63,34 @@ suggestion: use Kraken for line finding. Start with its pretrained model and onl
 
 suggestion: use a specialized line model that is already trained on medieval Latin, and fine-tune it on our pages. We can decide between the Kraken-style and the TrOCR-style model after testing both on a few pages.
 
+### PyLaia
+
+Our professor suggested PyLaia instead of Kraken's own reading model. Kraken still does the line finding.
+
+- PyLaia is an open-source HTR toolkit built on PyTorch, maintained by Teklia.
+- Same model type as Kraken's reading model: CNN + BiLSTM, trained with CTC on line images and their text. CTC means the training data only needs the text of each line, not where each letter is.
+- Reads one line at a time, so it needs line finding first (Kraken).
+- Can add a character language model (n-gram) when decoding. It predicts which characters are likely to come next and fixes some reading errors. Teklia reports about 12% lower CER on average with it.
+- Gives a confidence score per line, useful to flag lines a person should check.
+
+### Pretrained models we can test
+
+Both PyLaia (CNN + BiLSTM) and TrOCR (transformer), so we compare the two model types.
+
+| Model | Type | Trained on | Note |
+| --- | --- | --- | --- |
+| Teklia/pylaia-home-alcar | PyLaia | Himanis (French) + HOME-Alcar (Latin), medieval | lines resized to 128 px height |
+| Teklia/pylaia-himanis | PyLaia | Himanis (French) + HOME-Alcar (Latin), medieval | lines resized to 128 px height |
+| johnlockejrr/pylaia_catmus_medieval | PyLaia | CATMuS medieval, Latin and Romance languages | made by one person, not Teklia |
+| dh-unibe/trocr-medieval-escriptmask | TrOCR | CREMMA, HIMANIS, Itinera Nova, Königsfelden charters | University of Bern, generic model for medieval Latin scripts |
+| medieval-data/trocr-medieval-latin-caroline | TrOCR | CATMuS medieval, Caroline script | Caroline is the script of our Saint Gall test page; model page says it needs more fine-tuning |
+
+- We test all models on the same pages (Saint Gall).
+- None of the models was trained on Saint Gall, so we expect a higher CER on our pages.
+- TrOCR's decoder writes the text piece by piece like a language model, so it can invent text that is not on the page. PyLaia can't do that as easily.
+
+plan: Kraken finds the lines, then PyLaia and TrOCR models read the same line images, and we compare their CER on the Saint Gall pages.
+
 ## 3. Translation 
 
 The Latin text from gets translated into a modern language
@@ -98,6 +126,9 @@ The Latin text from gets translated into a modern language
 - Meoded (2025): HTR of historical manuscripts using transformer-based models (TrOCR). *arXiv*.
 - Torres Aguilar & Jolivet (2023): HTR for documentary medieval manuscripts. *JDMDH*.
 - Semnani et al. (2025): CHURRO, a vision-language model for historical text recognition. *arXiv*.
+- Teklia (2024): improvements to PyLaia (confidence scores, language models). *arXiv* 2404.18722.
+- PyLaia code: <https://github.com/jpuigcerver/PyLaia>
+- Model pages: <https://huggingface.co/Teklia/pylaia-home-alcar>, <https://huggingface.co/Teklia/pylaia-himanis>, <https://huggingface.co/johnlockejrr/pylaia_catmus_medieval>, <https://huggingface.co/dh-unibe/trocr-medieval-escriptmask>, <https://huggingface.co/medieval-data/trocr-medieval-latin-caroline>
 
 ### Translation
 - Bui et al. (2026): Evaluating translation pipelines for medieval Latin manuscripts. *arXiv*.
