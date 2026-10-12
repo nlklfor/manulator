@@ -21,7 +21,7 @@ export function AccountCard() {
       .then((isVerified) => {
         if (!cancelled) setVerified(isVerified);
       })
-      .catch(() => undefined); // badge just stays hidden if the request fails
+      .catch((err) => console.error("[AccountCard] fetchEmailVerified failed:", err));
     return () => {
       cancelled = true;
     };
