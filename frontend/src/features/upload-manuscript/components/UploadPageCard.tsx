@@ -20,7 +20,8 @@ export function UploadPageCard() {
 
   function handleDeleted(id: string, success: boolean, message: string) {
     if (success) {
-      removeManuscript(id)
+      // Remove the manuscript from the library if deletion was successful
+      removeManuscript(id);
     }
     setToast({ message, success });
   }

@@ -43,6 +43,7 @@ export function ManuscriptCard({ entry, onDeleted }: ManuscriptCardProps) {
     // NOTE: Here we need to replace the entry.id by the real manuscript ID
     const { success, message } = await deleteManuscript(entry.id);
     setDeleteLoading(false);
+    // handle the deletion result in the parent component
     onDeleted(entry.id, success, message);
   }
 

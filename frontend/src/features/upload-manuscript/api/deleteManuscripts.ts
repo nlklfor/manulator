@@ -17,7 +17,7 @@ export async function deleteManuscript(manuscriptId: string): Promise<DeleteManu
     return { success: true, message: "Manuscript deleted" };
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
-      return { success: false, message: "Manuscript not found" };
+      return { success: false, message: "Manuscript not found. Error status " + error.status };
     }
     return { success: false, message: "Could not delete the manuscript. Please try again." };
   }
