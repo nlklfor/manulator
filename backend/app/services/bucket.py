@@ -46,6 +46,7 @@ def upload_file(
         return path, bucket.get_public_url(path)
     return path, get_file_url(path)
 
+
 # Deletes a file from the bucket.
 def delete_file(path: str) -> bool:
     bucket = get_admin_client().storage.from_(settings.storage_bucket)

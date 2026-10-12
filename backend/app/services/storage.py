@@ -40,23 +40,21 @@ def save_upload(file: UploadFile, user_id: str) -> UploadResponse:
     )
 
 
-# delete a manuscript file from Supabase storage.
-def delete_manuscript(manuscript_id: str, user_id: str) -> bool:
-    if not manuscript_id.startswith(f"{user_id}/manuscripts/"):
-        raise HTTPException(404, "Manuscript not found or you don't have "
-                                 "permission to delete it")
-    supabase_client = get_admin_client()
+# Deletes a manuscript, its file rows (foreign key cascade) and its files in Storage.
+def delete_manuscript(manuscript_id: str, user_id: str) -> None:
+    db = get_admin_client()
     try:
-        # first delete the file from the database, then delete the file from the bucket
+        # Read the paths first: the cascade removes the file rows with the manuscript
         files = (
-            supabase_client.table("manuscript_files")
+            db.table("manuscript_files")
             .select("storage_path")
+            .eq("manuscript_id", manuscript_id)
             .eq("owner_id", user_id)
             .execute()
         )
-        # Find the manuscript file with the given manuscript_id
+        # The admin client ignores RLS, so the owner must be checked here
         manuscript = (
-            supabase_client.table("manuscripts")
+            db.table("manuscripts")
             .delete()
             .eq("id", manuscript_id)
             .eq("owner_id", user_id)
@@ -64,17 +62,18 @@ def delete_manuscript(manuscript_id: str, user_id: str) -> bool:
         )
     except APIError as error:
         logger.warning("Supabase delete failed: %s", error)
-        raise HTTPException(502, "Could not delete the manuscript. Please try again.") \
-            from error
+        raise HTTPException(
+            502, "Could not delete the manuscript. Please try again."
+        ) from error
 
     if not manuscript.data:
-        raise HTTPException(404, "Manuscript not found or you don't have "
-                                 "permission to delete it")
+        raise HTTPException(404, "Manuscript not found")
 
-    paths = [row["storage_path"] for row in files.data]
-    if paths:
+    # Leftover files are harmless, so Storage problems do not fail the request
+    for row in files.data:
+        path = row["storage_path"]
         try:
-            if not delete_file(paths[0]):
-                logger.warning("Supabase storage delete failed for path: %s", paths)
+            if not delete_file(path):
+                logger.warning("File not found in Storage: %s", path)
         except StorageException as error:
-            logger.warning("Supabase storage delete failed: %s", error)
+            logger.warning("Could not delete file %s: %s", path, error)
