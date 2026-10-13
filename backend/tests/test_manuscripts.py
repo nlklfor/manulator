@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.conftest import MANUSCRIPT_ID, OTHER_USERS_MANUSCRIPT_ID
 
 URL = "/api/upload-manuscripts"
 
@@ -48,3 +49,28 @@ def test_requires_login(saved_files):
 
     assert response.status_code in (401, 403)  # not logged in
     assert saved_files == {}
+
+
+def test_delete_manuscript(client, fake_supabase):
+    response = client.delete(f"{URL}/{MANUSCRIPT_ID}")
+
+    assert response.status_code == 204  # 204 = done, nothing to return
+    remaining = [m["id"] for m in fake_supabase.tables["manuscripts"]]
+    assert MANUSCRIPT_ID not in remaining
+    # The file row is deleted with the manuscript, and so is the file in Storage
+    assert [f["manuscript_id"] for f in fake_supabase.tables["manuscript_files"]] == [
+        OTHER_USERS_MANUSCRIPT_ID
+    ]
+    assert "user-1/manuscripts/page.png" not in fake_supabase.files
+
+
+def test_delete_with_wrong_id_deletes_nothing(client, fake_supabase):
+    unknown_id = "33333333-3333-4333-8333-333333333333"
+
+    for wrong_id in (unknown_id, OTHER_USERS_MANUSCRIPT_ID):
+        response = client.delete(f"{URL}/{wrong_id}")
+        assert response.status_code == 404  # 404 = not found (or not yours)
+
+    assert len(fake_supabase.tables["manuscripts"]) == 2
+    assert len(fake_supabase.tables["manuscript_files"]) == 2
+    assert len(fake_supabase.files) == 2

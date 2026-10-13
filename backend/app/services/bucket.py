@@ -47,6 +47,13 @@ def upload_file(
     return path, get_file_url(path)
 
 
+# Deletes a file from the bucket.
+def delete_file(path: str) -> bool:
+    bucket = get_admin_client().storage.from_(settings.storage_bucket)
+    removed = bucket.remove([path])
+    return len(removed) > 0
+
+
 # New 1-hour link for a file in the private bucket
 # Only pass paths that belong to the logged-in user.
 def get_file_url(path: str) -> str:
