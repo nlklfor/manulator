@@ -157,8 +157,15 @@
   these lines.
   - Errors are counted the same way for every model: CER, wrong letters per
   100, over all lines of a document type.
-  - What counts as an error (e.g. abbreviations) is decided after looking at
-  the data, but before any model is scored, and is the same for every model.
+   - Before counting mistakes, both texts (the correct one and the model's) are cleaned the same
+  way, so only real reading mistakes count:
+    - only letters and spaces are kept; punctuation and symbols are removed
+    - capital letters become small letters
+    - letters with accents become normal letters (ů becomes u)
+    - j becomes i, and v becomes u, because medieval scribes did not tell these letters apart
+  - Abbreviations still count as mistakes. Our correct texts write words out in full (dominum),
+  and Manulator needs full words for translation. If a model writes the short form (dñm), we
+  mention it next to the results.
   - A model is usable if its CER is below 10%. At this level a reader can still
   correct the text quickly, and good models reach it on new manuscripts (see
   the table above).
