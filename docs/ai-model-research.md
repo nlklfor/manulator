@@ -209,16 +209,35 @@ CER on the 102 MLH charter lines and the 200 e-NDP register lines (wrong letters
 - TrOCR is 20–40 times slower than PyLaia on a laptop.
 - Typical register mistakes: letters that look alike in fast handwriting (c/t, n/u) and register-specific abbreviations the models never learned.
 
-PyLaia on the two example lines from section 5:
+**Example: what each reader wrote for the same two lines.**
 
-| | Text |
+The charter line (MLH):
+
+![A charter line from MLH](images/charter_line.png)
+
+| Reader | Text |
 | --- | --- |
-| Charter, correct | heredes domini de Blankeneym in feodum et homagium perpetuo tene- |
-| Charter, PyLaia | heredes domini de Blankzeneym, in feodum ehomagium perpetuo tene¬ |
-| Register, correct | Anno xl nono die mercurii post vocem Jocunditatis capitulantibus |
-| Register, PyLaia | Anno Yluono diquitur, post votem utiuditatis captus |
+| Correct text | heredes domini de Blankeneym in feodum et homagium perpetuo tene- |
+| PyLaia HOME-Alcar | heredes domini de Blankzeneym, in feodum ehomagium perpetuo tene¬ |
+| PyLaia HOME-Alcar + language model | heredes domini de Blanzene in feodum homagium perpetuo tene¬ |
+| TrOCR escriptmask | heredes domini de Blauxencyni in feodum et homagium perpetuo tenere |
+| Kraken CATMuS | hedes dñi de blankeneym. in feodum ⁊ homa guĩ ꝓpetuo tene |
 
-On the charter line PyLaia makes 2 small mistakes; on the register line almost every word is wrong.
+All readers get most words right; they differ mainly on the place name *Blankeneym*. Kraken CATMuS writes the abbreviations (*dñi*, *⁊*, *ꝓpetuo*), which counts as mistakes.
+
+The register line (e-NDP):
+
+![A register line from e-NDP](images/register_line.png)
+
+| Reader | Text |
+| --- | --- |
+| Correct text | Anno xl nono die mercurii post vocem Jocunditatis capitulantibus |
+| PyLaia HOME-Alcar | Anno Yluono diquitur, post votem utiuditatis captus |
+| PyLaia HOME-Alcar + language model | anno pluono diquitur post vocem utuditatis captus |
+| TrOCR escriptmask | anno yliovo dicuntur post Wycem . In judicatis capellani . |
+| Kraken CATMuS | AAnno  luono diquitit poest scotom Aocuudicatis mpł |
+
+On the register line every reader gets most words wrong. TrOCR writes real Latin words that are not on the page (*capellani*), the risk described in section 2.
 
 ## 10. Results: both steps together
 
