@@ -1,0 +1,14 @@
+# Big files: everyone downloads their own
+.venv/
+data/
+models/
+results/
+
+# Personal experiments: each person's own space
+sandbox/
+pylaia/                                                                                  
+
+# Spike #22 work (kept local)
+/*.ipynb
+/scoring.py
+__pycache__/
