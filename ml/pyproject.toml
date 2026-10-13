@@ -6,6 +6,7 @@ dependencies = [
     "datasets>=5.0.1",
     "jiwer>=4.0.0",
     "kraken>=7.1.1",
+    "transformers>=5.12.1",
 ]
 
 [tool.uv]
