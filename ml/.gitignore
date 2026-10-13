@@ -6,7 +6,10 @@ results/
 
 # Personal experiments: each person's own space
 sandbox/
-pylaia/                                                                                  
+
+# PyLaia: share the environment setup, keep the installed packages and personal configs local
+pylaia/.venv/
+pylaia/*.yaml
 
 # Spike #22 work (kept local)
 /*.ipynb
