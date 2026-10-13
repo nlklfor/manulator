@@ -1,17 +1,18 @@
 "use client";
 
 import { useEffect } from "react";
-import { Check, X } from "lucide-react";
+import { AlertCircle, Check, X } from "lucide-react";
 
 const VISIBLE_MS = 3000;
 
 interface ToastProps {
   message: string;
   onClose: () => void;
+  variant?: "success" | "error";
 }
 
 // A small message at the top of the screen that disappears by itself
-export function Toast({ message, onClose }: ToastProps) {
+export function Toast({ message, onClose, variant = "success" }: ToastProps) {
   useEffect(() => {
     const timer = setTimeout(onClose, VISIBLE_MS);
     return () => clearTimeout(timer);
@@ -23,7 +24,11 @@ export function Toast({ message, onClose }: ToastProps) {
         role="status"
         className="pointer-events-auto flex min-h-11 items-center gap-3 rounded-mt-lg bg-mt-text py-2.5 pr-2.5 pl-3.5 text-sm text-mt-bg shadow-lg"
       >
-        <Check className="size-5 text-mt-success-bg" aria-hidden="true" />
+        {variant === "success" ? (
+          <Check className="size-5 text-mt-success-bg" aria-hidden="true" />
+        ) : (
+          <AlertCircle className="size-5 text-mt-danger-bg" aria-hidden="true" />
+        )}
         <span>{message}</span>
         <button
           type="button"

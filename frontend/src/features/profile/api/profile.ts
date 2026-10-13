@@ -6,6 +6,7 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 const COLUMNS = "id,email,display_name,avatar_url";
+const AVATAR_BUCKET = "avatars";
 
 export interface Profile {
   id: string;
@@ -14,7 +15,7 @@ export interface Profile {
   avatar_url: string | null;
 }
 
-async function profileRequest(init?: RequestInit): Promise<Profile> {
+function getSession() {
   const token = getAuthToken();
   const user = getTokenClaims();
 
@@ -24,26 +25,33 @@ async function profileRequest(init?: RequestInit): Promise<Profile> {
   if (!token || !user) {
     throw new Error("Not logged in");
   }
+  return { url: SUPABASE_URL, key: SUPABASE_KEY, token, userId: user.id };
+}
 
-  const url = `${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=${COLUMNS}`;
-  const response = await fetch(url, {
+// 401 means the token has expired. Clear it and reload the page, so the user is sent to the login page.
+function handleExpiredToken(response: Response) {
+  if (response.status === 401) {
+    clearAuthToken();
+    window.location.reload();
+  }
+}
+
+// Sends one request to the user's own row in the `profiles` table
+async function profileRequest(init?: RequestInit): Promise<Profile> {
+  const { url, key, token, userId } = getSession();
+
+  const response = await fetch(`${url}/rest/v1/profiles?id=eq.${userId}&select=${COLUMNS}`, {
     ...init,
     headers: {
-      apikey: SUPABASE_KEY,
+      apikey: key,
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      // ask for one object instead of a list, and for the row after an update
       Accept: "application/vnd.pgrst.object+json",
       Prefer: "return=representation",
     },
   });
 
-  // 401 means the token has expired. Remove it and reload the page:
-  // without a token, proxy.ts sends the user to the login page.
-  if (response.status === 401) {
-    clearAuthToken();
-    window.location.reload();
-  }
+  handleExpiredToken(response);
   if (!response.ok) {
     throw new Error(`Profile request failed with status ${response.status}`);
   }
@@ -54,9 +62,77 @@ export function fetchProfile(): Promise<Profile> {
   return profileRequest();
 }
 
+// Saves only the given columns (the database allows display_name and avatar_url)
+function updateProfile(changes: Partial<Pick<Profile, "display_name" | "avatar_url">>) {
+  return profileRequest({ method: "PATCH", body: JSON.stringify(changes) });
+}
+
 export function updateDisplayName(displayName: string): Promise<Profile> {
-  return profileRequest({
-    method: "PATCH",
-    body: JSON.stringify({ display_name: displayName }),
+  return updateProfile({ display_name: displayName });
+}
+
+/**
+ * Each user has exactly one picture file: avatars/<user id>/avatar.
+ * A new upload overwrites it, so old pictures never pile up in the bucket.
+ */
+function avatarFileUrl(url: string, userId: string) {
+  return `${url}/storage/v1/object/${AVATAR_BUCKET}/${userId}/avatar`;
+}
+
+// Uploads the (already resized) picture and saves its public link in the profile
+export async function uploadAvatar(picture: Blob): Promise<Profile> {
+  const { url, key, token, userId } = getSession();
+
+  const response = await fetch(avatarFileUrl(url, userId), {
+    method: "POST",
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${token}`,
+      "Content-Type": picture.type,
+      "x-upsert": "true", // replace the existing picture instead of failing
+    },
+    body: picture,
   });
+
+  handleExpiredToken(response);
+  if (!response.ok) {
+    throw new Error(`Avatar upload failed with status ${response.status}`);
+  }
+
+  // The file name never changes, so "?v=<time>" makes browsers load the new picture instead of showing the old one from their cache
+  const publicUrl = `${url}/storage/v1/object/public/${AVATAR_BUCKET}/${userId}/avatar`;
+  return updateProfile({ avatar_url: `${publicUrl}?v=${Date.now()}` });
+}
+
+// Removes the picture, the app then shows the initials again
+export async function removeAvatar(): Promise<Profile> {
+  const { url, key, token, userId } = getSession();
+
+  // Clear the link first, so the profile never points to a deleted file
+  const profile = await updateProfile({ avatar_url: null });
+
+  // Then delete the file. If this fails, the next upload overwrites it anyway.
+  await fetch(avatarFileUrl(url, userId), {
+    method: "DELETE",
+    headers: { apikey: key, Authorization: `Bearer ${token}` },
+  }).catch(() => undefined);
+
+  return profile;
+}
+
+// Checks whether the logged-in user has clicked the confirmation link in their email.
+// Supabase sets `email_confirmed_at` on the auth user object when they do.
+// We read it from /auth/v1/user instead of the profiles table, so no schema change is needed.
+export async function fetchEmailVerified(): Promise<boolean> {
+  const { url, key, token } = getSession();
+
+  const response = await fetch(`${url}/auth/v1/user`, {
+    headers: { apikey: key, Authorization: `Bearer ${token}` },
+  });
+
+  handleExpiredToken(response);
+  if (!response.ok) return false;
+
+  const user = (await response.json()) as { email_confirmed_at?: string | null };
+  return Boolean(user.email_confirmed_at);
 }

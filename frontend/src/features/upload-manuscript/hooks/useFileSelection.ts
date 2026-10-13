@@ -39,6 +39,17 @@ export function useFileSelection() {
     );
   }, []);
 
+  const removeManuscript = useCallback((id: string) => {
+    setLibraryEntries((prev) => {
+      const manuscriptToRemove = prev.find((e) => e.id === id);
+      if (manuscriptToRemove) {
+        URL.revokeObjectURL(manuscriptToRemove.previewUrl);
+        previewUrlsRef.current.delete(manuscriptToRemove.previewUrl);
+      }
+      return prev.filter((e) => e.id !== id);
+    });
+  }, []);
+
   const selectFile = useCallback(
     (file: File) => {
       const validationError = validateFile(file);
@@ -70,5 +81,5 @@ export function useFileSelection() {
     [updateEntryStatus],
   );
 
-  return { libraryEntries, uploadError, selectFile };
+  return { libraryEntries, uploadError, selectFile, removeManuscript };
 }
