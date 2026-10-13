@@ -6,6 +6,8 @@ import { CompactUploadBar } from "./CompactUploadBar";
 import { ManuscriptLibrary } from "./ManuscriptLibrary";
 import { useCallback, useState } from "react";
 import { Toast } from "@/components/ui/Toast";
+import { Segmented } from "@/components/ui/Segmented";
+import { useStatusFilter } from "../hooks/useStatusFilter";
 
 const STEPS = [
   { title: "Upload a scan", description: "One image per manuscript page." },
@@ -16,6 +18,8 @@ const STEPS = [
 export function UploadPageCard() {
   const { libraryEntries, uploadError, selectFile, removeManuscript } = useFileSelection();
   const [toast, setToast] = useState<{ message: string; success: boolean } | null>(null);
+  const { statusFilter, setStatusFilter, filterOptions, filteredEntries, activeFilterLabel } =
+    useStatusFilter(libraryEntries);
   const hasEntries = libraryEntries.length > 0;
 
   function handleDeleted(id: string, success: boolean, message: string) {
@@ -57,7 +61,19 @@ export function UploadPageCard() {
         {hasEntries ? (
           <div className="space-y-6">
             <CompactUploadBar onFileSelected={selectFile} />
-            <ManuscriptLibrary entries={libraryEntries} onDeleted={handleDeleted} />
+            <Segmented
+              ariaLabel="Filter pages by status"
+              options={filterOptions}
+              value={statusFilter}
+              onChange={setStatusFilter}
+            />
+            {filteredEntries.length > 0 ? (
+              <ManuscriptLibrary entries={filteredEntries} onDeleted={handleDeleted} />
+            ) : (
+              <p className="rounded-mt-md border border-mt-border bg-mt-surface px-4 py-10 text-center text-sm text-mt-text-muted">
+                No pages with status ‘{activeFilterLabel}’
+              </p>
+            )}
           </div>
         ) : (
           <>
