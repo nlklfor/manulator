@@ -10,22 +10,55 @@ def upload(client, filename, data, content_type):
     return client.post(URL, files={"file": (filename, data, content_type)})
 
 
-def test_upload_png(client, saved_files):
-    response = upload(client, "page.png", b"png bytes", "image/png")
+def test_upload_png(client, fake_supabase):
+    response = upload(client, "page 2.png", b"png bytes", "image/png")
 
     assert response.status_code == 201  # 201 = created
     body = response.json()
-    assert body["filename"] == "page.png"
-    assert body["id"].startswith("user-1/manuscripts/")
-    assert body["url"] == f"https://temporary-link/{body['id']}"
-    assert saved_files == {f"uploads/{body['id']}": b"png bytes"}
+    manuscript = fake_supabase.tables["manuscripts"][-1]
+    page = fake_supabase.tables["manuscript_files"][-1]
+
+    assert body["id"] == manuscript["id"]  # the id the frontend uses to delete it
+    assert manuscript["owner_id"] == "user-1"
+    assert manuscript["title"] == "page 2"
+    assert page["file_name"] == "page 2.png"
+    assert fake_supabase.files[page["storage_path"]] == b"png bytes"
+    assert body["url"] == f"https://temporary-link/{page['storage_path']}"
 
 
-def test_upload_pdf(client, saved_files):
+def test_upload_pdf(client, fake_supabase):
     response = upload(client, "book.pdf", b"pdf bytes", "application/pdf")
 
     assert response.status_code == 201
-    assert response.json()["id"].endswith(".pdf")
+    assert fake_supabase.tables["manuscript_files"][-1]["storage_path"].endswith(".pdf")
+
+
+def test_list_my_manuscripts(client, fake_supabase):
+    response = client.get(URL)
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "id": MANUSCRIPT_ID,
+            "title": "Letter",
+            "created_at": "2026-10-01T10:00:00Z",
+            "files": [
+                {
+                    "file_name": "page.png",
+                    "content_type": "image/png",
+                    "size": 9,
+                    "url": "https://temporary-link/user-1/manuscripts/page.png",
+                }
+            ],
+        }
+    ]  # only user-1's manuscript, never user-2's
+
+
+def test_list_shows_new_upload(client, fake_supabase):
+    upload(client, "new.png", b"png bytes", "image/png")
+
+    titles = [m["title"] for m in client.get(URL).json()]
+    assert "new" in titles
 
 
 def test_rejects_unsupported_type(client, saved_files):

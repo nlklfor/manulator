@@ -471,6 +471,8 @@ REVOKE ALL ON TABLE public.manuscripts FROM anon, authenticated;
 -- Read, create with a title, rename, delete (owner and dates are set by the database)
 GRANT SELECT, DELETE ON TABLE public.manuscripts TO authenticated;
 GRANT INSERT (title), UPDATE (title) ON TABLE public.manuscripts TO authenticated;
+-- The backend (secret key) lists, creates and deletes manuscripts for the user
+GRANT SELECT, INSERT, DELETE ON TABLE public.manuscripts TO service_role;
 
 -- Enables Row Level Security (RLS) so users only ever reach their own manuscripts
 ALTER TABLE public.manuscripts ENABLE ROW LEVEL SECURITY;
@@ -532,6 +534,8 @@ REVOKE ALL ON TABLE public.manuscript_files FROM anon, authenticated;
 GRANT SELECT, DELETE ON TABLE public.manuscript_files TO authenticated;
 GRANT INSERT (manuscript_id, file_name, storage_path, content_type, size_bytes, position) ON TABLE public.manuscript_files TO authenticated;
 GRANT UPDATE (file_name, position) ON TABLE public.manuscript_files TO authenticated;
+-- The backend (secret key) lists, adds and deletes files for the user
+GRANT SELECT, INSERT, DELETE ON TABLE public.manuscript_files TO service_role;
 
 -- Enables Row Level Security (RLS) so users only ever reach their own files
 ALTER TABLE public.manuscript_files ENABLE ROW LEVEL SECURITY;
