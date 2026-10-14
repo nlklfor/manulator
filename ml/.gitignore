@@ -15,3 +15,4 @@ pylaia/*.yaml
 /*.ipynb
 /scoring.py
 __pycache__/
+!pylaia/example.yaml

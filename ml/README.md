@@ -11,7 +11,12 @@ Two environments, because PyLaia only works with an older Python:
     cd pylaia
     uv sync                 # PyLaia environment (Python 3.10)
 
-In VS Code, choose the kernel `ml/.venv` for notebooks. PyLaia is run from the terminal in `ml/pylaia` with `uv run pylaia-htr-decode-ctc --config <file>.yaml`.
+In VS Code, choose the kernel `ml/.venv` for notebooks.
+
+PyLaia is run from the terminal, not from a notebook. Copy `pylaia/example.yaml`, change the image paths, then:
+
+    cd pylaia
+    uv run pylaia-htr-decode-ctc --config my_config.yaml
 
 ## Download the models (once)
 

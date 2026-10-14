@@ -1,0 +1,29 @@
+# Example settings for reading line images with PyLaia.
+# Copy this file, change the two image paths, then run from ml/pylaia:
+#   uv run pylaia-htr-decode-ctc --config my_config.yaml
+# All paths start from ml/pylaia, so ../ means the ml/ folder.
+
+# List of all letters the model knows (comes with the model download).
+syms: ../models/pylaia-home-alcar/syms.txt
+
+# Text file with the names of the line images to read,
+# one per line, without .png at the end.
+img_list: ../data/home_alcar/img_list.txt
+
+# Folder where those line images are.
+img_dirs:
+  - ../data/home_alcar/
+
+# Which model to use (the downloaded HOME-Alcar model).
+common:
+  experiment_dirname: ../models/pylaia-home-alcar
+  model_filename: ../models/pylaia-home-alcar/model
+
+# How to write the text it reads.
+decode:
+  join_string: ""        # put letters together without anything in between
+  convert_spaces: true   # turn the model's space symbol into a normal space
+
+# Run on the laptop's processor (no graphics card needed).
+trainer:
+  gpus: 0
