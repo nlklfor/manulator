@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.services import manuscript
 from tests.conftest import MANUSCRIPT_ID, OTHER_USERS_MANUSCRIPT_ID
 
 URL = "/api/upload-manuscripts"
@@ -74,3 +75,46 @@ def test_delete_with_wrong_id_deletes_nothing(client, fake_supabase):
     assert len(fake_supabase.tables["manuscripts"]) == 2
     assert len(fake_supabase.tables["manuscript_files"]) == 2
     assert len(fake_supabase.files) == 2
+
+
+def test_load_manuscript_pages(fake_supabase):
+    page = manuscript.load_manuscript_pages(MANUSCRIPT_ID, "user-1")
+
+    assert (page.file_name, page.content_type, page.data) == (
+        "page.png",
+        "image/png",
+        b"png bytes",
+    )
+
+
+def test_process_manuscript(client, fake_supabase, monkeypatch):
+    # The real pipeline needs ml/'s environment, so it is replaced here
+    monkeypatch.setattr(manuscript, "run_ml_pipeline", lambda *_: b"jpg")
+    plan = {
+        "manuscript_id": MANUSCRIPT_ID,
+        "user_id": "user-1",
+        "steps": None,
+        "input": "Detect Lines",
+        "options": None,
+    }
+    response = client.put(f"{URL}/{MANUSCRIPT_ID}", json=plan)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "manuscript_id": MANUSCRIPT_ID,
+        "overlay": "data:image/jpeg;base64,anBn",  # b"jpg" in base64
+    }
+
+
+def test_process_other_users_manuscript_is_not_found(client, fake_supabase):
+    # user_id in the body is ignored: only the logged-in user counts
+    plan = {
+        "manuscript_id": OTHER_USERS_MANUSCRIPT_ID,
+        "user_id": "user-2",
+        "steps": None,
+        "input": "Detect Lines",
+        "options": None,
+    }
+    response = client.put(f"{URL}/{OTHER_USERS_MANUSCRIPT_ID}", json=plan)
+
+    assert response.status_code == 404
