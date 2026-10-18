@@ -26,9 +26,7 @@ def save_upload(file: UploadFile, user_id: str) -> UploadResponse:
 
     # No compression: it can blur handwriting and hurt text recognition
     try:
-        path, url = upload_file(
-            data, content_type, user_id, "manuscripts"
-        )
+        path, url = upload_file(data, content_type, user_id, "manuscripts")
     except StorageException as error:
         logger.warning("Supabase upload failed: %s", error)
         raise HTTPException(
