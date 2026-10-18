@@ -14,17 +14,19 @@ logger = logging.getLogger(__name__)
 
 
 def save_upload(file: UploadFile, user_id: str) -> UploadResponse:
-    if file.content_type not in settings.allowed_content_types:
-        raise HTTPException(415, f"Unsupported file type: {file.content_type}")
+    content_type = file.content_type
+    if not content_type or content_type not in settings.allowed_content_types:
+        raise HTTPException(415, f"Unsupported file type: {content_type}")
 
-    if file.size > settings.max_upload_mb * 1024 * 1024:
+    data = file.file.read()
+    size = len(data)
+
+    if size > settings.max_upload_mb * 1024 * 1024:
         raise HTTPException(413, f"File exceeds the {settings.max_upload_mb} MB limit")
 
     # No compression: it can blur handwriting and hurt text recognition
     try:
-        path, url = upload_file(
-            file.file.read(), file.content_type, user_id, "manuscripts"
-        )
+        path, url = upload_file(data, content_type, user_id, "manuscripts")
     except StorageException as error:
         logger.warning("Supabase upload failed: %s", error)
         raise HTTPException(
@@ -33,9 +35,9 @@ def save_upload(file: UploadFile, user_id: str) -> UploadResponse:
 
     return UploadResponse(
         id=path,
-        filename=Path(file.filename).name,
-        content_type=file.content_type,
-        size=file.size,
+        filename=Path(file.filename or "upload").name,
+        content_type=content_type,
+        size=size,
         url=url,
     )
 

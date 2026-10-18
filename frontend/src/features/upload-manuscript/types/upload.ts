@@ -1,5 +1,8 @@
 export type UploadErrorReason = "invalid-type" | "file-too-large";
-export type UploadStatus = "uploading" | "uploaded" | "upload-failed";
+// Pages move through uploading → uploaded → transcribing → transcribed → corrected
+export type PageStatus = "uploaded" | "transcribing" | "transcribed" | "corrected";
+export type UploadStatus = "uploading" | "upload-failed" | PageStatus;
+export type StatusFilter = "all" | PageStatus;
 
 export interface UploadError {
   fileName: string;
