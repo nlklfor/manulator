@@ -30,6 +30,7 @@ erDiagram
         uuid id PK
         uuid owner_id FK "FK to auth.users.id"
         text title "required, max 200 characters after trimming"
+        text document_type "required, e.g. Religious, max 50 characters"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -42,6 +43,7 @@ erDiagram
         text content_type
         bigint size_bytes
         integer position "1 = first file"
+        text status "uploading, uploaded, transcribing, transcribed or corrected"
         timestamptz created_at
     }
 ```
@@ -68,6 +70,7 @@ A user can create several manuscripts, and each manuscript can contain several f
 | `id` | `uuid` | Primary key. Generated automatically. |
 | `owner_id` | `uuid` | Defaults to the logged in user's `auth.uid()`. References `auth.users.id`; deleting the user deletes their manuscripts. |
 | `title` | `text` | Name shown in the library. Required; must contain 1 to 200 characters after trimming. |
+| `document_type` | `text` | What kind of document it is, chosen by the user when uploading, e.g. `Religious`, `Political`, `Historical`. Free text; must contain 1 to 50 characters after trimming. Defaults to `Other`. |
 | `created_at` | `timestamptz` | When the manuscript row was created. Defaults to `now()`. |
 | `updated_at` | `timestamptz` | Defaults to `now()`. A trigger updates it whenever the manuscript row changes. Changing its file rows alone does not update this timestamp. |
 
@@ -89,6 +92,7 @@ the file itself belongs in the `uploads` Storage bucket.
 | `content_type` | `text` | Must be `image/jpeg`, `image/png` or `application/pdf`. |
 | `size_bytes` | `bigint` | File size in bytes. Must be greater than zero. The current backend's 20 MB limit is separate from this database check. |
 | `position` | `integer` | File order inside the manuscript, starting at 1. Can be changed later. Positions are not required to be unique. |
+| `status` | `text` | Processing step of the page: `uploading`, `uploaded`, `transcribing`, `transcribed` or `corrected`. Defaults to `uploaded`. |
 | `created_at` | `timestamptz` | When the file row was created. Defaults to `now()`. |
 
 The foreign key `(manuscript_id, owner_id)` references `manuscripts(id, owner_id)`.
@@ -156,14 +160,32 @@ await supabase.from("profiles").update({ display_name, avatar_url }).eq("id", us
 
 ### Library integration status
 
-The `manuscripts` and `manuscript_files` tables are already present in the Supabase project.
-The current upload endpoint (`/api/upload-manuscripts`) still saves files to the backend's local
-`uploads` directory, and the frontend library keeps its entries in component state.
-It does not yet save or reload those entries through the two library tables.
+`POST /api/upload-manuscripts` takes the file plus a `title` and `document_type` confirmed by the user.
+The backend uploads the file to the `uploads` bucket, then creates one `manuscripts` row and one
+`manuscript_files` row (position 1, status `uploaded`) linked to it. If saving a row fails, the
+upload is undone. The response `id` is the manuscript id, which `DELETE /api/upload-manuscripts/{id}` uses.
 
-To use the database-backed library, the app will create a manuscript, upload its files to Storage,
-save one `manuscript_files` row per successful upload, and reload manuscripts and their files
-for the logged in user. This describes the intended integration; the SQL alone does not implement it.
+The backend uses the secret key, which skips RLS, so it always sets and filters by `owner_id` itself.
+
+### Migration for an existing project
+
+Run once in the Supabase SQL editor if the tables were created before `document_type` and `status`:
+
+```sql
+ALTER TABLE public.manuscripts
+    ADD COLUMN IF NOT EXISTS document_type TEXT NOT NULL DEFAULT 'Other'
+    CHECK (char_length(trim(document_type)) BETWEEN 1 AND 50);
+GRANT INSERT (title, document_type), UPDATE (title, document_type) ON TABLE public.manuscripts TO authenticated;
+
+ALTER TABLE public.manuscript_files
+    ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'uploaded';
+ALTER TABLE public.manuscript_files DROP CONSTRAINT IF EXISTS manuscript_files_status_check;
+ALTER TABLE public.manuscript_files ADD CONSTRAINT manuscript_files_status_check
+    CHECK (status IN ('uploading', 'uploaded', 'transcribing', 'transcribed', 'corrected'));
+
+GRANT SELECT, INSERT, DELETE ON TABLE public.manuscripts TO service_role;
+GRANT SELECT, INSERT, DELETE ON TABLE public.manuscript_files TO service_role;
+```
 
 ## Storage
 
@@ -435,6 +457,8 @@ CREATE TABLE public.manuscripts (
     owner_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
     -- name shown in the library (required, max 200 characters)
     title TEXT NOT NULL CHECK (char_length(trim(title)) BETWEEN 1 AND 200),
+    -- kind of document, e.g. Religious, Political, Historical (free text, max 50 characters)
+    document_type TEXT NOT NULL DEFAULT 'Other' CHECK (char_length(trim(document_type)) BETWEEN 1 AND 50),
     -- records when the manuscript was created
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
     -- records when the manuscript was last changed (kept up to date by the trigger below)
@@ -470,7 +494,9 @@ REVOKE EXECUTE ON FUNCTION public.set_updated_at() FROM PUBLIC, anon, authentica
 REVOKE ALL ON TABLE public.manuscripts FROM anon, authenticated;
 -- Read, create with a title, rename, delete (owner and dates are set by the database)
 GRANT SELECT, DELETE ON TABLE public.manuscripts TO authenticated;
-GRANT INSERT (title), UPDATE (title) ON TABLE public.manuscripts TO authenticated;
+GRANT INSERT (title, document_type), UPDATE (title, document_type) ON TABLE public.manuscripts TO authenticated;
+-- The backend (secret key) creates, lists and deletes manuscripts for the logged in user
+GRANT SELECT, INSERT, DELETE ON TABLE public.manuscripts TO service_role;
 
 -- Enables Row Level Security (RLS) so users only ever reach their own manuscripts
 ALTER TABLE public.manuscripts ENABLE ROW LEVEL SECURITY;
@@ -513,6 +539,10 @@ CREATE TABLE public.manuscript_files (
     size_bytes BIGINT NOT NULL CHECK (size_bytes > 0),
     -- order of the file inside the manuscript (1 = first)
     position INTEGER NOT NULL CHECK (position >= 1),
+    -- processing step of the page
+    status TEXT NOT NULL DEFAULT 'uploaded'
+        CONSTRAINT manuscript_files_status_check
+        CHECK (status IN ('uploading', 'uploaded', 'transcribing', 'transcribed', 'corrected')),
     -- records when the file was uploaded
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
     -- links the file to its manuscript, refuses a manuscript owned by someone else, and deletes the file with the manuscript
@@ -532,6 +562,8 @@ REVOKE ALL ON TABLE public.manuscript_files FROM anon, authenticated;
 GRANT SELECT, DELETE ON TABLE public.manuscript_files TO authenticated;
 GRANT INSERT (manuscript_id, file_name, storage_path, content_type, size_bytes, position) ON TABLE public.manuscript_files TO authenticated;
 GRANT UPDATE (file_name, position) ON TABLE public.manuscript_files TO authenticated;
+-- The backend (secret key) adds, lists and deletes files for the logged in user
+GRANT SELECT, INSERT, DELETE ON TABLE public.manuscript_files TO service_role;
 
 -- Enables Row Level Security (RLS) so users only ever reach their own files
 ALTER TABLE public.manuscript_files ENABLE ROW LEVEL SECURITY;

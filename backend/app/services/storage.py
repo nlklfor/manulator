@@ -13,7 +13,16 @@ from app.services.database import get_admin_client
 logger = logging.getLogger(__name__)
 
 
-def save_upload(file: UploadFile, user_id: str) -> UploadResponse:
+# Uploads the file, then saves a manuscript row and its file row.
+def save_upload(
+    file: UploadFile, user_id: str, title: str, document_type: str
+) -> UploadResponse:
+    title, document_type = title.strip(), document_type.strip()
+    if not 1 <= len(title) <= 200:
+        raise HTTPException(422, "Title must be 1 to 200 characters.")
+    if not 1 <= len(document_type) <= 50:
+        raise HTTPException(422, "Document type must be 1 to 50 characters.")
+
     if file.content_type not in settings.allowed_content_types:
         raise HTTPException(415, f"Unsupported file type: {file.content_type}")
 
@@ -31,9 +40,46 @@ def save_upload(file: UploadFile, user_id: str) -> UploadResponse:
             502, "Could not save the file. Please try again."
         ) from error
 
+    filename = Path(file.filename or "").name[:255] or "upload"
+    db = get_admin_client()
+    manuscript = None
+    try:
+        # The admin client ignores RLS and auth.uid(), so owner_id is set here
+        manuscript = (
+            db.table("manuscripts")
+            .insert(
+                {"owner_id": user_id, "title": title, "document_type": document_type}
+            )
+            .execute()
+            .data[0]
+        )
+        # status is left out: the database sets it to "uploaded"
+        db.table("manuscript_files").insert(
+            {
+                "manuscript_id": manuscript["id"],
+                "owner_id": user_id,
+                "file_name": filename,
+                "storage_path": path,
+                "content_type": file.content_type,
+                "size_bytes": file.size,
+                "position": 1,
+            }
+        ).execute()
+    except APIError as error:
+        logger.warning("Saving manuscript rows failed: %s", error)
+        # Undo, so no half-saved manuscript or orphan file is left behind
+        if manuscript:
+            db.table("manuscripts").delete().eq("id", manuscript["id"]).execute()
+        delete_file(path)
+        raise HTTPException(
+            502, "Could not save the manuscript. Please try again."
+        ) from error
+
     return UploadResponse(
-        id=path,
-        filename=Path(file.filename).name,
+        id=manuscript["id"],
+        title=title,
+        document_type=document_type,
+        filename=filename,
         content_type=file.content_type,
         size=file.size,
         url=url,
