@@ -26,14 +26,17 @@ def save_upload(
     if file.content_type not in settings.allowed_content_types:
         raise HTTPException(415, f"Unsupported file type: {file.content_type}")
 
-    if file.size > settings.max_upload_mb * 1024 * 1024:
+    # Measure the bytes ourselves: file.size can be None.
+    # Reading 1 byte past the limit is enough to know the file is too large.
+    limit = settings.max_upload_mb * 1024 * 1024
+    data = file.file.read(limit + 1)
+    size = len(data)
+    if size > limit:
         raise HTTPException(413, f"File exceeds the {settings.max_upload_mb} MB limit")
 
     # No compression: it can blur handwriting and hurt text recognition
     try:
-        path, url = upload_file(
-            file.file.read(), file.content_type, user_id, "manuscripts"
-        )
+        path, url = upload_file(data, file.content_type, user_id, "manuscripts")
     except StorageException as error:
         logger.warning("Supabase upload failed: %s", error)
         raise HTTPException(
@@ -61,7 +64,7 @@ def save_upload(
                 "file_name": filename,
                 "storage_path": path,
                 "content_type": file.content_type,
-                "size_bytes": file.size,
+                "size_bytes": size,
                 "position": 1,
             }
         ).execute()
@@ -81,7 +84,7 @@ def save_upload(
         document_type=document_type,
         filename=filename,
         content_type=file.content_type,
-        size=file.size,
+        size=size,
         url=url,
     )
 
