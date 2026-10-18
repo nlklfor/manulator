@@ -72,9 +72,7 @@ export function UploadPageCard() {
 
   // ── Status filter ─────────────────────────────────────────────────────────────
   const statusFiltered =
-    statusFilter === "all"
-      ? sortedEntries
-      : sortedEntries.filter((e) => e.status === statusFilter);
+    statusFilter === "all" ? sortedEntries : sortedEntries.filter((e) => e.status === statusFilter);
 
   // Apply name search on top of sort + status filter
   const trimmed = nameQuery.trim().toLowerCase();
@@ -189,9 +187,7 @@ export function UploadPageCard() {
           <div className="px-10 pt-5">
             <div
               className={`flex items-center gap-3 rounded-mt-lg border bg-mt-raised px-4 py-0 shadow-sm transition-colors ${
-                nameQuery
-                  ? "border-mt-border-strong"
-                  : "border-mt-border"
+                nameQuery ? "border-mt-border-strong" : "border-mt-border"
               } focus-within:border-mt-accent focus-within:outline focus-within:outline-2 focus-within:outline-mt-accent focus-within:-outline-offset-1`}
             >
               <Search className="h-4 w-4 shrink-0 text-mt-text-subtle" aria-hidden="true" />
@@ -258,14 +254,17 @@ export function UploadPageCard() {
                 {nameQuery && statusFilter !== "all"
                   ? `No "${statusFilter}" pages match “${nameQuery}”`
                   : nameQuery
-                  ? `No pages match “${nameQuery}”`
-                  : `No pages with status “${STATUS_CHIPS.find(([v]) => v === statusFilter)?.[1]}”`}
+                    ? `No pages match “${nameQuery}”`
+                    : `No pages with status “${STATUS_CHIPS.find(([v]) => v === statusFilter)?.[1]}”`}
               </p>
               {/* Help the user recover */}
               {(nameQuery || statusFilter !== "all") && (
                 <button
                   type="button"
-                  onClick={() => { setNameQuery(""); setStatusFilter("all"); }}
+                  onClick={() => {
+                    setNameQuery("");
+                    setStatusFilter("all");
+                  }}
                   className="mt-3 text-sm font-medium text-mt-accent-text underline underline-offset-2 hover:text-mt-accent-hover"
                 >
                   Clear filters
