@@ -19,6 +19,7 @@ dev = [
     "pytest>=9.1",
     "httpx>=0.28",
     "ruff===0.16.9",
+    "ty>=0.0.89",
 ]
 
 [tool.pytest.ini_options]
@@ -30,4 +31,7 @@ line-length = 88
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]
+select = ["E", "F", "I", "FAST"]
+
+[tool.ty.environment]
+python-version = "3.12"
