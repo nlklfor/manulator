@@ -2,7 +2,8 @@ import { UploadPageCard } from "@/features/upload-manuscript/components/UploadPa
 
 export default function LibraryPage() {
   return (
-    <main className="min-h-screen px-6 py-12">
+    // UploadPageCard controls its own horizontal padding (px-10) to match the design
+    <main className="min-h-screen">
       <UploadPageCard />
     </main>
   );
