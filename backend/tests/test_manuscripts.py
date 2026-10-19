@@ -166,8 +166,12 @@ def test_process_manuscript(client, fake_supabase, fake_ml_service):
     assert b"png bytes" in body
     assert b'name="process_plan"' in body
     plan_json = json.dumps(
-        {"manuscript_id": MANUSCRIPT_ID, "steps": [], "plan": "Detect Lines",
-         "options": {}}
+        {
+            "manuscript_id": MANUSCRIPT_ID,
+            "steps": [],
+            "plan": "Detect Lines",
+            "options": {},
+        }
     ).encode()
     assert plan_json in body
 
@@ -181,7 +185,8 @@ def test_process_manuscript_ml_service_fails(client, fake_supabase, fake_ml_serv
 
 
 def test_process_manuscript_ml_service_unreachable(
-        client, fake_supabase, fake_ml_service):
+    client, fake_supabase, fake_ml_service
+):
     def not_running(request):
         raise httpx.ConnectError("connection refused", request=request)
 
@@ -193,7 +198,8 @@ def test_process_manuscript_ml_service_unreachable(
 
 
 def test_process_other_users_manuscript_is_not_found(
-        client, fake_supabase, fake_ml_service):
+    client, fake_supabase, fake_ml_service
+):
     # user_id in the body is ignored: only the logged-in user counts
     requests = fake_ml_service(lambda request: httpx.Response(200, json=ML_RESULT))
     plan = {**PLAN, "manuscript_id": OTHER_USERS_MANUSCRIPT_ID, "user_id": "user-2"}
