@@ -10,12 +10,13 @@ class UploadResponse(BaseModel):
     size: int
     url: str
 
+
 class ManuscriptProcessPlan(BaseModel):
     manuscript_id: str
     user_id: str
-    steps: list[str]|None
+    steps: list[str] | None
     plan: str
-    options: dict[str, str]|None
+    options: dict[str, str] | None
 
 
 class ManuscriptTranscriptResponse(BaseModel):

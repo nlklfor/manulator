@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 import httpx
 import pytest
@@ -112,7 +113,7 @@ def test_load_manuscript_pages(fake_supabase):
 @pytest.fixture
 def fake_ml_service(monkeypatch):
     requests = []
-    responses = {"handler": None}
+    responses: dict[str, Any] = {"handler": None}
     real_client = httpx.AsyncClient
 
     def handle(request):

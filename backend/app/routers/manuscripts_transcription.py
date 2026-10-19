@@ -8,6 +8,7 @@ from app.services.auth import get_current_user_id
 
 router = APIRouter(prefix="/process-manuscripts", tags=["manuscripts"])
 
+
 @router.put("/{manuscript_id}", response_model=ManuscriptTranscriptResponse)
 async def process_manuscript(
     manuscript_id: UUID,

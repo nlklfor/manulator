@@ -26,4 +26,3 @@ def delete_manuscript(
     manuscript_id: UUID, user_id: str = Depends(get_current_user_id)
 ) -> None:
     storage.delete_manuscript(str(manuscript_id), user_id)
-

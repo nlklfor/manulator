@@ -121,7 +121,6 @@ def fake_supabase(monkeypatch):
             return SimpleNamespace(data=matching)
 
     class FakeBucket:
-
         def download(self, path):
             return stored_files[path]
 

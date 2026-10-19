@@ -18,7 +18,6 @@ ML_DIR = Path(__file__).resolve().parents[3] / "ml"
 ML_SERVICE_URL = "http://127.0.0.1:8001"
 
 
-
 @dataclass
 class ManuscriptPage:
     file_name: str
@@ -71,6 +70,7 @@ def load_manuscript_pages(manuscript_id: str, user_id: str) -> ManuscriptPage:
 
     return ManuscriptPage(row["file_name"], row["content_type"], data)
 
+
 # process_manuscript sends the manuscript file
 # and the processing plan to the ML service,
 async def process_manuscript(
@@ -81,17 +81,17 @@ async def process_manuscript(
 
     # send the file to the ML pipeline and get the overlay image
     # send httpx request to ml/ endpoint and get the overlay image
-    files = {
-        "file": (page.file_name, page.image_bytes, page.content_type)
-    }
+    files = {"file": (page.file_name, page.image_bytes, page.content_type)}
     # send the processing plan to the ML service
     form = {
-        "process_plan": json.dumps({
-            "manuscript_id": user_plan.manuscript_id,
-            "steps": [],
-            "plan": user_plan.plan,
-            "options": user_plan.options or {},
-        }),
+        "process_plan": json.dumps(
+            {
+                "manuscript_id": user_plan.manuscript_id,
+                "steps": [],
+                "plan": user_plan.plan,
+                "options": user_plan.options or {},
+            }
+        ),
     }
     # Create a post request to the ML service
     # with a timeout of 300 seconds (5 minutes)
@@ -110,4 +110,3 @@ async def process_manuscript(
             ) from exc
 
     return ManuscriptTranscriptResponse.model_validate(response.json())
-
