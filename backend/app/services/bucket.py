@@ -54,6 +54,13 @@ def delete_file(path: str) -> bool:
     return len(removed) > 0
 
 
+# Reads a file from the private bucket.
+# Only pass paths that belong to the logged-in user.
+def download_file(path: str) -> bytes:
+    bucket = get_admin_client().storage.from_(settings.storage_bucket)
+    return bucket.download(path)
+
+
 # New 1-day link for a file in the private bucket
 # Only pass paths that belong to the logged-in user.
 def get_file_url(path: str) -> str:

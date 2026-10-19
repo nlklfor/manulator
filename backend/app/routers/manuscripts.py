@@ -2,7 +2,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, UploadFile
 
-from app.schemas.manuscript import UploadResponse
+from app.schemas.manuscript import (
+    UploadResponse,
+)
 from app.services import storage
 from app.services.auth import get_current_user_id
 

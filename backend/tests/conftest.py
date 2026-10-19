@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.config import settings
 from app.main import app
-from app.services import bucket, storage
+from app.services import bucket, manuscript, storage
 from app.services.auth import get_current_user_id
 
 MANUSCRIPT_ID = "11111111-1111-4111-8111-111111111111"
@@ -62,6 +62,8 @@ def fake_supabase(monkeypatch):
                 "manuscript_id": MANUSCRIPT_ID,
                 "owner_id": "user-1",
                 "storage_path": "user-1/manuscripts/page.png",
+                "file_name": "page.png",
+                "content_type": "image/png",
             },
             {
                 "manuscript_id": OTHER_USERS_MANUSCRIPT_ID,
@@ -97,6 +99,9 @@ def fake_supabase(monkeypatch):
             self.filters[column] = value
             return self
 
+        def order(self, _column):
+            return self
+
         def execute(self):
             rows = tables[self.name]
             if self.new_row:
@@ -116,6 +121,9 @@ def fake_supabase(monkeypatch):
             return SimpleNamespace(data=matching)
 
     class FakeBucket:
+        def download(self, path):
+            return stored_files[path]
+
         def upload(self, path, data, options):
             stored_files[path] = data
 
@@ -138,4 +146,5 @@ def fake_supabase(monkeypatch):
 
     monkeypatch.setattr(bucket, "get_admin_client", FakeSupabase)
     monkeypatch.setattr(storage, "get_admin_client", FakeSupabase)
+    monkeypatch.setattr(manuscript, "get_admin_client", FakeSupabase)
     return SimpleNamespace(tables=tables, files=stored_files)

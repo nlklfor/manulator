@@ -1,5 +1,6 @@
 # Big files: everyone downloads their own
 .venv/
+.python-version
 data/
 models/
 results/
@@ -15,3 +16,6 @@ pylaia/*.yaml
 /*.ipynb
 /scoring.py
 __pycache__/
+
+# Pipeline results
+output/
