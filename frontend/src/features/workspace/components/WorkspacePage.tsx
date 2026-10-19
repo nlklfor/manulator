@@ -2,12 +2,12 @@
 
 // WorkspacePage — detail view of one manuscript page (route: /manuscript/<id>).
 // Layout: top bar, image panel on the left, transcription panel on the right.
-// The transcription panel is filled in a later commit.
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Download } from "lucide-react";
 import { useLibrary } from "@/features/upload-manuscript/context/LibraryContext";
 import { StatusBadge } from "@/features/upload-manuscript/components/StatusBadge";
 import { ImageViewer } from "./ImageViewer";
+import { TranscriptionPanel } from "./TranscriptionPanel";
 
 interface WorkspacePageProps {
   manuscriptId: string;
@@ -15,8 +15,16 @@ interface WorkspacePageProps {
 
 export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   // The library lives in memory (LibraryContext), so we look the page up by id.
-  const { libraryEntries } = useLibrary();
+  const { libraryEntries, updateEntryStatus } = useLibrary();
   const entry = libraryEntries.find((e) => e.id === manuscriptId);
+
+  // Called by the "Transcribe page" button with the chosen model id.
+  // TODO (ML team): call the real transcription API with entry.id and modelId,
+  // then store the result. For now it only marks the page as "transcribing".
+  function handleTranscribe(modelId: string) {
+    void modelId;
+    if (entry) updateEntryStatus(entry.id, "transcribing");
+  }
 
   // Unknown id, e.g. after a browser refresh (the library is not persisted yet)
   if (!entry) {
@@ -54,6 +62,17 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
           </span>
         </nav>
         <StatusBadge status={entry.status} />
+
+        {/* Export is not implemented yet, so the button stays disabled */}
+        <button
+          type="button"
+          disabled
+          title="Available once the page is transcribed"
+          className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-mt-md bg-mt-accent px-3.5 text-sm font-medium text-mt-accent-fg disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Download className="h-4 w-4" aria-hidden="true" />
+          Export
+        </button>
       </header>
 
       {/* Two panels */}
@@ -69,7 +88,7 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
           />
         </section>
         <section aria-label="Transcription" className="flex min-w-0 flex-1 flex-col bg-mt-surface">
-          {/* Transcription panel comes in a later commit */}
+          <TranscriptionPanel status={entry.status} onTranscribe={handleTranscribe} />
         </section>
       </div>
     </div>
