@@ -81,5 +81,5 @@ export function useFileSelection() {
     [updateEntryStatus],
   );
 
-  return { libraryEntries, uploadError, selectFile, removeManuscript };
+  return { libraryEntries, uploadError, selectFile, removeManuscript, updateEntryStatus };
 }
