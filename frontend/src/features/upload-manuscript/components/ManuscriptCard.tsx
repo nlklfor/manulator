@@ -4,6 +4,7 @@ import type { LibraryEntry } from "@/features/upload-manuscript/types/upload";
 import { useState } from "react";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { StatusBadge } from "./StatusBadge";
+import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import { deleteManuscript } from "@/features/upload-manuscript/api/deleteManuscripts";
 
 interface ManuscriptCardProps {
@@ -13,6 +14,8 @@ interface ManuscriptCardProps {
 
 export function ManuscriptCard({ entry, onDeleted }: ManuscriptCardProps) {
   const [deleteLoading, setDeleteLoading] = useState(false);
+  // True while the "Are you sure?" dialog is open
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   async function handleDelete() {
     if (deleteLoading) {
@@ -28,8 +31,8 @@ export function ManuscriptCard({ entry, onDeleted }: ManuscriptCardProps) {
   }
 
   return (
-    <div className="overflow-hidden rounded-mt-lg border border-mt-border bg-mt-raised shadow-sm">
-      {/* Image and file name open the workspace; status badge and delete button stay outside the link */}
+    <div className="group relative overflow-hidden rounded-mt-lg border border-mt-border bg-mt-raised shadow-sm">
+      {/* Image and file name open the workspace; the status badge and delete button stay outside the link */}
       <Link
         href={`/manuscript/${entry.id}`}
         className="block focus-visible:outline-2 focus-visible:outline-mt-accent"
@@ -49,18 +52,34 @@ export function ManuscriptCard({ entry, onDeleted }: ManuscriptCardProps) {
         <p className="truncate px-2.5 pt-2.5 text-sm font-medium text-mt-text">{entry.fileName}</p>
       </Link>
       <div className="px-2.5 pb-2.5">
-        <div className="flex justify-between">
-          <div>
-            <StatusBadge status={entry.status} className="mt-1.5" />
-          </div>
-          <DeleteButton
-            onClick={handleDelete}
-            disabled={deleteLoading}
-            isLoading={deleteLoading}
-            ariaLabel={`Delete ${entry.fileName}`}
-          />
-        </div>
+        <StatusBadge status={entry.status} className="mt-1.5" />
       </div>
+
+      {/* Delete button: top right, shown on hover or keyboard focus (always on touch screens,
+          which have no hover). It is outside the link, so clicking it does not navigate. */}
+      <div
+        className={`absolute right-2 top-2 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100 ${
+          deleteLoading ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        <DeleteButton
+          onClick={() => setConfirmingDelete(true)}
+          disabled={deleteLoading}
+          isLoading={deleteLoading}
+          ariaLabel={`Delete ${entry.fileName}`}
+        />
+      </div>
+
+      {confirmingDelete && (
+        <DeleteConfirmDialog
+          name={entry.fileName}
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={() => {
+            setConfirmingDelete(false);
+            handleDelete();
+          }}
+        />
+      )}
     </div>
   );
 }
