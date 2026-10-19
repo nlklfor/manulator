@@ -1,21 +1,18 @@
 import json
 import logging
 from dataclasses import dataclass
-from pathlib import Path
 
 import httpx
 from fastapi import HTTPException
 from postgrest import APIError
 from storage3.utils import StorageException
 
+from app.config import settings
 from app.schemas.manuscript import ManuscriptProcessPlan, ManuscriptTranscriptResponse
 from app.services.bucket import download_file
 from app.services.database import get_admin_client
 
 logger = logging.getLogger(__name__)
-
-ML_DIR = Path(__file__).resolve().parents[3] / "ml"
-ML_SERVICE_URL = "http://127.0.0.1:8001"
 
 
 @dataclass
@@ -98,7 +95,7 @@ async def process_manuscript(
     async with httpx.AsyncClient(timeout=300.0) as client:
         try:
             response = await client.post(
-                f"{ML_SERVICE_URL}/api/process-manuscripts/",
+                f"{settings.ml_service_url}/api/process-manuscripts/",
                 files=files,
                 data=form,
             )
