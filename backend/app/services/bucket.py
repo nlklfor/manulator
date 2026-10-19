@@ -14,12 +14,12 @@ EXTENSIONS = {
 }
 MAX_IMAGE_SIDE = 2048  # px
 QUALITY = 80
-URL_EXPIRES_IN = 3600  # seconds
+URL_EXPIRES_IN = 24 * 60 * 60  # 1 day, in seconds
 
 
 # Saves to <user_id>/<folder>/<random>.<ext> and returns (path, url).
 # public=True: public bucket, the url is permanent
-# public=False: private bucket, the url lasts 1 hour
+# public=False: private bucket, the url lasts 1 day
 def upload_file(
     data: bytes,
     content_type: str,
@@ -54,7 +54,7 @@ def delete_file(path: str) -> bool:
     return len(removed) > 0
 
 
-# New 1-hour link for a file in the private bucket
+# New 1-day link for a file in the private bucket
 # Only pass paths that belong to the logged-in user.
 def get_file_url(path: str) -> str:
     bucket = get_admin_client().storage.from_(settings.storage_bucket)

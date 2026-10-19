@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { validateFile } from "./validateFile";
 import type { LibraryEntry, UploadError } from "../types/upload";
-import { uploadImage } from "../api/uploadImage";
+import { uploadImage, type UploadDetails } from "../api/uploadImage";
 
 const ERROR_DISPLAY_DURATION = 5000;
 
 export function useFileSelection() {
   const [libraryEntries, setLibraryEntries] = useState<LibraryEntry[]>([]);
   const [uploadError, setUploadError] = useState<UploadError | null>(null);
+  // File waiting for the user to confirm its name and document type
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previewUrlsRef = useRef(new Set<string>());
 
@@ -50,23 +52,32 @@ export function useFileSelection() {
     });
   }, []);
 
-  const selectFile = useCallback(
-    (file: File) => {
-      const validationError = validateFile(file);
+  const selectFile = useCallback((file: File) => {
+    const validationError = validateFile(file);
 
-      if (validationError) {
-        setUploadError(validationError);
-        return;
-      }
+    if (validationError) {
+      setUploadError(validationError);
+      return;
+    }
 
-      setUploadError(null);
+    setUploadError(null);
+    setPendingFile(file);
+  }, []);
+
+  const cancelUpload = useCallback(() => setPendingFile(null), []);
+
+  const confirmUpload = useCallback(
+    (details: UploadDetails) => {
+      const file = pendingFile;
+      if (!file) return;
+      setPendingFile(null);
 
       const id = crypto.randomUUID();
       const previewUrl = URL.createObjectURL(file);
       previewUrlsRef.current.add(previewUrl);
       const newEntry: LibraryEntry = {
         id,
-        fileName: file.name,
+        fileName: details.title,
         fileType: file.type,
         previewUrl,
         status: "uploading",
@@ -74,12 +85,28 @@ export function useFileSelection() {
 
       setLibraryEntries((prev) => [newEntry, ...prev]);
 
-      uploadImage(file)
-        .then(() => updateEntryStatus(id, "uploaded"))
+      uploadImage(file, details)
+        .then((response) =>
+          // Switch to the server's manuscript id, so deleting it works
+          setLibraryEntries((prev) =>
+            prev.map((entry) =>
+              entry.id === id ? { ...entry, id: response.id, status: "uploaded" } : entry,
+            ),
+          ),
+        )
         .catch(() => updateEntryStatus(id, "upload-failed"));
     },
-    [updateEntryStatus],
+    [pendingFile, updateEntryStatus],
   );
 
-  return { libraryEntries, uploadError, selectFile, removeManuscript, updateEntryStatus };
+  return {
+    libraryEntries,
+    uploadError,
+    pendingFile,
+    selectFile,
+    confirmUpload,
+    cancelUpload,
+    removeManuscript,
+    updateEntryStatus,
+  };
 }

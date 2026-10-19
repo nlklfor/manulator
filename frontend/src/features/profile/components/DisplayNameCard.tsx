@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
+import type { ChangeEvent, SubmitEvent } from "react";
 import { Toast } from "@/components/ui/Toast";
 import { updateDisplayName } from "../api/profile";
 import type { Profile } from "../api/profile";
@@ -50,7 +50,7 @@ function DisplayNameForm({ profile, onSaved }: DisplayNameFormProps) {
     setError("");
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const message = validateDisplayName(trimmed);
     if (message) {
