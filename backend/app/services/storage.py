@@ -6,8 +6,8 @@ from postgrest import APIError
 from storage3.utils import StorageException
 
 from app.config import settings
-from app.schemas.manuscript import UploadResponse
-from app.services.bucket import delete_file, upload_file
+from app.schemas.manuscript import ManuscriptResponse, UploadResponse
+from app.services.bucket import delete_file, get_file_urls, upload_file
 from app.services.database import get_admin_client
 
 logger = logging.getLogger(__name__)
@@ -87,6 +87,63 @@ def save_upload(
         size=size,
         url=url,
     )
+
+
+# Returns the user's manuscripts, newest first, each with its first file.
+def list_manuscripts(user_id: str) -> list[ManuscriptResponse]:
+    db = get_admin_client()
+    try:
+        # The admin client ignores RLS, so the owner must be checked here
+        manuscripts = (
+            db.table("manuscripts")
+            .select("id, title, document_type, created_at")
+            .eq("owner_id", user_id)
+            .order("created_at", desc=True)
+            .execute()
+            .data
+        )
+        files = (
+            db.table("manuscript_files")
+            .select(
+                "manuscript_id, file_name, storage_path, content_type, "
+                "size_bytes, position, status"
+            )
+            .eq("owner_id", user_id)
+            .order("position")
+            .execute()
+            .data
+        )
+    except APIError as error:
+        logger.warning("Loading manuscripts failed: %s", error)
+        raise HTTPException(
+            502, "Could not load your manuscripts. Please try again."
+        ) from error
+
+    first_files: dict[str, dict] = {}
+    for row in files:
+        first_files.setdefault(row["manuscript_id"], row)
+
+    try:
+        urls = get_file_urls([row["storage_path"] for row in first_files.values()])
+    except StorageException as error:
+        logger.warning("Could not create file links: %s", error)
+        urls = {}
+
+    return [
+        ManuscriptResponse(
+            id=manuscript["id"],
+            title=manuscript["title"],
+            document_type=manuscript["document_type"],
+            created_at=manuscript["created_at"],
+            filename=file["file_name"],
+            content_type=file["content_type"],
+            size=file["size_bytes"],
+            status=file["status"],
+            url=urls.get(file["storage_path"], ""),
+        )
+        for manuscript in manuscripts
+        if (file := first_files.get(manuscript["id"]))
+    ]
 
 
 # Deletes a manuscript, its file rows (foreign key cascade) and its files in Storage.
