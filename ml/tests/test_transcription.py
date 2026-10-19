@@ -1,4 +1,4 @@
-from transcription import read_pylaia_output
+from services.transcription import read_pylaia_output
 
 
 def test_read_pylaia_output_sorts_lines_and_skips_noise():
