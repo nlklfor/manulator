@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ProfileProvider } from "@/features/profile/ProfileProvider";
 
