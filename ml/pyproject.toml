@@ -4,9 +4,11 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
     "datasets>=5.0.1",
+    "fastapi>=0.146.0",
     "jiwer>=4.0.0",
     "kraken>=7.1.1",
     "transformers>=5.12.1",
+    "uvicorn[standard]>=0.54.0",
 ]
 
 [tool.uv]
@@ -15,5 +17,11 @@ override-dependencies = ["scipy>=1.16"]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "ipykernel>=7.4.0",
+    "pytest>=9.1.1",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
