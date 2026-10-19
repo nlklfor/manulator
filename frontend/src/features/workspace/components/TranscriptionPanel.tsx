@@ -1,13 +1,15 @@
 "use client";
 
 // TranscriptionPanel — right panel of the workspace.
-// For now it covers the first two states of a page:
-//   "uploaded"     -> empty state: pick a recognition model and start the transcription
-//   "transcribing" -> waiting for the HTR model
-// The editable line list for finished transcriptions is added in a later commit.
+// It shows one of three states, depending on the page status:
+//   "uploaded"                -> empty state: pick a recognition model and start
+//   "transcribing"            -> waiting for the HTR model
+//   "transcribed"/"corrected" -> the editable list of lines
 import { useState } from "react";
 import { ScanLine } from "lucide-react";
 import type { UploadStatus } from "@/features/upload-manuscript/types/upload";
+import type { TranscriptionLine } from "../types";
+import { NothingToReview, TranscriptionLines } from "./TranscriptionLines";
 
 // Placeholder list. The ML team replaces it with the models the backend offers.
 const HTR_MODELS = [
@@ -19,24 +21,72 @@ const HTR_MODELS = [
 
 interface TranscriptionPanelProps {
   status: UploadStatus;
+  lines: TranscriptionLine[]; // filled by the transcription flow (ML team)
+  onSaveLine: (n: number, text: string) => void;
   // Called with the id of the model the user picked
   onTranscribe: (modelId: string) => void;
 }
 
-export function TranscriptionPanel({ status, onTranscribe }: TranscriptionPanelProps) {
+export function TranscriptionPanel({
+  status,
+  lines,
+  onSaveLine,
+  onTranscribe,
+}: TranscriptionPanelProps) {
   const [modelId, setModelId] = useState<string>(HTR_MODELS[0].id);
+  const [lineFilter, setLineFilter] = useState<"all" | "review">("all");
 
   const isUploaded = status === "uploaded";
   const isTranscribing = status === "transcribing";
+  const isTranscribed = status === "transcribed" || status === "corrected";
+
+  // Lines that still contain words the model was unsure about
+  const reviewCount = lines.filter((l) => l.lowConfWords.length > 0).length;
+  const visibleLines =
+    lineFilter === "review" ? lines.filter((l) => l.lowConfWords.length > 0) : lines;
 
   return (
     <>
       {/* Panel header */}
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-mt-border px-4">
-        <h2 className="text-[15px] font-semibold text-mt-text">Transcription</h2>
-        <span className="text-xs text-mt-text-subtle">
-          {isTranscribing ? "Working…" : "No text yet"}
-        </span>
+      <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-mt-border px-4">
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-[15px] font-semibold text-mt-text">Transcription</h2>
+          <span className="text-xs text-mt-text-subtle">
+            {isTranscribed
+              ? `${lines.length} lines · ${reviewCount ? `${reviewCount} to review` : "all reviewed"}`
+              : isTranscribing
+                ? "Working…"
+                : "No text yet"}
+          </span>
+        </div>
+
+        {/* Filter: all lines / only lines with uncertain words */}
+        {isTranscribed && (
+          <div
+            role="group"
+            aria-label="Which lines to show"
+            className="flex gap-0.5 rounded-mt-md bg-mt-sunken p-0.5"
+          >
+            {(["all", "review"] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                aria-pressed={lineFilter === f}
+                onClick={() => setLineFilter(f)}
+                className={`h-7 rounded px-2.5 text-xs font-medium ${
+                  lineFilter === f
+                    ? "bg-mt-raised text-mt-text shadow-sm"
+                    : "text-mt-text-muted hover:text-mt-text"
+                }`}
+              >
+                {f === "all" ? "All lines" : "Needs review"}
+                {f === "review" && (
+                  <span className="ml-1 font-mono text-[10px] opacity-75">{reviewCount}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Empty state: nothing transcribed yet */}
@@ -110,6 +160,16 @@ export function TranscriptionPanel({ status, onTranscribe }: TranscriptionPanelP
           </p>
         </div>
       )}
+
+      {/* Finished transcription */}
+      {isTranscribed &&
+        (lines.length === 0 ? (
+          <p className="p-8 text-center text-sm text-mt-text-muted">No lines to show yet.</p>
+        ) : visibleLines.length === 0 ? (
+          <NothingToReview />
+        ) : (
+          <TranscriptionLines lines={visibleLines} onSaveLine={onSaveLine} />
+        ))}
     </>
   );
 }
