@@ -3,11 +3,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Form, UploadFile
 
 from app.schemas.manuscript import (
-    ManuscriptProcessPlan,
-    ManuscriptTranscriptResponse,
     UploadResponse,
 )
-from app.services import manuscript, storage
+from app.services import storage
 from app.services.auth import get_current_user_id
 
 router = APIRouter(prefix="/upload-manuscripts", tags=["manuscripts"])

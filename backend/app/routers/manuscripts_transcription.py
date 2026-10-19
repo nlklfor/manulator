@@ -2,13 +2,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
-from app.schemas.manuscript import (
-    ManuscriptProcessPlan
-)
+from app.schemas.manuscript import ManuscriptProcessPlan, ManuscriptTranscriptResponse
 from app.services import manuscript
 from app.services.auth import get_current_user_id
-
-from app.schemas.manuscript import ManuscriptTranscriptResponse
 
 router = APIRouter(prefix="/process-manuscripts", tags=["manuscripts"])
 
