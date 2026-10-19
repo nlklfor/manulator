@@ -5,6 +5,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from app.config import settings
 from app.main import app
 from app.services import manuscript
 from tests.conftest import MANUSCRIPT_ID, OTHER_USERS_MANUSCRIPT_ID
@@ -160,7 +161,7 @@ def test_process_manuscript(client, fake_supabase, fake_ml_service):
     # The backend sends the stored page and the plan to the ML service
     [sent] = requests
     assert sent.method == "POST"
-    assert str(sent.url) == f"{manuscript.ML_SERVICE_URL}/api/process-manuscripts/"
+    assert str(sent.url) == f"{settings.ml_service_url}/api/process-manuscripts/"
     body = sent.read()
     assert b'filename="page.png"' in body
     assert b"Content-Type: image/png" in body

@@ -13,8 +13,11 @@ router = APIRouter(prefix="/process-manuscripts", tags=["manuscripts"])
 @router.post("/", response_model=ManuscriptProcessResponse)
 def process_manuscript(process_plan: Annotated[str, Form()], file: Annotated[UploadFile, File()]):
     # check if file has correct format
-    if not file or file.content_type not in ["application/pdf", "image/jpeg", "image/png"]:
-        raise HTTPException(status_code=400, detail="Invalid file format")
+    # PDFs are not supported yet: Kraken can only open images
+    if file.content_type == "application/pdf":
+        raise HTTPException(status_code=415, detail="PDFs are not supported yet")
+    if file.content_type not in ["image/jpeg", "image/png"]:
+        raise HTTPException(status_code=415, detail="Invalid file format")
     try:
         # validate the process plan
         # check whether the process plan is valid JSON and
@@ -31,6 +34,9 @@ def process_manuscript(process_plan: Annotated[str, Form()], file: Annotated[Upl
                 options=plan.options)
     # create the pipeline and run it
     pipeline = Pipeline(task)
+    # only steps that are implemented in the pipeline can be run
+    if plan.plan not in pipeline.actions:
+        raise HTTPException(status_code=400, detail=f"Unknown step: {plan.plan}")
     result = pipeline.run()
     if not result["Detect Lines"]:
         raise HTTPException(status_code=500, detail="ML pipeline failed to detect lines")
