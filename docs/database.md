@@ -1,14 +1,14 @@
-# Database
+Database
 
 The database runs on [Supabase](https://supabase.com) (managed PostgreSQL + Auth).
 Supabase Auth handles sign up, log in and passwords in its own `auth` schema.
 Our own tables live in the `public` schema.
 
-The SQL for our three tables is in [Setup SQL](#setup-sql) at the bottom of this page.
+The SQL for our three tables is in Setup SQL at the bottom of this page.
 Run it in order on a new Supabase project, then configure Auth and Storage as described below.
 The SQL recreates the tables and their rules; it does not restore existing users, rows or uploaded files.
 
-## Schema
+Schema
 
 ```mermaid
 erDiagram
@@ -30,6 +30,7 @@ erDiagram
         uuid id PK
         uuid owner_id FK "FK to auth.users.id"
         text title "required, max 200 characters after trimming"
+        text document_type "required, e.g. Religious, max 50 characters"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -42,11 +43,13 @@ erDiagram
         text content_type
         bigint size_bytes
         integer position "1 = first file"
+        text status "uploading, uploaded, transcribing, transcribed or corrected"
         timestamptz created_at
+        text status "required, defaults to uploaded"
     }
 ```
 
-### `public.profiles`
+`public.profiles`
 
 One row per registered user. Created automatically at sign up; the app never inserts rows itself.
 
@@ -58,7 +61,7 @@ One row per registered user. Created automatically at sign up; the app never ins
 | `display_name` | `text` | Name shown in the app. Optional (can be empty), max 50 characters. Set at sign up or edited later by the user. |
 | `avatar_url` | `text` | Link to the profile picture (e.g. a `.webp` image). Optional, must start with `https://`. Only the link is stored, not the image. |
 
-### `public.manuscripts`
+`public.manuscripts`
 
 One row per manuscript in a user's library. A manuscript groups uploaded files, like a folder.
 A user can create several manuscripts, and each manuscript can contain several files.
@@ -68,16 +71,22 @@ A user can create several manuscripts, and each manuscript can contain several f
 | `id` | `uuid` | Primary key. Generated automatically. |
 | `owner_id` | `uuid` | Defaults to the logged in user's `auth.uid()`. References `auth.users.id`; deleting the user deletes their manuscripts. |
 | `title` | `text` | Name shown in the library. Required; must contain 1 to 200 characters after trimming. |
+| `document_type` | `text` | What kind of document it is, chosen by the user when uploading, e.g. `Religious`, `Political`, `Historical`. Free text; must contain 1 to 50 characters after trimming. Defaults to `Other`. |
 | `created_at` | `timestamptz` | When the manuscript row was created. Defaults to `now()`. |
 | `updated_at` | `timestamptz` | Defaults to `now()`. A trigger updates it whenever the manuscript row changes. Changing its file rows alone does not update this timestamp. |
 
 The pair `(id, owner_id)` is unique so the files table can check both the manuscript and its owner.
 Indexes support listing a user's manuscripts newest first and searching within titles (`pg_trgm`).
 
-### `public.manuscript_files`
+`public.manuscript_files`
 
 One row per uploaded file belonging to a manuscript. This table stores the file's details and location;
 the file itself belongs in the `uploads` Storage bucket.
+
+One uploaded image or PDF creates one file row. A PDF containing several pages still has one
+file record and one file-level status. Separate page records would be needed to track each PDF
+page independently. The application can collect related file rows into an array for display;
+an array column is not needed in the database.
 
 | Column | Type | Notes |
 | ------ | ---- | ----- |
@@ -89,7 +98,9 @@ the file itself belongs in the `uploads` Storage bucket.
 | `content_type` | `text` | Must be `image/jpeg`, `image/png` or `application/pdf`. |
 | `size_bytes` | `bigint` | File size in bytes. Must be greater than zero. The current backend's 20 MB limit is separate from this database check. |
 | `position` | `integer` | File order inside the manuscript, starting at 1. Can be changed later. Positions are not required to be unique. |
+| `status` | `text` | Processing step of the page: `uploading`, `uploaded`, `transcribing`, `transcribed` or `corrected`. Defaults to `uploaded`. |
 | `created_at` | `timestamptz` | When the file row was created. Defaults to `now()`. |
+| `status` | `text` | Required processing status. Defaults to `uploaded`; allowed values are listed below. Can be set when inserting a file and updated later. |
 
 The foreign key `(manuscript_id, owner_id)` references `manuscripts(id, owner_id)`.
 It prevents attaching a file to another user's manuscript. Deleting a manuscript deletes its file rows
@@ -98,7 +109,39 @@ with `ON DELETE CASCADE`; deleting the actual Storage objects is a separate oper
 Indexes support loading a manuscript's files in position order, listing a user's files,
 and searching within file names (`pg_trgm`).
 
-### Triggers
+File statuses
+
+Each uploaded file has its own status. Values are stored in lowercase and displayed with
+capitalised labels in the application.
+
+| Stored value | Display label | Meaning |
+| ------------ | ------------- | ------- |
+| `uploading` | Uploading | File transfer is in progress. |
+| `uploaded` | Uploaded | The file has been stored successfully. |
+| `transcribing` | Transcribing | Recognition is processing the file. |
+| `transcribed` | Transcribed | The generated transcription has been saved. |
+| `corrected` | Corrected | The user's corrections have been saved. |
+
+The intended progression is:
+
+```text
+Uploading → Uploaded → Transcribing → Transcribed → Corrected
+```
+
+Status is required and defaults to `uploaded`. Existing file records receive that default when
+the column is added. If the application creates a record before the transfer finishes, it must
+explicitly set `uploading`, then change it to `uploaded` after success.
+
+The database validates the allowed values; the application controls when they change. Adding
+the column does not automatically start recognition, save transcription text or mark corrections
+as complete. The frontend's `upload-failed` error state is not one of the five stored statuses.
+
+Database status validation was tested on 16 October 2026. All 11 checks passed: the default value,
+saving and reading all five statuses, rejecting `finished`, an empty string, uppercase `UPLOADED`
+and `NULL`, and confirming that the temporary test manuscript and file were rolled back.
+These checks covered status validation, not application integration or user access rules.
+
+Triggers
 
 | Trigger | On | What it does |
 | ------- | -- | ------------ |
@@ -111,7 +154,7 @@ If profile creation fails during sign up, that sign up fails too. The manuscript
 runs with the caller's privileges and also has an empty `search_path`.
 API execution privileges are revoked for all three functions; they are intended to run as triggers.
 
-### Security (Row Level Security)
+Security (Row Level Security)
 
 RLS is enabled on all three public tables. Together with column permissions, it controls which rows
 logged in users can reach and which fields they can change.
@@ -120,7 +163,7 @@ logged in users can reach and which fields they can change.
 | ----- | --------------------------------------------------- |
 | `profiles` | Read; update only `display_name` and `avatar_url`. Ownership is checked with `auth.uid() = id`. |
 | `manuscripts` | Read, create with a `title`, rename the `title`, and delete. Ownership is checked with `auth.uid() = owner_id`. |
-| `manuscript_files` | Read, add a file with `manuscript_id`, `file_name`, `storage_path`, `content_type`, `size_bytes` and `position`; update only `file_name` and `position`; delete. Ownership is checked with `auth.uid() = owner_id`. |
+| `manuscript_files` | Read, add a file with `manuscript_id`, `file_name`, `storage_path`, `content_type`, `size_bytes`, `position` and `status`; update only `file_name`, `position` and `status`; delete. Ownership is checked with `auth.uid() = owner_id`. |
 
 `anon` (not logged in) has no access to these tables. Profiles are created by the Auth trigger.
 Users cannot change their profile's `id`, `email` or `created_at`, and cannot insert or delete profiles.
@@ -131,7 +174,7 @@ When we add another editable profile field, add it to `GRANT UPDATE (...) ... TO
 These rules apply to requests made with the user's access token. The backend secret key bypasses RLS,
 so backend operations using that key must check the user's identity and ownership themselves.
 
-### Using the profile in the app
+Using the profile in the app
 
 The current app sends registration requests through the FastAPI backend. The backend includes
 `display_name` in Supabase Auth metadata, and the trigger saves it in the profile.
@@ -148,24 +191,27 @@ await supabase.auth.signUp({
 });
 ```
 
-The profile page saves the name and the picture link this way (the picture file itself is uploaded first, see [Profile picture uploads](#profile-picture-uploads)):
+The profile page saves the name and the picture link this way (the picture file itself is uploaded first, see Profile picture uploads):
 
 ```ts
 await supabase.from("profiles").update({ display_name, avatar_url }).eq("id", user.id);
 ```
 
-### Library integration status
+Library integration status
 
-The `manuscripts` and `manuscript_files` tables are already present in the Supabase project.
-The current upload endpoint (`/api/upload-manuscripts`) still saves files to the backend's local
-`uploads` directory, and the frontend library keeps its entries in component state.
-It does not yet save or reload those entries through the two library tables.
+The `manuscripts` and `manuscript_files` tables are already present in the Supabase project,
+including the file status column. The upload endpoint (`/api/upload-manuscripts`) stores files
+in Supabase Storage. The frontend library currently keeps its entries and displayed statuses
+in component state. Uploads are not yet connected to creating and reloading the library
+database records.
 
 To use the database-backed library, the app will create a manuscript, upload its files to Storage,
 save one `manuscript_files` row per successful upload, and reload manuscripts and their files
-for the logged in user. This describes the intended integration; the SQL alone does not implement it.
+for the logged in user. It must also read and update `manuscript_files.status` so badges and
+filters reflect the saved values. This describes the intended integration; the SQL alone does
+not implement it.
 
-## Storage
+Storage
 
 The Supabase project has two buckets:
 
@@ -177,14 +223,14 @@ The Supabase project has two buckets:
 Public avatar URLs can be viewed by anyone with the URL. Private manuscript downloads require
 authorized access or a signed URL. Table RLS and Storage access rules are configured separately.
 The `avatars` bucket has access policies, so the browser uploads profile pictures directly
-(see [Avatar storage](#avatar-storage)). The `uploads` bucket has no policies yet.
+(see Avatar storage). The `uploads` bucket has no policies yet.
 
 Deleting a manuscript or user removes the related database rows through the foreign keys,
 but it does not remove the actual uploaded objects. File cleanup must use the
 [Supabase Storage API](https://supabase.com/docs/guides/storage/management/delete-objects).
 Keep the object paths before deleting their metadata so the app can clean up the files.
 
-### Profile picture uploads
+Profile picture uploads
 
 The frontend uploads the picture straight to Supabase, with the logged-in user's token
 (`frontend/src/features/profile/api/profile.ts`). There is no backend code for it.
@@ -200,11 +246,11 @@ The frontend uploads the picture straight to Supabase, with the logged-in user's
 
 Removing the picture first sets `avatar_url` to null, then deletes the file.
 
-The [Avatar storage](#avatar-storage) policies only let a user write into the folder named after
+The Avatar storage policies only let a user write into the folder named after
 their own id. The bucket only accepts WebP and JPEG files up to 1 MB (the resized picture is
 much smaller). Supabase checks the declared file type and size, not the image contents.
 
-## Setting up a Supabase project
+Setting up a Supabase project
 
 1. **Auth settings** (Dashboard → Authentication → Sign In / Providers):
    - **Email** provider: on.
@@ -216,14 +262,14 @@ much smaller). Supabase checks the declared file type and size, not the image co
    - For a deployed frontend, add the same paths on its actual domain and set the Site URL accordingly.
      These URLs must match the backend's `FRONTEND_URL`; see
      [Supabase's redirect URL guide](https://supabase.com/docs/guides/auth/redirect-urls).
-3. **Run the SQL:** open *SQL Editor* and run the three [Setup SQL](#setup-sql) blocks in order:
+3. **Run the SQL:** open *SQL Editor* and run the three Setup SQL blocks in order:
    profiles, manuscripts, then manuscript files. Run them before registering application users.
 4. **Storage:** create `uploads` with **Public bucket off** and `avatars` with **Public bucket on**,
-   then run the [Avatar storage](#avatar-storage) SQL. It sets the bucket limits and lets users
+   then run the Avatar storage SQL. It sets the bucket limits and lets users
    upload their own profile picture.
 5. **Environment:** fill in the frontend and backend files below, then restart both servers.
 
-## Updating an existing project
+Updating an existing project
 
 If the project was set up before `display_name` and `avatar_url` were added, run this once in the *SQL Editor*
 instead of the full Setup SQL (new projects don't need it, the Setup SQL below already includes it):
@@ -260,19 +306,46 @@ CREATE POLICY "Users can update own profile"
     WITH CHECK ((select auth.uid()) = id);
 ```
 
-If profile pictures cannot be uploaded yet, run the [Avatar storage](#avatar-storage) SQL once.
+If profile pictures cannot be uploaded yet, run the Avatar storage SQL once.
 
-If the library tables have not been created yet, run [Library part 1](#library-part-1-manuscripts)
-and then [Library part 2](#library-part-2-manuscript-files). The current project already has both.
+If the library tables have not been created yet, run Library part 1
+and then Library part 2. The current project already has both.
 Do not rerun table creation or the profile update above when those tables or columns already exist.
 
-## Email
+Add file statuses
+
+Run this once only if `manuscript_files` already exists and its `status` column is missing.
+New projects use the complete Library part 2 script instead.
+The current Manulator project already has this change, so it does not need to be run again there.
+
+```sql
+BEGIN;
+
+ALTER TABLE public.manuscript_files
+    ADD COLUMN status TEXT NOT NULL DEFAULT 'uploaded'
+    CONSTRAINT manuscript_files_status_check
+    CHECK (status IN (
+        'uploading',
+        'uploaded',
+        'transcribing',
+        'transcribed',
+        'corrected'
+    ));
+
+GRANT INSERT (status), UPDATE (status)
+    ON TABLE public.manuscript_files
+    TO authenticated;
+
+COMMIT;
+```
+
+Email
 
 Manulator uses [Resend](https://resend.com) with the custom domain `mail.manulator.app` to send
 confirmation and password-reset emails. Without a custom domain, Supabase's built-in mail rate-limits
 to ~2 emails per hour and only works reliably for team members.
 
-### Setup summary (already done)
+Setup summary (already done)
 
 1. Domain `manulator.app` registered via Name.com (GitHub Student Pack — free for 1 year).
 2. DNS records added in Name.com's DNS management (DKIM, SPF x2, DMARC) — verified by Resend.
@@ -282,7 +355,7 @@ to ~2 emails per hour and only works reliably for team members.
    - Host: `smtp.resend.com`, Port: `465`
    - Username: `resend`, Password: Resend API key
 
-### Email templates
+Email templates
 
 HTML templates live in `docs/email-templates/`. Paste each one into
 **Supabase → Authentication → Email Templates** (replace the default body):
@@ -295,7 +368,7 @@ HTML templates live in `docs/email-templates/`. Paste each one into
 Template variables used: `{{ .ConfirmationURL }}`, `{{ .Email }}`,
 `{{ if .Data.display_name }}{{ .Data.display_name }}{{ else }}there{{ end }}`.
 
-### Verified badge
+Verified badge
 
 `AccountCard.tsx` calls `fetchEmailVerified()` (in `profile.ts`) on mount.
 That function hits `GET /auth/v1/user` and returns `Boolean(user.email_confirmed_at)`.
@@ -303,7 +376,7 @@ A green **✓ Verified** pill (mt-success colours) or a yellow **Not verified** 
 (mt-warning colours) is shown next to the email address in the Account card.
 No database schema change is needed — the field lives on Supabase's auth user object.
 
-## Keys and environment variables
+Keys and environment variables
 
 Each person creates their own `.env` files with the content below and fills in the values.
 These files are git-ignored: never commit them, and never share the secret key in chat.
@@ -333,13 +406,13 @@ FRONTEND_URL=http://localhost:3000
 Write each line as `NAME=value` (no quotes or brackets) and restart the dev server after changing a `.env` file.
 If you don't have access to the Supabase Dashboard, ask the database owner for the values.
 
-## Setup SQL
+Setup SQL
 
 Run once on a new Supabase project (SQL Editor → paste → *Run*), in the order below.
-These are the existing profile SQL and the original two library queries.
+The scripts create the profiles and library tables, including file statuses and their permissions.
 Auth URL settings and Storage buckets must be configured separately as described above.
 
-### Profiles
+Profiles
 
 ```sql
 -- Creates the profiles table, its triggers and security rules (run once on a new Supabase project)
@@ -420,7 +493,12 @@ CREATE POLICY "Users can update own profile"
     WITH CHECK ((select auth.uid()) = id);
 ```
 
-### Library part 1: manuscripts
+Library part 1: manuscripts
+
+Saved SQL Editor query name: `library_1_manuscripts`.
+
+Creates the manuscript library entries, including titles, ownership, dates, indexes,
+the timestamp trigger and access rules.
 
 ```sql
 
@@ -435,6 +513,8 @@ CREATE TABLE public.manuscripts (
     owner_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
     -- name shown in the library (required, max 200 characters)
     title TEXT NOT NULL CHECK (char_length(trim(title)) BETWEEN 1 AND 200),
+    -- kind of document, e.g. Religious, Political, Historical (free text, max 50 characters)
+    document_type TEXT NOT NULL DEFAULT 'Other' CHECK (char_length(trim(document_type)) BETWEEN 1 AND 50),
     -- records when the manuscript was created
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
     -- records when the manuscript was last changed (kept up to date by the trigger below)
@@ -470,7 +550,9 @@ REVOKE EXECUTE ON FUNCTION public.set_updated_at() FROM PUBLIC, anon, authentica
 REVOKE ALL ON TABLE public.manuscripts FROM anon, authenticated;
 -- Read, create with a title, rename, delete (owner and dates are set by the database)
 GRANT SELECT, DELETE ON TABLE public.manuscripts TO authenticated;
-GRANT INSERT (title), UPDATE (title) ON TABLE public.manuscripts TO authenticated;
+GRANT INSERT (title, document_type), UPDATE (title, document_type) ON TABLE public.manuscripts TO authenticated;
+-- The backend (secret key) creates, lists and deletes manuscripts for the logged in user
+GRANT SELECT, INSERT, DELETE ON TABLE public.manuscripts TO service_role;
 
 -- Enables Row Level Security (RLS) so users only ever reach their own manuscripts
 ALTER TABLE public.manuscripts ENABLE ROW LEVEL SECURITY;
@@ -491,7 +573,12 @@ CREATE POLICY "Users can delete own manuscripts"
     USING ((select auth.uid()) = owner_id);
 ```
 
-### Library part 2: manuscript files
+Library part 2: manuscript files
+
+Saved SQL Editor query name: `library_2_manuscript_files`.
+
+Creates one row per uploaded image or PDF, linked to its manuscript and owner, with file details,
+storage path, order, status, indexes and access rules.
 
 ```sql
 
@@ -513,8 +600,22 @@ CREATE TABLE public.manuscript_files (
     size_bytes BIGINT NOT NULL CHECK (size_bytes > 0),
     -- order of the file inside the manuscript (1 = first)
     position INTEGER NOT NULL CHECK (position >= 1),
+    -- processing step of the page
+    status TEXT NOT NULL DEFAULT 'uploaded'
+        CONSTRAINT manuscript_files_status_check
+        CHECK (status IN ('uploading', 'uploaded', 'transcribing', 'transcribed', 'corrected')),
     -- records when the file was uploaded
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+    -- processing status of this file (stored in lowercase)
+    status TEXT NOT NULL DEFAULT 'uploaded'
+        CONSTRAINT manuscript_files_status_check
+        CHECK (status IN (
+            'uploading',
+            'uploaded',
+            'transcribing',
+            'transcribed',
+            'corrected'
+        )),
     -- links the file to its manuscript, refuses a manuscript owned by someone else, and deletes the file with the manuscript
     FOREIGN KEY (manuscript_id, owner_id) REFERENCES public.manuscripts(id, owner_id) ON DELETE CASCADE
 );
@@ -528,10 +629,12 @@ CREATE INDEX manuscript_files_name_search_idx ON public.manuscript_files USING g
 
 -- Removes the full access Supabase gives to every new table, logged in users get only what the library needs
 REVOKE ALL ON TABLE public.manuscript_files FROM anon, authenticated;
--- Read, add, rename or reorder, delete
+-- Read, add, rename, reorder, update status, delete
 GRANT SELECT, DELETE ON TABLE public.manuscript_files TO authenticated;
 GRANT INSERT (manuscript_id, file_name, storage_path, content_type, size_bytes, position) ON TABLE public.manuscript_files TO authenticated;
 GRANT UPDATE (file_name, position) ON TABLE public.manuscript_files TO authenticated;
+-- The backend (secret key) adds, lists and deletes files for the logged in user
+GRANT SELECT, INSERT, DELETE ON TABLE public.manuscript_files TO service_role;
 
 -- Enables Row Level Security (RLS) so users only ever reach their own files
 ALTER TABLE public.manuscript_files ENABLE ROW LEVEL SECURITY;
@@ -552,7 +655,7 @@ CREATE POLICY "Users can delete own files"
     USING ((select auth.uid()) = owner_id);
 ```
 
-### Avatar storage
+Avatar storage
 
 Run after creating the public `avatars` bucket. Every user has one folder named after their id,
 and the policies only allow access to that folder.

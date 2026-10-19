@@ -4,6 +4,7 @@ import { useFileSelection } from "../hooks/useFileSelection";
 import { UploadDropzone } from "./UploadDropzone";
 import { CompactUploadBar } from "./CompactUploadBar";
 import { ManuscriptLibrary } from "./ManuscriptLibrary";
+import { UploadConfirmDialog } from "./UploadConfirmDialog";
 import { useCallback, useState } from "react";
 import { Toast } from "@/components/ui/Toast";
 import { Segmented } from "@/components/ui/Segmented";
@@ -16,7 +17,15 @@ const STEPS = [
 ];
 
 export function UploadPageCard() {
-  const { libraryEntries, uploadError, selectFile, removeManuscript } = useFileSelection();
+  const {
+    libraryEntries,
+    uploadError,
+    pendingFile,
+    selectFile,
+    confirmUpload,
+    cancelUpload,
+    removeManuscript,
+  } = useFileSelection();
   const [toast, setToast] = useState<{ message: string; success: boolean } | null>(null);
   const { statusFilter, setStatusFilter, filterOptions, filteredEntries, activeFilterLabel } =
     useStatusFilter(libraryEntries);
@@ -40,6 +49,15 @@ export function UploadPageCard() {
           message={toast.message}
           variant={toast.success ? "success" : "error"}
           onClose={closeToast}
+        />
+      )}
+
+      {pendingFile && (
+        <UploadConfirmDialog
+          key={pendingFile.name + pendingFile.lastModified}
+          file={pendingFile}
+          onConfirm={confirmUpload}
+          onCancel={cancelUpload}
         />
       )}
 
