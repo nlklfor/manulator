@@ -2,11 +2,12 @@
 
 // WorkspacePage — detail view of one manuscript page (route: /manuscript/<id>).
 // Layout: top bar, image panel on the left, transcription panel on the right.
-// This commit only builds the empty shell; the panels are filled in later commits.
+// The transcription panel is filled in a later commit.
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { useLibrary } from "@/features/upload-manuscript/context/LibraryContext";
 import { StatusBadge } from "@/features/upload-manuscript/components/StatusBadge";
+import { ImageViewer } from "./ImageViewer";
 
 interface WorkspacePageProps {
   manuscriptId: string;
@@ -61,7 +62,11 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
           aria-label="Page image"
           className="flex w-[56%] shrink-0 flex-col border-r border-mt-border bg-mt-sunken"
         >
-          {/* Image viewer comes in the next commit */}
+          <ImageViewer
+            src={entry.previewUrl}
+            fileName={entry.fileName}
+            isPdf={entry.fileType === "application/pdf"}
+          />
         </section>
         <section aria-label="Transcription" className="flex min-w-0 flex-1 flex-col bg-mt-surface">
           {/* Transcription panel comes in a later commit */}
