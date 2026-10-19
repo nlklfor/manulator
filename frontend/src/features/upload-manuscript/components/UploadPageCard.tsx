@@ -28,7 +28,15 @@ const STEPS = [
 ];
 
 export function UploadPageCard() {
-  const { libraryEntries, uploadError, selectFile, removeManuscript } = useFileSelection();
+  const {
+    libraryEntries,
+    uploadError,
+    pendingFile,
+    selectFile,
+    confirmUpload,
+    cancelUpload,
+    removeManuscript,
+  } = useFileSelection();
   const [toast, setToast] = useState<{ message: string; success: boolean } | null>(null);
 
   // Sort state — entries are stored newest-last, so "newest" = reverse insertion order
