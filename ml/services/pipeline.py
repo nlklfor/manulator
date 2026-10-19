@@ -1,11 +1,11 @@
-from segmentation import run_segmentation
+from services.segmentation import run_segmentation
 
 
 class Task:
     # Data might be an image, text or any other type of data that the task will process
     # options is a dictionary that can contain any additional parameters such as
     # language
-    def __init__(self, input: str, options: dict = None, data: any = None) -> None:
+    def __init__(self, input: str, data: dict, options: dict = None) -> None:
         self.input = input
         self.options = options
 
@@ -18,6 +18,8 @@ class Task:
         }
         self.data = data
 
+        # Define the dependencies for each action.
+        # For example, "Transcribe" depends on "Detect Lines" being completed first.
         self.dependencies = {
             "Detect Lines": [],
             "Transcribe": ["Detect Lines"],
@@ -60,17 +62,3 @@ class Pipeline:
 
         return result
 
-
-# Called by the backend: uv run python pipeline.py <input> <image_id> <image_file>
-# The last printed line is the path of the overlay image.
-if __name__ == "__main__":
-    import sys
-    from pathlib import Path
-
-    action, image_id, image_file = sys.argv[1:4]
-    data = {"image_id": image_id, "image": Path(image_file).read_bytes()}
-    pipeline = Pipeline(Task(action, data=data))
-    result = pipeline.run()
-    if action not in result:
-        sys.exit(f"Unknown step: {action}")
-    print(result[action]["image_path"])

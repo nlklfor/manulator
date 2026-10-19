@@ -18,7 +18,7 @@ from kraken.ketos.util import to_ptl_device
 from kraken.serialization import serialize
 from kraken.tasks import SegmentationTaskModel
 
-OUTPUT_DIR = Path(__file__).parent / "output/segmentation"  # ml/output, wherever the code is run from
+OUTPUT_DIR = Path(__file__).resolve().parents[1] / "output/segmentation"  # ml/output, wherever the code is run from
 
 
 @dataclass
@@ -91,7 +91,8 @@ def draw_lines(image: Image.Image, lines: list[DetectedLine]) -> Image.Image:
     return overlay
 
 
-def process_page(image_id: str, image: bytes, out_dir: str | Path, detector: LineDetector) -> list[DetectedLine]:
+def process_page(image_id: str, image: bytes, out_dir: str | Path, detector: LineDetector) -> tuple[
+    list[DetectedLine], Path]:
     """Segment one page and write: PAGE XML, lines.json, overlay image and line crops."""
     out_dir = Path(out_dir)
     page_dir = out_dir / image_id
@@ -108,22 +109,23 @@ def process_page(image_id: str, image: bytes, out_dir: str | Path, detector: Lin
         serialize(segmentation, image_size=image.size, template="pagexml"), encoding="utf-8")
     (page_dir / "lines.json").write_text(
         json.dumps([asdict(l) for l in lines], indent=2), encoding="utf-8")
-    draw_lines(image, lines).save(page_dir / "overlay.jpg", quality=90)
+    overlay_path = page_dir / "overlay.jpg"
+    draw_lines(image, lines).save(overlay_path, quality=90)
     for line in lines:
         crop_line(image, line).save(page_dir / "lines" / f"{line.index:04d}.png")
-    return lines
+    return lines, overlay_path
 
 
-def run_segmentation(data: any, options: any = None, out_dir=None, device: str = "auto") -> dict:
+def run_segmentation(data: dict, options:dict = None, out_dir=None, device: str = "auto") -> dict:
     result = {}
     image = data['image']
     image_id = data['image_id']
 
     out_dir = Path(out_dir) if out_dir else OUTPUT_DIR
     detector = LineDetector(device=device)
-    lines = process_page(image_id, image, out_dir, detector)
+    lines, overlay_path = process_page(image_id, image, out_dir, detector)
 
     result['lines'] = lines
-    result['image_path'] = out_dir / image_id / "overlay.jpg"
+    result['image_path'] = str(overlay_path.resolve())
 
     return result

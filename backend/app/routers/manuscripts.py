@@ -29,12 +29,3 @@ def delete_manuscript(
 ) -> None:
     storage.delete_manuscript(str(manuscript_id), user_id)
 
-
-@router.put("/{manuscript_id}", response_model=ManuscriptTranscriptResponse)
-def process_manuscript(
-    manuscript_id: UUID,
-    plan: ManuscriptProcessPlan,
-    user_id: str = Depends(get_current_user_id),
-):
-    plan.manuscript_id = str(manuscript_id)
-    return manuscript.process_manuscript(plan, user_id)

@@ -1,3 +1,7 @@
+import json
+
+import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -96,41 +100,100 @@ def test_delete_with_wrong_id_deletes_nothing(client, fake_supabase):
 def test_load_manuscript_pages(fake_supabase):
     page = manuscript.load_manuscript_pages(MANUSCRIPT_ID, "user-1")
 
-    assert (page.file_name, page.content_type, page.data) == (
+    assert (page.file_name, page.content_type, page.image_bytes) == (
         "page.png",
         "image/png",
         b"png bytes",
     )
 
 
-def test_process_manuscript(client, fake_supabase, monkeypatch):
-    # The real pipeline needs ml/'s environment, so it is replaced here
-    monkeypatch.setattr(manuscript, "run_ml_pipeline", lambda *_: b"jpg")
-    plan = {
-        "manuscript_id": MANUSCRIPT_ID,
-        "user_id": "user-1",
-        "steps": None,
-        "input": "Detect Lines",
-        "options": None,
-    }
-    response = client.put(f"{URL}/{MANUSCRIPT_ID}", json=plan)
+# Replaces the ML service: every request goes to `handler` instead of the network.
+# Returns the list of requests the backend sent, so tests can check them.
+@pytest.fixture
+def fake_ml_service(monkeypatch):
+    requests = []
+    responses = {"handler": None}
+    real_client = httpx.AsyncClient
+
+    def handle(request):
+        requests.append(request)
+        return responses["handler"](request)
+
+    def client_with_fake_transport(*args, **kwargs):
+        return real_client(*args, transport=httpx.MockTransport(handle), **kwargs)
+
+    monkeypatch.setattr(manuscript.httpx, "AsyncClient", client_with_fake_transport)
+
+    def respond_with(handler):
+        responses["handler"] = handler
+        return requests
+
+    return respond_with
+
+
+ML_RESULT = {
+    "manuscript_id": MANUSCRIPT_ID,
+    "overlay": "data:image/jpeg;base64,anBn",  # b"jpg" in base64
+    "data": {"Detect Lines": {"lines": [{"index": 0, "bbox": [0, 0, 10, 5]}]}},
+}
+
+PLAN = {
+    "manuscript_id": MANUSCRIPT_ID,
+    "user_id": "user-1",
+    "steps": None,
+    "plan": "Detect Lines",
+    "options": None,
+}
+
+ML_URL = "/api/process-manuscripts"
+def test_process_manuscript(client, fake_supabase, fake_ml_service):
+    requests = fake_ml_service(lambda request: httpx.Response(200, json=ML_RESULT))
+
+    response = client.put(f"{ML_URL}/{MANUSCRIPT_ID}", json=PLAN)
 
     assert response.status_code == 200
-    assert response.json() == {
-        "manuscript_id": MANUSCRIPT_ID,
-        "overlay": "data:image/jpeg;base64,anBn",  # b"jpg" in base64
-    }
+    assert response.json() == ML_RESULT
+
+    # The backend sends the stored page and the plan to the ML service
+    [sent] = requests
+    assert sent.method == "POST"
+    assert str(sent.url) == f"{manuscript.ML_SERVICE_URL}/api/process-manuscripts/"
+    body = sent.read()
+    assert b'filename="page.png"' in body
+    assert b"Content-Type: image/png" in body
+    assert b"png bytes" in body
+    assert b'name="process_plan"' in body
+    plan_json = json.dumps(
+        {"manuscript_id": MANUSCRIPT_ID, "steps": [], "plan": "Detect Lines", "options": {}}
+    ).encode()
+    assert plan_json in body
 
 
-def test_process_other_users_manuscript_is_not_found(client, fake_supabase):
+def test_process_manuscript_ml_service_fails(client, fake_supabase, fake_ml_service):
+    fake_ml_service(lambda request: httpx.Response(500, json={"detail": "boom"}))
+
+    response = client.put(f"{ML_URL}/{MANUSCRIPT_ID}", json=PLAN)
+
+    assert response.status_code == 502  # 502 = the ML service behind us failed
+
+
+def test_process_manuscript_ml_service_unreachable(client, fake_supabase, fake_ml_service):
+    def not_running(request):
+        raise httpx.ConnectError("connection refused", request=request)
+
+    fake_ml_service(not_running)
+
+    response = client.put(f"{ML_URL}/{MANUSCRIPT_ID}", json=PLAN)
+
+    assert response.status_code == 502
+
+
+def test_process_other_users_manuscript_is_not_found(client, fake_supabase, fake_ml_service):
     # user_id in the body is ignored: only the logged-in user counts
-    plan = {
-        "manuscript_id": OTHER_USERS_MANUSCRIPT_ID,
-        "user_id": "user-2",
-        "steps": None,
-        "input": "Detect Lines",
-        "options": None,
-    }
-    response = client.put(f"{URL}/{OTHER_USERS_MANUSCRIPT_ID}", json=plan)
+    requests = fake_ml_service(lambda request: httpx.Response(200, json=ML_RESULT))
+    plan = {**PLAN, "manuscript_id": OTHER_USERS_MANUSCRIPT_ID, "user_id": "user-2"}
+
+    response = client.put(f"{ML_URL}/{OTHER_USERS_MANUSCRIPT_ID}", json=plan)
 
     assert response.status_code == 404
+    assert requests == []  # the file is never sent to the ML service

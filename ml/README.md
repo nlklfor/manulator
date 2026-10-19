@@ -44,7 +44,8 @@ From `ml/`:
 - `tests/`: tests for the ML service
 - `pylaia/`: the PyLaia environment
 - `data/`, `models/`: downloaded pages and models (not in Git, everyone downloads their own)
-
+- `output/`: results of the ML service (not in Git, everyone has their own)
+- `services/`: contains the ML-services such as segmentation, transcription, etc. Each service has its own .py file.
 ## Working together
 
 - Add packages with `uv add <name>` (in `ml/` or `ml/pylaia/`) and push the updated `pyproject.toml` and `uv.lock`, so everyone has the same environment.
