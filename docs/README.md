@@ -6,3 +6,4 @@
 - [Sequence diagrams](sequence-diagrams.md)
 - [AI model research](ai-model-research.md)
 - [Database](database.md)
+- [Workspace page (frontend)](frontend-workspace.md)
