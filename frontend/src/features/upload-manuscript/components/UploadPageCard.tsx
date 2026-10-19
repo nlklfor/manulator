@@ -1,6 +1,6 @@
 "use client";
 
-import { useFileSelection } from "../hooks/useFileSelection";
+import { useLibrary } from "../context/LibraryContext";
 import { UploadDropzone } from "./UploadDropzone";
 import { CompactUploadBar } from "./CompactUploadBar";
 import { ManuscriptLibrary } from "./ManuscriptLibrary";
@@ -28,7 +28,7 @@ const STEPS = [
 ];
 
 export function UploadPageCard() {
-  const { libraryEntries, uploadError, selectFile, removeManuscript } = useFileSelection();
+  const { libraryEntries, uploadError, selectFile, removeManuscript } = useLibrary();
   const [toast, setToast] = useState<{ message: string; success: boolean } | null>(null);
 
   // Sort state — entries are stored newest-last, so "newest" = reverse insertion order
