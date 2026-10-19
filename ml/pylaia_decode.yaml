@@ -1,6 +1,4 @@
 # Settings for reading lines with PyLaia (used by transcription.py).
-# Only settings that never change are here. The command gives the symbol table
-# and which images to read. Paths are relative to ml/.
 
 common:
   train_path: models/pylaia-home-alcar  # folder with the model
