@@ -167,7 +167,7 @@ export function UploadPageCard() {
             >
               <Search className="h-4 w-4 shrink-0 text-mt-text-subtle" aria-hidden="true" />
               <input
-                type="search"
+                type="text"
                 value={nameQuery}
                 onChange={(e) => setNameQuery(e.target.value)}
                 placeholder="Search by filename…"
