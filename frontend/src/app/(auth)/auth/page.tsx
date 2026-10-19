@@ -8,7 +8,11 @@ export const metadata: Metadata = {
   title: "Sign in",
 };
 
-export default async function AuthPage({ searchParams }: PageProps<"/auth">) {
+export default async function AuthPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ registered?: string }>;
+}) {
   const { registered } = await searchParams;
   // Set by useLogout right before it redirects here
   const logoutMessage = (await cookies()).get(LOGOUT_MESSAGE_COOKIE_NAME)?.value ?? null;

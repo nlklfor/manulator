@@ -33,30 +33,15 @@ interface TranscriptionLine {
 // ---------------------------------------------------------------------------
 // Mock transcription data (shown after a successful "Transcribe" action)
 // ---------------------------------------------------------------------------
-const MOCK_LINES: TranscriptionLine[] = [
-  { n: 1, text: "Beatus uir qui non abiit", confidence: 94, lowConfWords: [] },
-  { n: 2, text: "in consilio impiorum et in", confidence: 92, lowConfWords: [] },
-  { n: 3, text: "uia peccatorum non stetit", confidence: 90, lowConfWords: [] },
-  { n: 4, text: "et in cathedra pestilencie non", confidence: 81, lowConfWords: [3] },
-  { n: 5, text: "sedit. Sed in lege domini", confidence: 93, lowConfWords: [] },
-  { n: 6, text: "uoluntas eius et in lege eius", confidence: 95, lowConfWords: [] },
-  { n: 7, text: "meditabitur die ac nocte.", confidence: 91, lowConfWords: [] },
-  { n: 8, text: "Et erit tamquam lignum quod", confidence: 89, lowConfWords: [] },
-  { n: 9, text: "plantatum est secus decursus", confidence: 84, lowConfWords: [2] },
-  { n: 10, text: "aquarum quod fructum suum", confidence: 92, lowConfWords: [] },
-  { n: 11, text: "dabit in tempore suo. Et fo-", confidence: 88, lowConfWords: [] },
-  { n: 12, text: "lium eius non deflnet et om-", confidence: 83, lowConfWords: [3] },
-  { n: 13, text: "nia quccumque faciet prospe-", confidence: 76, lowConfWords: [1] },
-  { n: 14, text: "rabuntur. Non sic impii non sic", confidence: 90, lowConfWords: [] },
-];
+// Available HTR models — the ML team wires up the real call in handleTranscribe.
+const HTR_MODELS = [
+  { id: "default", label: "Default model" },
+  { id: "latin-medieval", label: "Latin medieval" },
+  { id: "carolingian", label: "Carolingian minuscule" },
+  { id: "gothic", label: "Gothic cursive" },
+] as const;
 
-// Simulated transcription steps (matching the design)
-const TRANSCRIPTION_STEPS = [
-  "Image prepared",
-  "Finding lines of text",
-  "Recognising text",
-  "Ready to review",
-];
+type HtrModelId = (typeof HTR_MODELS)[number]["id"];
 
 // ---------------------------------------------------------------------------
 // WorkspacePage
@@ -79,14 +64,14 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   );
   const movedRef = useRef(false);
 
-  // --- Transcription / progress state ---
-  const [progress, setProgress] = useState(0); // 0-100
+  // --- Transcription state ---
   const [lines, setLines] = useState<TranscriptionLine[]>([]);
   const [editingLine, setEditingLine] = useState<number | null>(null); // index in lines
   const [editDraft, setEditDraft] = useState("");
   const [selectedLine, setSelectedLine] = useState<number | null>(null);
   const [lineFilter, setLineFilter] = useState<"all" | "review">("all");
-  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // --- Model selector ---
+  const [selectedModel, setSelectedModel] = useState<HtrModelId>("default");
 
   // --- Export dialog ---
   const [showExport, setShowExport] = useState(false);
@@ -107,7 +92,6 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   // Clean up timers on unmount
   useEffect(() => {
     return () => {
-      if (progressRef.current) clearInterval(progressRef.current);
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
   }, []);
@@ -118,29 +102,16 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
 
   function handleTranscribe() {
     if (!entry) return;
-    setProgress(0);
     setLines([]);
     setSelectedLine(null);
     setEditingLine(null);
+    // TODO: call the real transcription API with entry.id and selectedModel
+    // e.g. transcribeManuscript(entry.id, selectedModel).then(result => setLines(result.lines))
     updateEntryStatus(entry.id, "transcribing");
-
-    let p = 0;
-    progressRef.current = setInterval(() => {
-      p = Math.min(100, p + 2);
-      setProgress(p);
-      if (p >= 100) {
-        clearInterval(progressRef.current!);
-        progressRef.current = null;
-        setLines(MOCK_LINES.map((l) => ({ ...l })));
-        updateEntryStatus(entry.id, "transcribed");
-        showToast("Transcription ready — 14 lines, 4 words to review");
-      }
-    }, 80);
   }
 
   function handleReTranscribe() {
     setLines([]);
-    setProgress(0);
     setSelectedLine(null);
     setEditingLine(null);
     setLineFilter("all");
@@ -225,31 +196,6 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   const reviewCount = lowConfLineIdxs.length;
   const reviewDone = lineFilter === "review" && visibleLines.length === 0;
 
-  // Lines shown during transcription progress (partially revealed)
-  const revealedCount =
-    progress < 35
-      ? 0
-      : Math.min(MOCK_LINES.length, Math.floor(((progress - 35) / 65) * MOCK_LINES.length));
-
-  // Step completion based on progress
-  function stepState(doneAt: number, nowAt: number) {
-    if (progress >= doneAt) return "done";
-    if (progress >= nowAt) return "now";
-    return "todo";
-  }
-  const steps = [
-    { label: TRANSCRIPTION_STEPS[0], state: stepState(15, 0) },
-    { label: TRANSCRIPTION_STEPS[1], state: stepState(35, 15) },
-    {
-      label:
-        revealedCount >= MOCK_LINES.length
-          ? "Recognised all lines"
-          : `Recognising text · line ${Math.min(MOCK_LINES.length, revealedCount + 1)} of ${MOCK_LINES.length}`,
-      state: stepState(100, 35),
-    },
-    { label: TRANSCRIPTION_STEPS[3], state: progress >= 100 ? "done" : "todo" },
-  ];
-
   // ---------------------------------------------------------------------------
   // "Not found" state
   // ---------------------------------------------------------------------------
@@ -327,6 +273,7 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
         )}
 
         {/* Action buttons */}
+
         {isUploaded && (
           <button
             type="button"
@@ -347,29 +294,29 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
               className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-r-transparent"
               aria-hidden="true"
             />
-            Transcribing… {progress}%
+            Transcribing…
           </button>
         )}
         {isTranscribed && (
-          <>
-            <button
-              type="button"
-              onClick={handleReTranscribe}
-              className="inline-flex h-9 items-center gap-1.5 rounded-mt-md border border-mt-border-strong bg-mt-raised px-3.5 text-sm font-medium text-mt-text hover:bg-mt-hover"
-            >
-              <ScanLine className="h-4 w-4" aria-hidden="true" />
-              Re-transcribe
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowExport(true)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-mt-md bg-mt-accent px-3.5 text-sm font-medium text-mt-accent-fg hover:bg-mt-accent-hover"
-            >
-              <Download className="h-4 w-4" aria-hidden="true" />
-              Export
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={handleReTranscribe}
+            className="inline-flex h-9 items-center gap-1.5 rounded-mt-md border border-mt-border-strong bg-mt-raised px-3.5 text-sm font-medium text-mt-text hover:bg-mt-hover"
+          >
+            <ScanLine className="h-4 w-4" aria-hidden="true" />
+            Re-transcribe
+          </button>
         )}
+        {/* Export — always visible; disabled until a transcription exists */}
+        <button
+          type="button"
+          disabled={!isTranscribed}
+          onClick={() => isTranscribed && setShowExport(true)}
+          className="inline-flex h-9 items-center gap-1.5 rounded-mt-md bg-mt-accent px-3.5 text-sm font-medium text-mt-accent-fg hover:bg-mt-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Download className="h-4 w-4" aria-hidden="true" />
+          Export
+        </button>
       </header>
 
       {/* ------------------------------------------------------------------ */}
@@ -514,6 +461,36 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
                   into an editable transcription.
                 </p>
               </div>
+              {/* Recognition model selector — lives here so the user picks the model before transcribing */}
+              <div className="flex w-full max-w-[280px] flex-col gap-1.5">
+                <label htmlFor="htr-model-panel" className="text-sm font-medium text-mt-text">
+                  Recognition model
+                </label>
+                <div className="relative">
+                  <select
+                    id="htr-model-panel"
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value as HtrModelId)}
+                    className="h-10 w-full cursor-pointer appearance-none rounded-mt-md border border-mt-border-strong bg-mt-surface pl-3 pr-9 text-sm text-mt-text focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-mt-accent"
+                  >
+                    {HTR_MODELS.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                  <svg
+                    className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-mt-text-muted"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={handleTranscribe}
@@ -526,87 +503,17 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
             </div>
           )}
 
-          {/* ---- Transcribing state: progress ---- */}
+          {/* ---- Transcribing state: waiting for backend ---- */}
           {isTranscribing && (
-            <div className="flex flex-1 flex-col gap-3 overflow-hidden p-4">
-              {/* Progress card */}
-              <div className="rounded-mt-lg border border-mt-border bg-mt-raised p-4 shadow-sm">
-                <div className="mb-3 flex items-center justify-between">
-                  <strong className="text-sm font-semibold text-mt-text">Transcribing…</strong>
-                  <span className="font-mono text-xs text-mt-text-muted">{progress}%</span>
-                </div>
-                {/* Progress bar */}
-                <div
-                  role="progressbar"
-                  aria-label="Transcription progress"
-                  aria-valuenow={progress}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  className="h-1.5 overflow-hidden rounded-full bg-mt-sunken"
-                >
-                  <div
-                    className="h-full rounded-full bg-mt-accent transition-[width] duration-150"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                {/* Steps */}
-                <ol className="mt-4 flex flex-col gap-2">
-                  {steps.map((step) => (
-                    <li
-                      key={step.label}
-                      className={`flex items-center gap-2.5 text-xs ${
-                        step.state === "done"
-                          ? "text-mt-text-muted"
-                          : step.state === "now"
-                            ? "font-medium text-mt-text"
-                            : "text-mt-text-subtle"
-                      }`}
-                    >
-                      <span
-                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                          step.state === "done"
-                            ? "border-transparent bg-mt-success-bg text-mt-success-fg"
-                            : step.state === "now"
-                              ? "border-transparent"
-                              : "border-mt-border-strong"
-                        }`}
-                      >
-                        {step.state === "done" && <Check className="h-2.5 w-2.5" />}
-                        {step.state === "now" && (
-                          <span className="h-2 w-2 animate-spin rounded-full border border-mt-accent-text border-r-transparent" />
-                        )}
-                      </span>
-                      {step.label}
-                    </li>
-                  ))}
-                </ol>
-              </div>
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+              <span
+                className="h-7 w-7 animate-spin rounded-full border-2 border-mt-accent border-r-transparent"
+                aria-hidden="true"
+              />
+              <p className="text-sm font-medium text-mt-text">Transcribing…</p>
               <p className="text-xs text-mt-text-subtle">
-                Lines appear here as they&apos;re recognised. You can edit them when the page is
-                done.
+                Waiting for the HTR model to return results.
               </p>
-              {/* Partial lines */}
-              <ol className="flex flex-col gap-0.5 overflow-auto" aria-label="Recognised so far">
-                {MOCK_LINES.map((l, i) => (
-                  <li key={i} className="grid grid-cols-[32px_1fr] items-start rounded-mt-md">
-                    <span className="py-2 pr-2 text-right font-mono text-[10px] text-mt-text-subtle">
-                      {l.n}
-                    </span>
-                    {i < revealedCount ? (
-                      <span className="py-2 text-sm leading-6 text-mt-text">{l.text}</span>
-                    ) : (
-                      <div className="my-3 ml-1">
-                        <div
-                          className="h-3 animate-pulse rounded bg-gradient-to-r from-mt-sunken via-mt-hover to-mt-sunken"
-                          style={{
-                            width: `${[78, 92, 64, 88, 70, 95, 58, 84, 90, 72, 86, 80, 68, 91][i % 14]}%`,
-                          }}
-                        />
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ol>
             </div>
           )}
 

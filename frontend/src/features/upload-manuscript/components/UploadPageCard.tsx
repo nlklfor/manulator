@@ -4,6 +4,7 @@ import { useLibrary } from "../context/LibraryContext";
 import { UploadDropzone } from "./UploadDropzone";
 import { CompactUploadBar } from "./CompactUploadBar";
 import { ManuscriptLibrary } from "./ManuscriptLibrary";
+import { UploadConfirmDialog } from "./UploadConfirmDialog";
 import { useCallback, useRef, useState } from "react";
 import { Toast } from "@/components/ui/Toast";
 import { Search, Upload, X } from "lucide-react";
@@ -28,7 +29,15 @@ const STEPS = [
 ];
 
 export function UploadPageCard() {
-  const { libraryEntries, uploadError, selectFile, removeManuscript } = useLibrary();
+  const {
+    libraryEntries,
+    uploadError,
+    pendingFile,
+    selectFile,
+    confirmUpload,
+    cancelUpload,
+    removeManuscript,
+  } = useLibrary();
   const [toast, setToast] = useState<{ message: string; success: boolean } | null>(null);
 
   // Sort state — entries are stored newest-last, so "newest" = reverse insertion order
@@ -58,8 +67,7 @@ export function UploadPageCard() {
     return [...libraryEntries]; // "oldest" = insertion order
   })();
 
-  // ── Status filter (Fabia's hook, PR #73) ─────────────────────────────────
-  // Pass sortedEntries so the hook filters the already-sorted list
+  // ── Status filter ─────────────────────────────────────────────────────────
   const { statusFilter, setStatusFilter, filterOptions, filteredEntries, activeFilterLabel } =
     useStatusFilter(sortedEntries);
 
@@ -79,7 +87,15 @@ export function UploadPageCard() {
         />
       )}
 
-      {/* ── Page header: title + sort dropdown + upload button ─────────────── */}
+      {pendingFile && (
+        <UploadConfirmDialog
+          key={pendingFile.name + pendingFile.lastModified}
+          file={pendingFile}
+          onConfirm={confirmUpload}
+          onCancel={cancelUpload}
+        />
+      )}
+
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-mt-text">All pages</h1>
@@ -110,7 +126,6 @@ export function UploadPageCard() {
                   </option>
                 ))}
               </select>
-              {/* Chevron icon */}
               <svg
                 className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-mt-text-muted"
                 viewBox="0 0 24 24"
@@ -132,7 +147,7 @@ export function UploadPageCard() {
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) selectFile(file);
-                e.target.value = ""; // reset so the same file can be re-selected
+                e.target.value = "";
               }}
             />
             <button
@@ -186,7 +201,6 @@ export function UploadPageCard() {
               )}
             </div>
 
-            {/* Status filter chips — Fabia's Segmented component (PR #73) */}
             <Segmented
               ariaLabel="Filter pages by status"
               options={filterOptions}

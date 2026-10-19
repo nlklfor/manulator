@@ -1,11 +1,12 @@
 // Workspace route: /manuscript/[id]
-// This is a thin server component that passes the id to the WorkspacePage client component.
+// In Next.js 15+, params is a Promise and must be awaited.
 import { WorkspacePage } from "@/features/workspace/components/WorkspacePage";
 
 interface ManuscriptPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export default function ManuscriptPage({ params }: ManuscriptPageProps) {
-  return <WorkspacePage manuscriptId={params.id} />;
+export default async function ManuscriptPage({ params }: ManuscriptPageProps) {
+  const { id } = await params;
+  return <WorkspacePage manuscriptId={id} />;
 }
