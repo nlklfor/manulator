@@ -1,6 +1,6 @@
 "use client";
 
-import { useFileSelection } from "../hooks/useFileSelection";
+import { useLibrary } from "../context/LibraryContext";
 import { UploadDropzone } from "./UploadDropzone";
 import { CompactUploadBar } from "./CompactUploadBar";
 import { ManuscriptLibrary } from "./ManuscriptLibrary";
@@ -25,7 +25,7 @@ export function UploadPageCard() {
     confirmUpload,
     cancelUpload,
     removeManuscript,
-  } = useFileSelection();
+  } = useLibrary();
   const [toast, setToast] = useState<{ message: string; success: boolean } | null>(null);
   const { statusFilter, setStatusFilter, filterOptions, filteredEntries, activeFilterLabel } =
     useStatusFilter(libraryEntries);
