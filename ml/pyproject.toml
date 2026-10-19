@@ -8,11 +8,12 @@ dependencies = [
     "jiwer>=4.0.0",
     "kraken>=7.1.1",
     "transformers>=5.12.1",
-    "uvicorn[standard]>=0.54.0",
     "torch>=2.14.0",
     "torchvision>=0.29.1",
     "numpy>=2.4.6",
     "pydantic>=2.14.1",
+    "uvicorn[standard]>=0.54.0",
+    "python-multipart>=0.0.32",
 ]
 
 [tool.uv]

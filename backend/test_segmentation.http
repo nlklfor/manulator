@@ -1,0 +1,23 @@
+# Test the segmentation step of the ML service.
+# Start it first, from ml/: uv run uvicorn app.main:app --reload --port 8001
+
+GET http://127.0.0.1:8001/health
+Accept: application/json
+
+###
+
+POST http://127.0.0.1:8000/api/process-manuscripts/
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="process_plan"
+
+{"manuscript_id": "test-segmentation", "steps": [], "plan": "Detect Lines", "options": {}}
+--boundary
+Content-Disposition: form-data; name="file"; filename="e-codices_kba-BN0047_0001r_medium.jpg"
+Content-Type: image/jpeg
+
+< ./e-codices_kba-BN0047_0001r_medium.jpg
+--boundary--
+
+###

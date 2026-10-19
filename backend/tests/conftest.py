@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -47,7 +48,7 @@ def saved_files(monkeypatch):
     return files
 
 
-# Fake Supabase for deleting: database tables and Storage files held in memory.
+# Fake Supabase: database tables and Storage files held in memory.
 # Deleting a manuscript also deletes its file rows, like the real foreign key does.
 @pytest.fixture
 def fake_supabase(monkeypatch):
@@ -80,7 +81,12 @@ def fake_supabase(monkeypatch):
         def __init__(self, name):
             self.name = name
             self.is_delete = False
+            self.new_row = None
             self.filters = {}
+
+        def insert(self, row):
+            self.new_row = {"id": str(uuid4()), **row}
+            return self
 
         def select(self, *_):
             return self
@@ -98,6 +104,9 @@ def fake_supabase(monkeypatch):
 
         def execute(self):
             rows = tables[self.name]
+            if self.new_row:
+                rows.append(self.new_row)
+                return SimpleNamespace(data=[self.new_row])
             matching = [
                 row for row in rows if all(row[c] == v for c, v in self.filters.items())
             ]
@@ -114,6 +123,12 @@ def fake_supabase(monkeypatch):
     class FakeBucket:
         def download(self, path):
             return stored_files[path]
+
+        def upload(self, path, data, options):
+            stored_files[path] = data
+
+        def create_signed_url(self, path, seconds):
+            return {"signedUrl": f"https://temporary-link/{path}"}
 
         def remove(self, paths):
             removed = [path for path in paths if stored_files.pop(path, None)]

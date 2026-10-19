@@ -1,10 +1,9 @@
-import base64
+import json
 import logging
-import subprocess
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+import httpx
 from fastapi import HTTPException
 from postgrest import APIError
 from storage3.utils import StorageException
@@ -16,13 +15,14 @@ from app.services.database import get_admin_client
 logger = logging.getLogger(__name__)
 
 ML_DIR = Path(__file__).resolve().parents[3] / "ml"
+ML_SERVICE_URL = "http://127.0.0.1:8001"
 
 
 @dataclass
 class ManuscriptPage:
     file_name: str
     content_type: str
-    data: bytes
+    image_bytes: bytes
 
 
 # Loads all files (pages) of a manuscript from the bucket, in page order.
@@ -71,42 +71,42 @@ def load_manuscript_pages(manuscript_id: str, user_id: str) -> ManuscriptPage:
     return ManuscriptPage(row["file_name"], row["content_type"], data)
 
 
-# ml/ has its own environment (Kraken, torch), so the pipeline runs there
-# and the backend only reads the overlay image it produces.
-# action is the name of the pipeline action to run, e.g. "Detect Lines"
-# image_id is the manuscript id, used to name the overlay file.
-def run_ml_pipeline(action: str, image_id: str, image: bytes) -> bytes:
-    # delete_on_close=False lets us close the file before the subprocess reads it;
-    # Windows does not allow another process to open a still-open temp file.
-    with tempfile.NamedTemporaryFile(delete_on_close=False) as tmp:
-        tmp.write(image)
-        tmp.close()
-        try:
-            completed = subprocess.run(
-                ["uv", "run", "python", "pipeline.py", action, image_id, tmp.name],
-                cwd=ML_DIR,
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=600,
-            )
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
-            logger.warning("ML pipeline failed: %s", getattr(error, "stderr", error))
-            raise HTTPException(500, "Could not process the manuscript.") from error
-
-    overlay = Path(completed.stdout.strip().splitlines()[-1])
-    return (ML_DIR / overlay).read_bytes()
-
-#
-def process_manuscript(
-    plan: ManuscriptProcessPlan, user_id: str
+# process_manuscript sends the manuscript file
+# and the processing plan to the ML service,
+async def process_manuscript(
+    user_plan: ManuscriptProcessPlan, user_id: str
 ) -> ManuscriptTranscriptResponse:
     # load file from bucket
-    page = load_manuscript_pages(plan.manuscript_id, user_id)
-    # run the ML pipeline in the ml/ environment and get the overlay image
-    overlay = run_ml_pipeline(plan.input, plan.manuscript_id, page.data)
+    page = load_manuscript_pages(user_plan.manuscript_id, user_id)
 
-    return ManuscriptTranscriptResponse(
-        manuscript_id=plan.manuscript_id,
-        overlay="data:image/jpeg;base64," + base64.b64encode(overlay).decode(),
-    )
+    # send the file to the ML pipeline and get the overlay image
+    # send httpx request to ml/ endpoint and get the overlay image
+    files = {"file": (page.file_name, page.image_bytes, page.content_type)}
+    # send the processing plan to the ML service
+    form = {
+        "process_plan": json.dumps(
+            {
+                "manuscript_id": user_plan.manuscript_id,
+                "steps": [],
+                "plan": user_plan.plan,
+                "options": user_plan.options or {},
+            }
+        ),
+    }
+    # Create a post request to the ML service
+    # with a timeout of 300 seconds (5 minutes)
+    async with httpx.AsyncClient(timeout=300.0) as client:
+        try:
+            response = await client.post(
+                f"{ML_SERVICE_URL}/api/process-manuscripts/",
+                files=files,
+                data=form,
+            )
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise HTTPException(
+                status_code=502,
+                detail="ML service failed",
+            ) from exc
+
+    return ManuscriptTranscriptResponse.model_validate(response.json())
