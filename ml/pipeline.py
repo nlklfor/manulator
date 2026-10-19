@@ -1,4 +1,5 @@
 from segmentation import run_segmentation
+from transcription import run_transcription
 
 
 class Task:
@@ -12,9 +13,9 @@ class Task:
         # Add here your action
         self.actions = {
             "Detect Lines": run_segmentation,
-            "Transcribe": None, # add transcription here,
+            "Transcribe": run_transcription,
             "Translate": None,
-            "Summarize": None
+            "Summarize": None,
         }
         self.data = data
 
@@ -22,7 +23,7 @@ class Task:
             "Detect Lines": [],
             "Transcribe": ["Detect Lines"],
             "Translate": ["Detect Lines", "Transcribe"],
-            "Summarize": ["Detect Lines", "Transcribe", "Translate"]
+            "Summarize": ["Detect Lines", "Transcribe", "Translate"],
         }
 
 
@@ -33,7 +34,7 @@ class Pipeline:
 
         self.actions = {
             "Detect Lines": run_segmentation,
-            "Transcribe": None # add transcription function here,
+            "Transcribe": run_transcription,
         }
 
     # run the action specified in the task, along with its dependencies
@@ -62,7 +63,8 @@ class Pipeline:
 
 
 # Called by the backend: uv run python pipeline.py <input> <image_id> <image_file>
-# The last printed line is the path of the overlay image.
+# The last printed line is the path of the result file:
+# the overlay image for "Detect Lines", transcription.json for "Transcribe".
 if __name__ == "__main__":
     import sys
     from pathlib import Path
@@ -73,4 +75,5 @@ if __name__ == "__main__":
     result = pipeline.run()
     if action not in result:
         sys.exit(f"Unknown step: {action}")
-    print(result[action]["image_path"])
+    output = result[action]
+    print(output.get("image_path") or output.get("json_path"))
