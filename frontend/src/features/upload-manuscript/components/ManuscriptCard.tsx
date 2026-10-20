@@ -1,4 +1,4 @@
-import { FileText } from "lucide-react";
+import { FileText, ImageOff } from "lucide-react";
 import type { LibraryEntry } from "@/features/upload-manuscript/types/upload";
 import { useState } from "react";
 import { DeleteButton } from "@/components/ui/DeleteButton";
@@ -31,6 +31,10 @@ export function ManuscriptCard({ entry, onDeleted }: ManuscriptCardProps) {
       {entry.fileType === "application/pdf" ? (
         <div className="flex aspect-[3/4] w-full items-center justify-center bg-mt-surface text-mt-text-subtle">
           <FileText className="h-10 w-10" strokeWidth={1.5} aria-label="PDF document" />
+        </div>
+      ) : !entry.previewUrl ? (
+        <div className="flex aspect-[3/4] w-full items-center justify-center bg-mt-surface text-mt-text-subtle">
+          <ImageOff className="h-10 w-10" strokeWidth={1.5} aria-label="Preview not available" />
         </div>
       ) : (
         /* eslint-disable-next-line @next/next/no-img-element */

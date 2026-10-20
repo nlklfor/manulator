@@ -11,7 +11,6 @@ export default function ProfilePage() {
           How you appear to the people you share manuscripts with.
         </p>
       </header>
-
       <div className="flex max-w-[800px] flex-col gap-5 px-10 pb-10">
         <AvatarCard />
         <DisplayNameCard />

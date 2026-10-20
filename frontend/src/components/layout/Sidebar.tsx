@@ -7,10 +7,12 @@ import { ProfileMenu } from "@/components/layout/ProfileMenu";
 
 // Placeholder data until manuscripts and the logged-in user come from the backend (JUST A MOCKUP)
 const PLACEHOLDER_MANUSCRIPTS = [
-  { name: "Psalter \u00b7 Cod. 22", color: "#9A2B1C", pages: 7 },
-  { name: "Book of Hours \u00b7 MS 7", color: "#3C5A94", pages: 1 },
+  { name: "Psalter · Cod. 22", color: "#9A2B1C", pages: 7 },
+  { name: "Book of Hours · MS 7", color: "#3C5A94", pages: 1 },
   { name: "Charter, 1287", color: "#8A6A2E", pages: 2 },
 ];
+
+// Placeholder data until the logged-in user come from the backend (JUST A MOCKUP)
 
 // Shared look of one row in the sidebar
 const ROW = "flex h-9 w-full items-center gap-2.5 rounded-mt-md px-2.5 text-sm font-medium";

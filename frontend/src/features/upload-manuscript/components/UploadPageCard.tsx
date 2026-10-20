@@ -1,9 +1,10 @@
 "use client";
 
-import { useLibrary } from "../context/LibraryContext";
+import { useFileSelection } from "../hooks/useFileSelection";
 import { UploadDropzone } from "./UploadDropzone";
 import { CompactUploadBar } from "./CompactUploadBar";
 import { ManuscriptLibrary } from "./ManuscriptLibrary";
+import { UploadConfirmDialog } from "./UploadConfirmDialog";
 import { useCallback, useRef, useState } from "react";
 import { Toast } from "@/components/ui/Toast";
 import { Search, Upload, X } from "lucide-react";
@@ -28,10 +29,21 @@ const STEPS = [
 ];
 
 export function UploadPageCard() {
-  const { libraryEntries, uploadError, selectFile, removeManuscript } = useLibrary();
+  const {
+    libraryEntries,
+    isLoading,
+    loadError,
+    uploadError,
+    pendingFile,
+    selectFile,
+    confirmUpload,
+    cancelUpload,
+    removeManuscript,
+  } = useFileSelection();
   const [toast, setToast] = useState<{ message: string; success: boolean } | null>(null);
 
-  // Sort state — entries are stored newest-last, so "newest" = reverse insertion order
+  // Sort state. The library keeps the newest page first (new uploads are added at the
+  // front and the backend returns newest first), so "newest" keeps the order as it is.
   const [sort, setSort] = useState<SortOption>("newest");
 
   // Name search — filters by filename, stacked on top of sort + status filter
@@ -43,22 +55,25 @@ export function UploadPageCard() {
   const hasEntries = libraryEntries.length > 0;
 
   function handleDeleted(id: string, success: boolean, message: string) {
-    if (success) removeManuscript(id);
+    if (success) {
+      // Remove the manuscript from the library if deletion was successful
+      removeManuscript(id);
+    }
     setToast({ message, success });
   }
 
-  // Stable callback so the Toast timer is not restarted on every render
+  // Stable function, so the Toast timer is not restarted on every render
   const closeToast = useCallback(() => setToast(null), []);
 
   // ── Sort ──────────────────────────────────────────────────────────────────
   const sortedEntries = (() => {
     if (sort === "name")
       return [...libraryEntries].sort((a, b) => a.fileName.localeCompare(b.fileName));
-    if (sort === "newest") return [...libraryEntries].reverse();
-    return [...libraryEntries]; // "oldest" = insertion order
+    if (sort === "oldest") return [...libraryEntries].reverse();
+    return [...libraryEntries]; // "newest" = list order
   })();
 
-  // ── Status filter (Fabia's hook, PR #73) ─────────────────────────────────
+  // ── Status filter ─────────────────────────────────────────────────────────
   // Pass sortedEntries so the hook filters the already-sorted list
   const { statusFilter, setStatusFilter, filterOptions, filteredEntries, activeFilterLabel } =
     useStatusFilter(sortedEntries);
@@ -79,6 +94,15 @@ export function UploadPageCard() {
         />
       )}
 
+      {pendingFile && (
+        <UploadConfirmDialog
+          key={pendingFile.name + pendingFile.lastModified}
+          file={pendingFile}
+          onConfirm={confirmUpload}
+          onCancel={cancelUpload}
+        />
+      )}
+
       {/* ── Page header: title + sort dropdown + upload button ─────────────── */}
       <div className="flex items-end justify-between gap-4">
         <div>
@@ -86,7 +110,9 @@ export function UploadPageCard() {
           <p className="mt-1 text-sm text-mt-text-muted">
             {hasEntries
               ? `${libraryEntries.length} page${libraryEntries.length > 1 ? "s" : ""}`
-              : "No pages yet"}
+              : isLoading
+                ? "Loading pages…"
+                : "No pages yet"}
           </p>
         </div>
 
@@ -123,7 +149,7 @@ export function UploadPageCard() {
               </svg>
             </div>
 
-            {/* Upload page button */}
+            {/* Upload page button (opens the same confirm dialog as the dropzone) */}
             <input
               ref={headerInputRef}
               type="file"
@@ -147,6 +173,12 @@ export function UploadPageCard() {
         )}
       </div>
 
+      {loadError && (
+        <div className="mt-4 rounded-mt-md border border-mt-danger bg-mt-danger-bg px-4 py-3 text-sm text-mt-danger-fg">
+          {loadError}
+        </div>
+      )}
+
       {uploadError && (
         <div className="mt-4 rounded-mt-md border border-mt-danger bg-mt-danger-bg px-4 py-3 text-sm text-mt-danger-fg">
           <span className="font-medium">Could not upload file: </span>
@@ -155,7 +187,7 @@ export function UploadPageCard() {
       )}
 
       <div className="mt-6">
-        {hasEntries ? (
+        {isLoading && !hasEntries ? null : hasEntries ? (
           <div className="space-y-4">
             <CompactUploadBar onFileSelected={selectFile} />
 
@@ -186,7 +218,7 @@ export function UploadPageCard() {
               )}
             </div>
 
-            {/* Status filter chips — Fabia's Segmented component (PR #73) */}
+            {/* Status filter chips */}
             <Segmented
               ariaLabel="Filter pages by status"
               options={filterOptions}

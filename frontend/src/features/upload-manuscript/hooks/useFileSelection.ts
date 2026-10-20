@@ -2,16 +2,55 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { validateFile } from "./validateFile";
 import type { LibraryEntry, UploadError } from "../types/upload";
 import { uploadImage, type UploadDetails } from "../api/uploadImage";
+import { getManuscripts } from "../api/getManuscripts";
 
 const ERROR_DISPLAY_DURATION = 5000;
 
 export function useFileSelection() {
   const [libraryEntries, setLibraryEntries] = useState<LibraryEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<UploadError | null>(null);
   // File waiting for the user to confirm its name and document type
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previewUrlsRef = useRef(new Set<string>());
+
+  // Load the manuscripts the user has already uploaded
+  useEffect(() => {
+    let cancelled = false;
+
+    getManuscripts()
+      .then((manuscripts) => {
+        if (cancelled) return;
+        const loaded: LibraryEntry[] = manuscripts.map((manuscript) => ({
+          id: manuscript.id,
+          fileName: manuscript.title,
+          fileType: manuscript.content_type,
+          previewUrl: manuscript.url,
+          status: manuscript.status,
+        }));
+        // Keep uploads started while the list was loading on top
+        setLibraryEntries((prev) => [
+          ...prev,
+          ...loaded.filter((entry) => !prev.some((p) => p.id === entry.id)),
+        ]);
+        // The backend sends an empty url when it could not create the preview links
+        if (loaded.some((entry) => !entry.previewUrl)) {
+          setLoadError("Some previews could not be loaded. Please reload the page.");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError("Could not load your pages. Please reload the page.");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Auto-dismiss the error message after a certain duration
   useEffect(() => {
@@ -44,7 +83,7 @@ export function useFileSelection() {
   const removeManuscript = useCallback((id: string) => {
     setLibraryEntries((prev) => {
       const manuscriptToRemove = prev.find((e) => e.id === id);
-      if (manuscriptToRemove) {
+      if (manuscriptToRemove && previewUrlsRef.current.has(manuscriptToRemove.previewUrl)) {
         URL.revokeObjectURL(manuscriptToRemove.previewUrl);
         previewUrlsRef.current.delete(manuscriptToRemove.previewUrl);
       }
@@ -101,12 +140,13 @@ export function useFileSelection() {
 
   return {
     libraryEntries,
+    isLoading,
+    loadError,
     uploadError,
     pendingFile,
     selectFile,
     confirmUpload,
     cancelUpload,
     removeManuscript,
-    updateEntryStatus,
   };
 }

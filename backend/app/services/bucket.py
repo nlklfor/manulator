@@ -54,11 +54,28 @@ def delete_file(path: str) -> bool:
     return len(removed) > 0
 
 
+# Reads a file from the private bucket.
+# Only pass paths that belong to the logged-in user.
+def download_file(path: str) -> bytes:
+    bucket = get_admin_client().storage.from_(settings.storage_bucket)
+    return bucket.download(path)
+
+
 # New 1-day link for a file in the private bucket
 # Only pass paths that belong to the logged-in user.
 def get_file_url(path: str) -> str:
     bucket = get_admin_client().storage.from_(settings.storage_bucket)
     return bucket.create_signed_url(path, URL_EXPIRES_IN)["signedUrl"] or ""
+
+
+# New 1-day links for several files in one request, as {path: url}.
+# Only pass paths that belong to the logged-in user.
+def get_file_urls(paths: list[str]) -> dict[str, str]:
+    if not paths:
+        return {}
+    bucket = get_admin_client().storage.from_(settings.storage_bucket)
+    signed = bucket.create_signed_urls(paths, URL_EXPIRES_IN)
+    return {item["path"]: item["signedUrl"] or "" for item in signed}
 
 
 # Resizes and re-encodes an image to reduce its size.
