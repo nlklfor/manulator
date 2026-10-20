@@ -1,0 +1,15 @@
+# Settings for reading lines with PyLaia (used by transcription.py).
+
+common:
+  train_path: models/pylaia-home-alcar  # folder with the model
+  model_filename: model  # the model's architecture
+  experiment_dirname: .  # the weights are in the same folder
+  checkpoint: weights.ckpt  # the trained weights
+
+decode:
+  include_img_ids: true  # start each result with the image name
+  join_string: ""  # join the letters without spaces...
+  convert_spaces: true  # ...and turn <space> into a real space
+
+trainer:
+  accelerator: cpu  # no graphics card needed

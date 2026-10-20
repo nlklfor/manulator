@@ -3,7 +3,7 @@
 // ImageViewer — left panel of the workspace: shows the scanned page and lets the
 // user zoom in/out, fit the page to the panel and drag it to pan.
 import { useRef, useState } from "react";
-import { Maximize2, ZoomIn, ZoomOut } from "lucide-react";
+import { ImageOff, Maximize2, ZoomIn, ZoomOut } from "lucide-react";
 
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
@@ -106,6 +106,15 @@ export function ImageViewer({ src, fileName, isPdf }: ImageViewerProps) {
           {isPdf ? (
             <div className="flex h-[520px] w-[390px] items-center justify-center rounded-lg bg-mt-surface text-sm text-mt-text-subtle shadow-md">
               PDF preview not available
+            </div>
+          ) : !src ? (
+            // The backend sends an empty url when it could not create the preview link
+            <div className="flex h-[520px] w-[390px] items-center justify-center rounded-lg bg-mt-surface text-mt-text-subtle shadow-md">
+              <ImageOff
+                className="h-10 w-10"
+                strokeWidth={1.5}
+                aria-label="Preview not available"
+              />
             </div>
           ) : (
             // eslint-disable-next-line @next/next/no-img-element

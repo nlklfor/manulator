@@ -200,16 +200,20 @@ await supabase.from("profiles").update({ display_name, avatar_url }).eq("id", us
 Library integration status
 
 The `manuscripts` and `manuscript_files` tables are already present in the Supabase project,
-including the file status column. The upload endpoint (`/api/upload-manuscripts`) stores files
-in Supabase Storage. The frontend library currently keeps its entries and displayed statuses
-in component state. Uploads are not yet connected to creating and reloading the library
-database records.
+including the file status column. The library is loaded from the database:
 
-To use the database-backed library, the app will create a manuscript, upload its files to Storage,
-save one `manuscript_files` row per successful upload, and reload manuscripts and their files
-for the logged in user. It must also read and update `manuscript_files.status` so badges and
-filters reflect the saved values. This describes the intended integration; the SQL alone does
-not implement it.
+- `POST /api/upload-manuscripts` creates a `manuscripts` row, uploads the file to Supabase Storage
+  and saves one `manuscript_files` row for it.
+- `GET /api/upload-manuscripts` returns the logged in user's manuscripts, newest first. Each entry
+  contains the manuscript's first file (lowest `position`), its saved `status` and a temporary
+  link to the file, valid for 1 day. The backend uses the admin client, which ignores RLS, so it
+  filters by `owner_id` itself.
+- If the links cannot be created, the entries are still returned with an empty `url`. The
+  frontend then shows a placeholder and asks the user to reload the page.
+- `DELETE /api/upload-manuscripts/{id}` deletes the manuscript, its file rows and its files in Storage.
+
+`manuscript_files.status` is read and shown in the badges and filters, but nothing updates it yet,
+so all saved files currently stay `uploaded`.
 
 Storage
 

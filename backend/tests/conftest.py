@@ -52,23 +52,43 @@ def saved_files(monkeypatch):
 # Deleting a manuscript also deletes its file rows, like the real foreign key does.
 @pytest.fixture
 def fake_supabase(monkeypatch):
-    tables = {
+    tables: dict[str, list[dict]] = {
         "manuscripts": [
-            {"id": MANUSCRIPT_ID, "owner_id": "user-1"},
-            {"id": OTHER_USERS_MANUSCRIPT_ID, "owner_id": "user-2"},
+            {
+                "id": MANUSCRIPT_ID,
+                "owner_id": "user-1",
+                "title": "Letter",
+                "document_type": "Religious",
+                "created_at": "2026-01-01T10:00:00+00:00",
+            },
+            {
+                "id": OTHER_USERS_MANUSCRIPT_ID,
+                "owner_id": "user-2",
+                "title": "Secret",
+                "document_type": "Political",
+                "created_at": "2026-01-01T10:00:00+00:00",
+            },
         ],
         "manuscript_files": [
             {
                 "manuscript_id": MANUSCRIPT_ID,
                 "owner_id": "user-1",
-                "storage_path": "user-1/manuscripts/page.png",
                 "file_name": "page.png",
+                "storage_path": "user-1/manuscripts/page.png",
                 "content_type": "image/png",
+                "size_bytes": 9,
+                "position": 1,
+                "status": "uploaded",
             },
             {
                 "manuscript_id": OTHER_USERS_MANUSCRIPT_ID,
                 "owner_id": "user-2",
+                "file_name": "page.png",
                 "storage_path": "user-2/manuscripts/page.png",
+                "content_type": "image/png",
+                "size_bytes": 9,
+                "position": 1,
+                "status": "uploaded",
             },
         ],
     }
@@ -83,6 +103,7 @@ def fake_supabase(monkeypatch):
             self.is_delete = False
             self.new_row = None
             self.filters = {}
+            self.sort = None
 
         def insert(self, row):
             self.new_row = {"id": str(uuid4()), **row}
@@ -99,7 +120,8 @@ def fake_supabase(monkeypatch):
             self.filters[column] = value
             return self
 
-        def order(self, _column):
+        def order(self, column, desc=False):
+            self.sort = (column, desc)
             return self
 
         def execute(self):
@@ -118,6 +140,9 @@ def fake_supabase(monkeypatch):
                         for f in tables["manuscript_files"]
                         if f["manuscript_id"] not in [m["id"] for m in matching]
                     ]
+            if self.sort:
+                column, desc = self.sort
+                matching.sort(key=lambda row: row[column], reverse=desc)
             return SimpleNamespace(data=matching)
 
     class FakeBucket:
@@ -129,6 +154,12 @@ def fake_supabase(monkeypatch):
 
         def create_signed_url(self, path, seconds):
             return {"signedUrl": f"https://temporary-link/{path}"}
+
+        def create_signed_urls(self, paths, seconds):
+            return [
+                {"path": path, "signedUrl": f"https://temporary-link/{path}"}
+                for path in paths
+            ]
 
         def remove(self, paths):
             removed = [path for path in paths if stored_files.pop(path, None)]

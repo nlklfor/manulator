@@ -68,6 +68,16 @@ def get_file_url(path: str) -> str:
     return bucket.create_signed_url(path, URL_EXPIRES_IN)["signedUrl"] or ""
 
 
+# New 1-day links for several files in one request, as {path: url}.
+# Only pass paths that belong to the logged-in user.
+def get_file_urls(paths: list[str]) -> dict[str, str]:
+    if not paths:
+        return {}
+    bucket = get_admin_client().storage.from_(settings.storage_bucket)
+    signed = bucket.create_signed_urls(paths, URL_EXPIRES_IN)
+    return {item["path"]: item["signedUrl"] or "" for item in signed}
+
+
 # Resizes and re-encodes an image to reduce its size.
 def compress_image(data: bytes, content_type: str) -> bytes:
     image = ImageOps.exif_transpose(Image.open(io.BytesIO(data)))

@@ -22,7 +22,7 @@ The page only displays and edits a transcription. Running the recognition (calli
 
 The library page and the workspace must read the same list of uploaded pages. Each call to `useFileSelection()` creates its own copy of the state, so components use `useLibrary()` instead. `LibraryProvider` is mounted through `providers.tsx` in `src/app/(dashboard)/layout.tsx`, so it lives for as long as the user is inside the dashboard: it survives navigation between the library and the workspace, it is not created on the sign-in pages (no requests before login), and it is discarded when the user leaves the dashboard (for example on logout).
 
-The library lives in browser memory only. After a page refresh the workspace shows "Manuscript not found" until the backend can list the uploaded manuscripts (`GET /upload-manuscripts` does not exist yet).
+The library is loaded from the backend (`GET /api/upload-manuscripts`) when the dashboard opens, so a page refresh keeps it, and the workspace works for any saved manuscript. The page `status` is only kept in the browser for now: after a reload every page is back to `uploaded`, until the backend saves it.
 
 ## States of the right panel
 
@@ -59,5 +59,5 @@ The `lines` are kept in the state of `WorkspacePage`, so they are lost when the 
 ## Not done yet
 
 - **Export:** the button is shown but disabled. There is no export dialog or download.
-- **Persistence:** the library is not stored, see above.
-- **PDF preview:** PDFs show a placeholder instead of the page.
+- **Saved status:** statuses set in the workspace (transcribing, transcribed, corrected) are not saved by the backend yet.
+- **PDF preview:** PDFs show a placeholder instead of the page. The plan is to convert PDFs to images in the backend. Only the first page of a PDF is used.

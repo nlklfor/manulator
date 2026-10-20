@@ -1,4 +1,4 @@
-import { FileText } from "lucide-react";
+import { FileText, ImageOff } from "lucide-react";
 import Link from "next/link";
 import type { LibraryEntry } from "@/features/upload-manuscript/types/upload";
 import { useState } from "react";
@@ -21,9 +21,15 @@ export function ManuscriptCard({ entry, onDeleted }: ManuscriptCardProps) {
     if (deleteLoading) {
       return;
     }
-    setDeleteLoading(true);
 
-    // NOTE: Here we need to replace the entry.id by the real manuscript ID
+    // A failed upload never reached the backend, so there is nothing to delete there.
+    // Remove it from the library only; otherwise it could never be removed.
+    if (entry.status === "upload-failed") {
+      onDeleted(entry.id, true, "Failed upload removed");
+      return;
+    }
+
+    setDeleteLoading(true);
     const { success, message } = await deleteManuscript(entry.id);
     setDeleteLoading(false);
     // handle the deletion result in the parent component
@@ -41,6 +47,11 @@ export function ManuscriptCard({ entry, onDeleted }: ManuscriptCardProps) {
           <div className="flex aspect-[3/4] w-full items-center justify-center bg-mt-surface text-mt-text-subtle">
             <FileText className="h-10 w-10" strokeWidth={1.5} aria-label="PDF document" />
           </div>
+        ) : !entry.previewUrl ? (
+          // The backend sends an empty url when it could not create the preview link
+          <div className="flex aspect-[3/4] w-full items-center justify-center bg-mt-surface text-mt-text-subtle">
+            <ImageOff className="h-10 w-10" strokeWidth={1.5} aria-label="Preview not available" />
+          </div>
         ) : (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
@@ -56,7 +67,8 @@ export function ManuscriptCard({ entry, onDeleted }: ManuscriptCardProps) {
       </div>
 
       {/* Delete button: top right, shown on hover or keyboard focus (always on touch screens,
-          which have no hover). It is outside the link, so clicking it does not navigate. */}
+          which have no hover). It is outside the link, so clicking it does not navigate.
+          Disabled while the file is still uploading. */}
       <div
         className={`absolute right-2 top-2 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100 ${
           deleteLoading ? "opacity-100" : "opacity-0"
@@ -64,7 +76,7 @@ export function ManuscriptCard({ entry, onDeleted }: ManuscriptCardProps) {
       >
         <DeleteButton
           onClick={() => setConfirmingDelete(true)}
-          disabled={deleteLoading}
+          disabled={deleteLoading || entry.status === "uploading"}
           isLoading={deleteLoading}
           ariaLabel={`Delete ${entry.fileName}`}
         />

@@ -19,6 +19,8 @@ const STEPS = [
 export function UploadPageCard() {
   const {
     libraryEntries,
+    isLoading,
+    loadError,
     uploadError,
     pendingFile,
     selectFile,
@@ -65,8 +67,16 @@ export function UploadPageCard() {
       <p className="mt-1 text-sm text-mt-text-muted">
         {hasEntries
           ? `${libraryEntries.length} page${libraryEntries.length > 1 ? "s" : ""}`
-          : "No pages yet"}
+          : isLoading
+            ? "Loading pages…"
+            : "No pages yet"}
       </p>
+
+      {loadError && (
+        <div className="mt-4 rounded-mt-md border border-mt-danger bg-mt-danger-bg px-4 py-3 text-sm text-mt-danger-fg">
+          {loadError}
+        </div>
+      )}
 
       {uploadError && (
         <div className="mt-4 rounded-mt-md border border-mt-danger bg-mt-danger-bg px-4 py-3 text-sm text-mt-danger-fg">
@@ -76,7 +86,7 @@ export function UploadPageCard() {
       )}
 
       <div className="mt-6">
-        {hasEntries ? (
+        {isLoading && !hasEntries ? null : hasEntries ? (
           <div className="space-y-6">
             <CompactUploadBar onFileSelected={selectFile} />
             <Segmented
