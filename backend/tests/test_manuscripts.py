@@ -85,6 +85,7 @@ def test_list_returns_only_own_manuscripts(client, fake_supabase):
     assert manuscripts[0]["status"] == "uploaded"
     assert manuscripts[0]["url"] == "https://temporary-link/user-1/manuscripts/page.png"
 
+
 def test_list_requires_login():
     response = TestClient(app).get(URL)
 
