@@ -125,14 +125,31 @@ export function useFileSelection() {
       setLibraryEntries((prev) => [newEntry, ...prev]);
 
       uploadImage(file, details)
-        .then((response) =>
+        .then((response) => {
+          // The backend stores only the first page of a PDF, as an image. Show that image
+          // instead of the local PDF, and drop the local preview link.
+          const converted = file.type === "application/pdf";
+          if (converted) {
+            URL.revokeObjectURL(previewUrl);
+            previewUrlsRef.current.delete(previewUrl);
+          }
           // Switch to the server's manuscript id, so deleting it works
           setLibraryEntries((prev) =>
             prev.map((entry) =>
-              entry.id === id ? { ...entry, id: response.id, status: "uploaded" } : entry,
+              entry.id === id
+                ? {
+                    ...entry,
+                    id: response.id,
+                    status: "uploaded",
+                    ...(converted && {
+                      fileType: response.content_type,
+                      previewUrl: response.url,
+                    }),
+                  }
+                : entry,
             ),
-          ),
-        )
+          );
+        })
         .catch(() => updateEntryStatus(id, "upload-failed"));
     },
     [pendingFile, updateEntryStatus],
