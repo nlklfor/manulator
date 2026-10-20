@@ -27,6 +27,7 @@ export function Sidebar() {
   // The address of the open page, used to highlight the matching link
   const pathname = usePathname();
   const onLibrary = pathname === "/";
+  const onSearch = pathname === "/search";
   const onProfile = pathname === "/profile";
 
   return (
@@ -45,7 +46,7 @@ export function Sidebar() {
         <span className="text-[17px] font-semibold text-mt-text">manulator</span>
       </Link>
 
-      {/* Main links: Search is not built yet */}
+      {/* Main links */}
       <div className="flex flex-col gap-0.5">
         <Link
           href="/"
@@ -55,10 +56,15 @@ export function Sidebar() {
           <LayoutGrid className="size-4" aria-hidden="true" />
           Library
         </Link>
-        <button type="button" disabled className={ROW_INACTIVE}>
+        {/* Search page: full-text search through transcriptions */}
+        <Link
+          href="/search"
+          aria-current={onSearch ? "page" : undefined}
+          className={onSearch ? ROW_CURRENT : ROW_LINK}
+        >
           <Search className="size-4" aria-hidden="true" />
           Search
-        </button>
+        </Link>
       </div>
 
       {/* Manuscripts */}
