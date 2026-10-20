@@ -1,4 +1,5 @@
 from services.segmentation import run_segmentation
+from services.transcription import run_transcription
 
 
 class Task:
@@ -12,7 +13,7 @@ class Task:
         # Add here your action
         self.actions = {
             "Detect Lines": run_segmentation,
-            "Transcribe": None, # add transcription here,
+            "Transcribe": run_transcription,
             "Translate": None,
             "Summarize": None
         }
@@ -35,7 +36,7 @@ class Pipeline:
 
         self.actions = {
             "Detect Lines": run_segmentation,
-            "Transcribe": None # add transcription function here,
+            "Transcribe": run_transcription,
         }
 
     # run the action specified in the task, along with its dependencies
