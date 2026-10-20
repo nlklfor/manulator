@@ -6,6 +6,7 @@ its own environment (ml/pylaia) as a separate program.
 """
 
 import json
+import os
 import re
 import subprocess
 import tempfile
@@ -79,7 +80,8 @@ def run_pylaia(image_dir: Path, names: list[str]) -> str:
         "--project",
         str(PYLAIA_DIR),
         "--no-sync",
-        "pylaia-htr-decode-ctc",
+        "python",
+        str(PYLAIA_DIR / "decode.py"),  # pylaia-htr-decode-ctc, but works on Windows too
         "--config",
         str(CONFIG_FILE),
         str(MODEL_DIR / "syms.txt"),  # which number stands for which character
@@ -87,9 +89,19 @@ def run_pylaia(image_dir: Path, names: list[str]) -> str:
         "--img_dirs",
         f"[{image_dir}]",  # where the images are
     ]
+    # On Windows, Python opens files in the Windows encoding by default.
+    # PYTHONUTF8=1 makes PyLaia open syms.txt as UTF-8, like on Mac and Linux.
+    env = {**os.environ, "PYTHONUTF8": "1"}
     # cwd=ML_DIR: the paths in the config are relative to ml/
     completed = subprocess.run(
-        command, cwd=ML_DIR, capture_output=True, text=True, check=True, timeout=600
+        command,
+        cwd=ML_DIR,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",  # PyLaia's output can contain special characters
+        check=True,
+        timeout=600,
     )
     return completed.stdout
 
