@@ -2,13 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, UploadFile
 
-<<<<<<< HEAD
-from app.schemas.manuscript import (
-    UploadResponse,
-)
-=======
 from app.schemas.manuscript import ManuscriptResponse, UploadResponse
->>>>>>> c678f82 (feat: add get endpoint for manuscripts)
 from app.services import storage
 from app.services.auth import get_current_user_id
 
