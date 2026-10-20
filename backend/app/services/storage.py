@@ -9,6 +9,7 @@ from app.config import settings
 from app.schemas.manuscript import ManuscriptResponse, UploadResponse
 from app.services.bucket import delete_file, get_file_urls, upload_file
 from app.services.database import get_admin_client
+from app.services.pdf import PdfError, first_page_to_png
 
 logger = logging.getLogger(__name__)
 
@@ -34,16 +35,32 @@ def save_upload(
     if size > limit:
         raise HTTPException(413, f"File exceeds the {settings.max_upload_mb} MB limit")
 
+    filename = Path(file.filename or "").name[:255] or "upload"
+    content_type = file.content_type
+
+    # Only the first page of a PDF is used. It is stored as an image, so the preview
+    # and the recognition models can work with it like with any other scan.
+    if content_type == "application/pdf":
+        try:
+            data = first_page_to_png(data)
+        except PdfError as error:
+            logger.warning("PDF conversion failed: %s", error)
+            raise HTTPException(
+                422, "Could not read the PDF. It may be damaged or password protected."
+            ) from error
+        content_type = "image/png"
+        size = len(data)
+        filename = Path(filename).stem + ".png"
+
     # No compression: it can blur handwriting and hurt text recognition
     try:
-        path, url = upload_file(data, file.content_type, user_id, "manuscripts")
+        path, url = upload_file(data, content_type, user_id, "manuscripts")
     except StorageException as error:
         logger.warning("Supabase upload failed: %s", error)
         raise HTTPException(
             502, "Could not save the file. Please try again."
         ) from error
 
-    filename = Path(file.filename or "").name[:255] or "upload"
     db = get_admin_client()
     manuscript = None
     try:
@@ -63,7 +80,7 @@ def save_upload(
                 "owner_id": user_id,
                 "file_name": filename,
                 "storage_path": path,
-                "content_type": file.content_type,
+                "content_type": content_type,
                 "size_bytes": size,
                 "position": 1,
             }
@@ -83,7 +100,7 @@ def save_upload(
         title=title,
         document_type=document_type,
         filename=filename,
-        content_type=file.content_type,
+        content_type=content_type,
         size=size,
         url=url,
     )

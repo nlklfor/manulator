@@ -1,9 +1,11 @@
+import io
 import json
 from typing import Any
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from app.config import settings
 from app.main import app
@@ -38,11 +40,44 @@ def test_upload_saves_manuscript_and_file(client, fake_supabase):
     assert fake_supabase.files[page["storage_path"]] == b"png bytes"
 
 
-def test_upload_pdf(client, fake_supabase):
-    response = upload(client, "book.pdf", b"pdf bytes", "application/pdf")
+# A real PDF made with Pillow: one red page, then one blue page
+def make_pdf() -> bytes:
+    red = Image.new("RGB", (200, 300), "red")
+    blue = Image.new("RGB", (200, 300), "blue")
+    buffer = io.BytesIO()
+    red.save(buffer, format="PDF", save_all=True, append_images=[blue])
+    return buffer.getvalue()
+
+
+def test_upload_pdf_stores_first_page_as_png(client, fake_supabase):
+    response = upload(client, "book.pdf", make_pdf(), "application/pdf")
 
     assert response.status_code == 201
-    assert fake_supabase.tables["manuscript_files"][-1]["storage_path"].endswith(".pdf")
+    page = fake_supabase.tables["manuscript_files"][-1]
+    assert page["storage_path"].endswith(".png")  # stored as an image, not a PDF
+    assert page["content_type"] == "image/png"
+    assert page["file_name"] == "book.png"
+
+    stored = fake_supabase.files[page["storage_path"]]
+    assert page["size_bytes"] == len(stored)
+    image = Image.open(io.BytesIO(stored))
+    assert image.format == "PNG"
+    # Crop the centre pixel and read its bytes: getpixel() has a union return type
+    # that the ty type checker cannot unpack.
+    x, y = image.width // 2, image.height // 2
+    r, g, b = image.convert("RGB").crop((x, y, x + 1, y + 1)).tobytes()
+    assert r > 200 and b < 50  # first page (red), not the second (blue)
+
+    body = response.json()
+    assert body["content_type"] == "image/png"
+    assert body["filename"] == "book.png"
+
+
+def test_upload_broken_pdf_is_rejected(client, saved_files):
+    response = upload(client, "broken.pdf", b"this is not a pdf", "application/pdf")
+
+    assert response.status_code == 422
+    assert saved_files == {}  # nothing was stored
 
 
 def test_rejects_empty_title_or_type(client, saved_files):

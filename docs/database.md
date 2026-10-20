@@ -203,7 +203,11 @@ The `manuscripts` and `manuscript_files` tables are already present in the Supab
 including the file status column. The library is loaded from the database:
 
 - `POST /api/upload-manuscripts` creates a `manuscripts` row, uploads the file to Supabase Storage
-  and saves one `manuscript_files` row for it.
+  and saves one `manuscript_files` row for it. A PDF is converted first: only its first page is
+  kept, rendered as a PNG (300 DPI, longest side at most 4000 px). The stored file, its
+  `content_type` (`image/png`), its name (`.png`) and its size are those of the image, and the
+  original PDF is not stored. A PDF that cannot be read (damaged, empty or password protected)
+  is rejected with status 422.
 - `GET /api/upload-manuscripts` returns the logged in user's manuscripts, newest first. Each entry
   contains the manuscript's first file (lowest `position`), its saved `status` and a temporary
   link to the file, valid for 1 day. The backend uses the admin client, which ignores RLS, so it
