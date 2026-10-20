@@ -35,6 +35,10 @@ export function useFileSelection() {
           ...prev,
           ...loaded.filter((entry) => !prev.some((p) => p.id === entry.id)),
         ]);
+        // The backend sends an empty url when it could not create the preview links
+        if (loaded.some((entry) => !entry.previewUrl)) {
+          setLoadError("Some previews could not be loaded. Please reload the page.");
+        }
       })
       .catch(() => {
         if (!cancelled) setLoadError("Could not load your pages. Please reload the page.");
