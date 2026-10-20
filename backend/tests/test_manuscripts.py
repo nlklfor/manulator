@@ -74,6 +74,24 @@ def test_requires_login(saved_files):
     assert saved_files == {}
 
 
+def test_list_returns_only_own_manuscripts(client, fake_supabase):
+    response = client.get(URL)
+
+    assert response.status_code == 200
+    manuscripts = response.json()
+    assert [m["id"] for m in manuscripts] == [MANUSCRIPT_ID]  # not user-2's
+    assert manuscripts[0]["title"] == "Letter"
+    assert manuscripts[0]["filename"] == "page.png"
+    assert manuscripts[0]["status"] == "uploaded"
+    assert manuscripts[0]["url"] == "https://temporary-link/user-1/manuscripts/page.png"
+
+
+def test_list_requires_login():
+    response = TestClient(app).get(URL)
+
+    assert response.status_code in (401, 403)  # not logged in
+
+
 def test_delete_manuscript(client, fake_supabase):
     response = client.delete(f"{URL}/{MANUSCRIPT_ID}")
 

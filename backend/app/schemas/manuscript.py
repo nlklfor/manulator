@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -23,3 +25,8 @@ class ManuscriptTranscriptResponse(BaseModel):
     manuscript_id: str
     overlay: str  # JPEG as a data URL, usable directly as <img src>
     data: dict  # results per pipeline step, e.g. {"Detect Lines": {"lines": [...]}}
+
+
+class ManuscriptResponse(UploadResponse):
+    status: str  # status of the first file, e.g. "uploaded"
+    created_at: datetime
