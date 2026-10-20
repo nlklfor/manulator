@@ -62,7 +62,10 @@ def test_upload_pdf_stores_first_page_as_png(client, fake_supabase):
     assert page["size_bytes"] == len(stored)
     image = Image.open(io.BytesIO(stored))
     assert image.format == "PNG"
-    r, g, b = image.getpixel((image.width // 2, image.height // 2))
+    # Crop the centre pixel and read its bytes: getpixel() has a union return type
+    # that the ty type checker cannot unpack.
+    x, y = image.width // 2, image.height // 2
+    r, g, b = image.convert("RGB").crop((x, y, x + 1, y + 1)).tobytes()
     assert r > 200 and b < 50  # first page (red), not the second (blue)
 
     body = response.json()
