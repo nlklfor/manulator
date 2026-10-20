@@ -15,12 +15,12 @@ The page only displays and edits a transcription. Running the recognition (calli
 | `src/features/workspace/components/TranscriptionLines.tsx`     | The editable list of lines (select, edit, keyboard navigation).                               |
 | `src/features/workspace/types.ts`                              | `TranscriptionLine`, the shape of one line.                                                   |
 | `src/features/upload-manuscript/context/LibraryContext.tsx`    | Shares the library state with every page through `useLibrary()`.                              |
-| `src/app/providers.tsx`                                        | Client wrapper that mounts `LibraryProvider` once, so the state survives navigation.          |
+| `src/app/providers.tsx`                                        | Client wrapper that mounts `LibraryProvider`. Used in the dashboard layout.                   |
 | `src/features/upload-manuscript/components/ManuscriptCard.tsx` | The card image and name link to `/manuscript/<id>`. The delete button stays outside the link. |
 
 ## Shared library state
 
-The library page and the workspace must read the same list of uploaded pages. Each call to `useFileSelection()` creates its own copy of the state, so components use `useLibrary()` instead. `LibraryProvider` is mounted in `providers.tsx` (a `"use client"` file) and not directly in the server `RootLayout`. Otherwise Next.js would remount it on navigation and the list would be lost.
+The library page and the workspace must read the same list of uploaded pages. Each call to `useFileSelection()` creates its own copy of the state, so components use `useLibrary()` instead. `LibraryProvider` is mounted through `providers.tsx` in `src/app/(dashboard)/layout.tsx`, so it lives for as long as the user is inside the dashboard: it survives navigation between the library and the workspace, it is not created on the sign-in pages (no requests before login), and it is discarded when the user leaves the dashboard (for example on logout).
 
 The library lives in browser memory only. After a page refresh the workspace shows "Manuscript not found" until the backend can list the uploaded manuscripts (`GET /upload-manuscripts` does not exist yet).
 
