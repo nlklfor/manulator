@@ -90,6 +90,7 @@ async def process_manuscript(
             }
         ),
     }
+    print(form)
     # Create a post request to the ML service
     # with a timeout of 300 seconds (5 minutes)
     async with httpx.AsyncClient(timeout=300.0) as client:
