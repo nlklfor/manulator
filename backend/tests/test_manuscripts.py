@@ -206,7 +206,7 @@ ML_URL = "/api/process-manuscripts"
 def test_process_manuscript(client, fake_supabase, fake_ml_service):
     requests = fake_ml_service(lambda request: httpx.Response(200, json=ML_RESULT))
 
-    response = client.put(f"{ML_URL}/{MANUSCRIPT_ID}", json=PLAN)
+    response = client.post(f"{ML_URL}/{MANUSCRIPT_ID}", json=PLAN)
 
     assert response.status_code == 200
     assert response.json() == ML_RESULT
@@ -234,7 +234,7 @@ def test_process_manuscript(client, fake_supabase, fake_ml_service):
 def test_process_manuscript_ml_service_fails(client, fake_supabase, fake_ml_service):
     fake_ml_service(lambda request: httpx.Response(500, json={"detail": "boom"}))
 
-    response = client.put(f"{ML_URL}/{MANUSCRIPT_ID}", json=PLAN)
+    response = client.post(f"{ML_URL}/{MANUSCRIPT_ID}", json=PLAN)
 
     assert response.status_code == 502  # 502 = the ML service behind us failed
 
@@ -247,7 +247,7 @@ def test_process_manuscript_ml_service_unreachable(
 
     fake_ml_service(not_running)
 
-    response = client.put(f"{ML_URL}/{MANUSCRIPT_ID}", json=PLAN)
+    response = client.post(f"{ML_URL}/{MANUSCRIPT_ID}", json=PLAN)
 
     assert response.status_code == 502
 
@@ -259,7 +259,7 @@ def test_process_other_users_manuscript_is_not_found(
     requests = fake_ml_service(lambda request: httpx.Response(200, json=ML_RESULT))
     plan = {**PLAN, "manuscript_id": OTHER_USERS_MANUSCRIPT_ID, "user_id": "user-2"}
 
-    response = client.put(f"{ML_URL}/{OTHER_USERS_MANUSCRIPT_ID}", json=plan)
+    response = client.post(f"{ML_URL}/{OTHER_USERS_MANUSCRIPT_ID}", json=plan)
 
     assert response.status_code == 404
     assert requests == []  # the file is never sent to the ML service
