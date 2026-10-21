@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
 
+from app.config import settings
 from app.schemas.manuscripts import ManuscriptProcessResponse, ManuscriptProcessPlan
 from services.pipeline import Task, Pipeline
 
@@ -16,8 +17,14 @@ def process_manuscript(process_plan: Annotated[str, Form()], file: Annotated[Upl
     # PDFs are not supported yet: Kraken can only open images
     if file.content_type == "application/pdf":
         raise HTTPException(status_code=415, detail="PDFs are not supported yet")
-    if file.content_type not in ["image/jpeg", "image/png"]:
+    if file.content_type not in settings.allowed_content_types:
         raise HTTPException(status_code=415, detail="Invalid file format")
+
+    limit = settings.max_upload_mb * 1024 * 1024
+    file_data = file.file.read(limit + 1)
+    size = len(file_data)
+    if size > limit:
+        raise HTTPException(413, f"File exceeds the {settings.max_upload_mb} MB limit")
     try:
         # validate the process plan
         # check whether the process plan is valid JSON and
@@ -26,11 +33,8 @@ def process_manuscript(process_plan: Annotated[str, Form()], file: Annotated[Upl
     except ValidationError as error:
         raise HTTPException(status_code=422, detail=error.errors()) from error
 
-    # read the file content
-    content = file.file.read()
-
     # create the task
-    task = Task(input=plan.plan, data={"image": content, "image_id": plan.manuscript_id},
+    task = Task(input=plan.plan, data={"image": file_data, "image_id": plan.manuscript_id},
                 options=plan.options)
     # create the pipeline and run it
     pipeline = Pipeline(task)
