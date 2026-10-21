@@ -165,5 +165,6 @@ export function useFileSelection() {
     confirmUpload,
     cancelUpload,
     removeManuscript,
+    updateEntryStatus,
   };
 }

@@ -16,8 +16,10 @@ export async function deleteManuscript(manuscriptId: string): Promise<DeleteManu
     });
     return { success: true, message: "Manuscript deleted" };
   } catch (error) {
+    // 404: the backend does not have it (any more). Count it as deleted, so the
+    // caller also removes the entry from the library instead of keeping a ghost.
     if (error instanceof ApiError && error.status === 404) {
-      return { success: false, message: "Manuscript not found. Error status " + error.status };
+      return { success: true, message: "Manuscript was already removed" };
     }
     return { success: false, message: "Could not delete the manuscript. Please try again." };
   }
