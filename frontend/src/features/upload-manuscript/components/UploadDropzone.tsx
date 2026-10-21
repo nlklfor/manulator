@@ -2,6 +2,7 @@
 
 import { useRef, useState, type DragEvent } from "react";
 import { FileUp, Upload } from "lucide-react";
+import { ACCEPTED_FILE_HINT, ACCEPTED_FILE_TYPES } from "../hooks/validateFile";
 
 interface UploadDropzoneProps {
   onFileSelected: (file: File) => void;
@@ -36,7 +37,7 @@ export function UploadDropzone({ onFileSelected }: UploadDropzoneProps) {
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png"
+        accept={ACCEPTED_FILE_TYPES.join(",")}
         className="hidden"
         onChange={(event) => {
           handleFiles(event.currentTarget.files);
@@ -69,7 +70,7 @@ export function UploadDropzone({ onFileSelected }: UploadDropzoneProps) {
           <span className="text-sm text-mt-text-subtle">or drop files here</span>
         </div>
 
-        <p className="text-xs text-mt-text-subtle">JPG or PNG · up to 20 MB per file</p>
+        <p className="text-xs text-mt-text-subtle">{ACCEPTED_FILE_HINT}</p>
       </div>
     </div>
   );

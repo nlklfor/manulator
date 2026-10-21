@@ -1,6 +1,7 @@
 import type { UploadError } from "../types/upload";
 
-const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/png"];
+export const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/png", "application/pdf"];
+export const ACCEPTED_FILE_HINT = "JPG, PNG or PDF · up to 20 MB per file";
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 
 export function validateFile(file: File): UploadError | null {
@@ -9,7 +10,7 @@ export function validateFile(file: File): UploadError | null {
     return {
       fileName: file.name,
       reason: "invalid-type",
-      message: `${ext} files are not supported. Please upload a JPEG or PNG image.`,
+      message: `${ext} files are not supported. Please upload a JPG, PNG or PDF file.`,
     };
   }
 

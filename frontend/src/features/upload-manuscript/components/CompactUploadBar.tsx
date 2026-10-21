@@ -2,6 +2,7 @@
 
 import { useRef, useState, type DragEvent } from "react";
 import { Upload } from "lucide-react";
+import { ACCEPTED_FILE_HINT, ACCEPTED_FILE_TYPES } from "../hooks/validateFile";
 
 interface CompactUploadBarProps {
   onFileSelected: (file: File) => void;
@@ -37,7 +38,7 @@ export function CompactUploadBar({ onFileSelected }: CompactUploadBarProps) {
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png"
+        accept={ACCEPTED_FILE_TYPES.join(",")}
         className="hidden"
         onChange={(event) => {
           handleFiles(event.currentTarget.files);
@@ -58,9 +59,7 @@ export function CompactUploadBar({ onFileSelected }: CompactUploadBarProps) {
         </button>
       </p>
 
-      <span className="ml-auto shrink-0 text-xs text-mt-text-subtle">
-        JPG or PNG · up to 20 MB per file
-      </span>
+      <span className="ml-auto shrink-0 text-xs text-mt-text-subtle">{ACCEPTED_FILE_HINT}</span>
     </div>
   );
 }

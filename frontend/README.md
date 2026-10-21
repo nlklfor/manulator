@@ -45,6 +45,8 @@ Frontend source code lives in `src/`. Use the following guide when adding files:
 | `src/types/`                         | Types shared across features. Keep feature-only types local to their feature.                                                                                                      |
 | `public/`                            | Static files served directly, such as images and icons. Reference these by their path from the site root.                                                                          |
 
+The manuscript detail view (`src/features/workspace/`) and the shared library state are described in [docs/frontend-workspace.md](../docs/frontend-workspace.md).
+
 Add code to a feature folder first when it has a clear feature owner. Move it into a shared folder only when multiple parts of the application use it. Route groups can have their own `layout.tsx`.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load IBM Plex Sans, IBM Plex Mono, and Literata.

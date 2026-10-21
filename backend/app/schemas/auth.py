@@ -51,3 +51,8 @@ class LoginResponse(BaseModel):
     jwtToken: str | None
     tokenType: str | None
     username: str | None
+
+
+class LogoutResponse(BaseModel):
+    success: bool
+    message: str

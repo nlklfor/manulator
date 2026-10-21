@@ -91,3 +91,17 @@ We use [Conventional Commits](https://www.conventionalcommits.org): `<type>: <sh
 
 - **On every commit (Husky):** ESLint and Prettier check the frontend, and commitlint checks the commit message. If something fails, the commit is stopped. Fix formatting with `npm run format`.
 - **On every pull request and push to `dev`/`main` (GitHub Actions):** the frontend gets the same lint and format checks plus a production build; the backend gets `ruff check`, `ruff format --check` and `pytest`.
+
+
+### Generate redirect url in Forget Password (if email limit reached in supabase)
+```python
+.venv/bin/python -c "
+from app.services.database import get_supabase_client
+r = get_supabase_client().auth.admin.generate_link({
+    'type': 'recovery',
+    'email': 'YOUR_USER_EMAIL',
+    'options': {'redirect_to': 'http://localhost:3000/auth/reset-password'},
+})
+print(r.properties.action_link)
+"
+```

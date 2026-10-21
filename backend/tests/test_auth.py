@@ -11,6 +11,8 @@ from app.services import auth
 
 URL = "/api/auth/"
 REGISTER_URL = "/api/auth/register"
+LOGOUT_URL = "/api/auth/logout"
+ACCESS_TOKEN = "test-access-token"
 EMAIL = "user@example.com"
 PASSWORD = "Test-password1"
 DISPLAY_NAME = "Test User"
@@ -39,7 +41,8 @@ def expected_sign_up_call(display_name: str = DISPLAY_NAME):
 @pytest.fixture
 def supabase_client(monkeypatch: MonkeyPatch):
     client = Mock(spec=["auth"])
-    client.auth = Mock(spec=["sign_in_with_password", "sign_up"])
+    client.auth = Mock(spec=["sign_in_with_password", "sign_up", "admin"])
+    client.auth.admin = Mock(spec=["sign_out"])
     monkeypatch.setattr(auth, "get_supabase_client", Mock(return_value=client))
     return client
 
@@ -274,3 +277,62 @@ def test_registration_validates_input(client, supabase_client, data, invalid_fie
     assert response.status_code == 422
     assert {error["loc"][-1] for error in response.json()["detail"]} == {invalid_field}
     supabase_client.auth.sign_up.assert_not_called()
+
+
+# LOGOUT TESTS
+def auth_header(token: str = ACCESS_TOKEN):
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_logout_success(client, supabase_client):
+    response = client.post(LOGOUT_URL, headers=auth_header())
+
+    assert response.status_code == 200
+    assert response.json() == {"success": True, "message": "Successfully logged out"}
+    supabase_client.auth.admin.sign_out.assert_called_once_with(ACCESS_TOKEN, "local")
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [{}, {"Authorization": "Basic abc"}, {"Authorization": "Bearer"}],
+)
+def test_logout_requires_bearer_token(client, supabase_client, headers):
+    response = client.post(LOGOUT_URL, headers=headers)
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Not authenticated"}
+    supabase_client.auth.admin.sign_out.assert_not_called()
+
+
+@pytest.mark.parametrize("status_code", [401, 403])
+def test_logout_rejects_invalid_token(client, supabase_client, status_code):
+    supabase_client.auth.admin.sign_out.side_effect = AuthApiError(
+        "invalid JWT", status_code, "bad_jwt"
+    )
+
+    response = client.post(LOGOUT_URL, headers=auth_header("invalid-token"))
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid or expired token"}
+
+
+def test_logout_reports_provider_server_error(client, supabase_client):
+    supabase_client.auth.admin.sign_out.side_effect = AuthApiError(
+        "Internal server error", 500, "unexpected_failure"
+    )
+
+    response = client.post(LOGOUT_URL, headers=auth_header())
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "Logout service is temporarily unavailable."}
+
+
+def test_logout_reports_network_error(client, supabase_client):
+    supabase_client.auth.admin.sign_out.side_effect = AuthRetryableError(
+        "Connection timed out", 0
+    )
+
+    response = client.post(LOGOUT_URL, headers=auth_header())
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "Logout service is temporarily unavailable."}

@@ -93,3 +93,18 @@ export function consumeJustLoggedIn(): boolean {
     return false;
   }
 }
+
+// Carries the logout message to the sign-in page. A short-lived cookie is
+// used (not sessionStorage) so the server-rendered page can read it.
+export const LOGOUT_MESSAGE_COOKIE_NAME = "logout-message";
+
+export function storeLogoutMessage(message: string) {
+  const { path, sameSite } = SESSION_COOKIE_OPTIONS;
+  document.cookie = `${LOGOUT_MESSAGE_COOKIE_NAME}=${encodeURIComponent(message)}; Path=${path}; Max-Age=60; SameSite=${sameSite}`;
+}
+
+// Removes the message again once the sign-in page has shown it
+export function clearLogoutMessage() {
+  const { path, sameSite } = SESSION_COOKIE_OPTIONS;
+  document.cookie = `${LOGOUT_MESSAGE_COOKIE_NAME}=; Path=${path}; Max-Age=0; SameSite=${sameSite}`;
+}

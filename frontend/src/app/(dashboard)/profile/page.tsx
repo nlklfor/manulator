@@ -1,3 +1,5 @@
+import { AccountCard } from "@/features/profile/components/AccountCard";
+import { AvatarCard } from "@/features/profile/components/AvatarCard";
 import { DisplayNameCard } from "@/features/profile/components/DisplayNameCard";
 
 export default function ProfilePage() {
@@ -9,9 +11,10 @@ export default function ProfilePage() {
           How you appear to the people you share manuscripts with.
         </p>
       </header>
-
       <div className="flex max-w-[800px] flex-col gap-5 px-10 pb-10">
+        <AvatarCard />
         <DisplayNameCard />
+        <AccountCard />
       </div>
     </main>
   );

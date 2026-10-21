@@ -29,3 +29,6 @@ Thumbs.db
 
 # Uploaded files
 backend/uploads/
+
+ml/output
+
