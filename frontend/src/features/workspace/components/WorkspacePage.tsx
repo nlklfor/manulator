@@ -42,7 +42,7 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   // For now it only marks the page as "transcribing".
   function handleTranscribe(modelId: string) {
     processManuscript(entry.id, processPlan).then((result) => {
-      if (result.success) {
+      if (result.success && entry) {
         updateEntryStatus(entry.id, "transcribed");
         // TODO Display the overlay image returned by the transcription API
         // setOverlay(result.overlay);
