@@ -4,9 +4,9 @@ import { getAuthToken } from "@/lib/auth/session";
 const TRANSCRIBE_ENDPOINT = "/api/process-manuscripts/";
 
 export interface ManuscriptProcessPlan {
-  steps: string[];
+  steps: string[] | null;
   plan: string;
-  options: Record<string, string>;
+  options: Record<string, string> | null;
 }
 
 export interface ManuscriptProcessResponse {

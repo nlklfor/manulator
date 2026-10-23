@@ -31,9 +31,9 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
 
   // For now the plan is to just transcribe the page
   const processPlan = {
-    steps: null,
+    steps: [],
     plan: "Transcribe",
-    options: null,
+    options: {},
   };
 
   // Called by the "Transcribe page" button with the chosen model id.
