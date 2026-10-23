@@ -41,6 +41,7 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   // then call setLines(...) with the result and set the status to "transcribed".
   // For now it only marks the page as "transcribing".
   function handleTranscribe(modelId: string) {
+    if (!entry) return;
     processManuscript(entry.id, processPlan).then((result) => {
       if (result.success && entry) {
         updateEntryStatus(entry.id, "transcribed");
