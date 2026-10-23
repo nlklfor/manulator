@@ -9,6 +9,7 @@ import { useLibrary } from "@/features/upload-manuscript/context/LibraryContext"
 import { StatusBadge } from "@/features/upload-manuscript/components/StatusBadge";
 import { ImageViewer } from "./ImageViewer";
 import { TranscriptionPanel } from "./TranscriptionPanel";
+import { processManuscript } from "@/features/workspace/api/process-manuscript";
 import type { TranscriptionLine } from "../types";
 
 interface WorkspacePageProps {
@@ -20,15 +21,36 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   const { libraryEntries, updateEntryStatus } = useLibrary();
   const entry = libraryEntries.find((e) => e.id === manuscriptId);
 
+  // The overlay image returned by the transcription API, which shows the
+  // detected lines
+  const [overlay, setOverlay] = useState(null);
+
   // The transcribed lines of this page. Filled by the transcription flow (ML team),
   // see handleTranscribe. Empty until then.
   const [lines, setLines] = useState<TranscriptionLine[]>([]);
+
+  // For now the plan is to just transcribe the page
+  const processPlan = {
+    steps: null,
+    plan: "Transcribe",
+    options: null,
+  };
 
   // Called by the "Transcribe page" button with the chosen model id.
   // TODO (ML team): call the real transcription API with entry.id and modelId,
   // then call setLines(...) with the result and set the status to "transcribed".
   // For now it only marks the page as "transcribing".
   function handleTranscribe(modelId: string) {
+    processManuscript(entry.id, processPlan).then((result) => {
+      if (result.success) {
+        updateEntryStatus(entry.id, "transcribed");
+        // TODO Display the overlay image returned by the transcription API
+        // setOverlay(result.overlay);
+        // set overlayImage
+        // TODO and show transcribed lines
+        // return overlay && <img src={overlay} alt="Manuscript overlay" style={{ maxWidth: "100%" }} />;
+      }
+    });
     void modelId;
     if (entry) updateEntryStatus(entry.id, "transcribing");
   }
