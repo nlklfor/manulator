@@ -71,9 +71,7 @@ def load_manuscript_pages(manuscript_id: str, user_id: str) -> ManuscriptPage:
 # process_manuscript sends the manuscript file
 # and the processing plan to the ML service,
 async def process_manuscript(
-        user_plan: ManuscriptProcessPlan,
-        manuscript_id: str,
-        user_id: str
+    user_plan: ManuscriptProcessPlan, manuscript_id: str, user_id: str
 ) -> ManuscriptTranscriptResponse:
     # load file from bucket
     page = load_manuscript_pages(manuscript_id, user_id)
