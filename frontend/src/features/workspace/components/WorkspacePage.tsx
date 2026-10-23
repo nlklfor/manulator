@@ -23,7 +23,7 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
 
   // The overlay image returned by the transcription API, which shows the
   // detected lines
-  const [overlay, setOverlay] = useState(null);
+  //const [overlay, setOverlay] = useState(null);
 
   // The transcribed lines of this page. Filled by the transcription flow (ML team),
   // see handleTranscribe. Empty until then.
