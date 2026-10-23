@@ -7,13 +7,13 @@ export interface ManuscriptProcessPlan {
   manuscriptId: string;
   steps: string[];
   plan: string;
-  options: Record<string, any>;
+  options: Record<string, string>;
 }
 
 export interface ManuscriptProcessResponse {
   manuscriptId: string;
   overlay: string;
-  data: Record<any, any>;
+  data: Record<string, string[]>;
   success: boolean;
   message: string | null;
 }
