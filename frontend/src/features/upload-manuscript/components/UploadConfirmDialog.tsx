@@ -3,9 +3,7 @@
 import { useEffect, useRef, type SubmitEvent } from "react";
 import TextField from "@/features/auth/components/TextField";
 import type { UploadDetails } from "../api/uploadImage";
-
-// users can also type their own document type
-const DOCUMENT_TYPES = ["Religious", "Political", "Historical", "Literary", "Legal", "Other"];
+import { DOCUMENT_TYPES } from "../constants/documentTypes";
 
 interface UploadConfirmDialogProps {
   file: File;

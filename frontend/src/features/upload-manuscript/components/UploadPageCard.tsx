@@ -11,6 +11,7 @@ import { Search, Upload, X } from "lucide-react";
 import { Segmented } from "@/components/ui/Segmented";
 import { useStatusFilter } from "../hooks/useStatusFilter";
 import { ACCEPTED_FILE_TYPES } from "../hooks/validateFile";
+import type { UploadDetails } from "../api/uploadImage";
 
 // ── Sort options ──────────────────────────────────────────────────────────────
 type SortOption = "newest" | "oldest" | "name";
@@ -39,6 +40,7 @@ export function UploadPageCard() {
     confirmUpload,
     cancelUpload,
     removeManuscript,
+    editManuscript,
   } = useLibrary();
   const [toast, setToast] = useState<{ message: string; success: boolean } | null>(null);
 
@@ -60,6 +62,12 @@ export function UploadPageCard() {
       removeManuscript(id);
     }
     setToast({ message, success });
+  }
+
+  // Called by the edit form. It throws when saving fails, so the form can show the error.
+  async function handleEdit(id: string, details: UploadDetails) {
+    await editManuscript(id, details);
+    setToast({ message: "Changes saved", success: true });
   }
 
   // Stable function, so the Toast timer is not restarted on every render
@@ -227,7 +235,11 @@ export function UploadPageCard() {
             />
 
             {displayedEntries.length > 0 ? (
-              <ManuscriptLibrary entries={displayedEntries} onDeleted={handleDeleted} />
+              <ManuscriptLibrary
+                entries={displayedEntries}
+                onDeleted={handleDeleted}
+                onEdit={handleEdit}
+              />
             ) : (
               <div className="rounded-mt-md border border-mt-border bg-mt-surface px-4 py-10 text-center">
                 <p className="text-sm text-mt-text-muted">
