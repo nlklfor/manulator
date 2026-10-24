@@ -74,6 +74,9 @@ Our professor suggested PyLaia instead of Kraken's own reading model. Kraken sti
 - Can add a character language model (n-gram) when decoding. It predicts which characters are likely to come next and fixes some reading errors. Teklia reports about 12% lower CER on average with it.
 - Gives a confidence score per line, useful to flag lines a person should check.
 
+## Experimental Step: Correct the transcribed text by a correction model
+- Model: ByT5
+
 ## 3. Translation
 
 The Latin text from gets translated into a modern language
