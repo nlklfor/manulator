@@ -102,11 +102,16 @@ def fake_supabase(monkeypatch):
             self.name = name
             self.is_delete = False
             self.new_row = None
+            self.new_values = None
             self.filters = {}
             self.sort = None
 
         def insert(self, row):
             self.new_row = {"id": str(uuid4()), **row}
+            return self
+
+        def update(self, values):
+            self.new_values = values
             return self
 
         def select(self, *_):
@@ -132,6 +137,9 @@ def fake_supabase(monkeypatch):
             matching = [
                 row for row in rows if all(row[c] == v for c, v in self.filters.items())
             ]
+            if self.new_values:
+                for row in matching:
+                    row.update(self.new_values)
             if self.is_delete:
                 rows[:] = [row for row in rows if row not in matching]
                 if self.name == "manuscripts":

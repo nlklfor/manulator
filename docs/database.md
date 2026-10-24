@@ -214,6 +214,11 @@ including the file status column. The library is loaded from the database:
   filters by `owner_id` itself.
 - If the links cannot be created, the entries are still returned with an empty `url`. The
   frontend then shows a placeholder and asks the user to reload the page.
+- `PATCH /api/upload-manuscripts/{id}` changes the `title` and/or the `document_type` of one of
+  the user's manuscripts. Both are optional, but at least one must be sent. They are trimmed and
+  follow the same rules as at upload (title 1 to 200, document type 1 to 50 characters), otherwise
+  the status is 422. It returns the saved `id`, `title` and `document_type`. A manuscript that does
+  not exist or belongs to someone else returns 404.
 - `DELETE /api/upload-manuscripts/{id}` deletes the manuscript, its file rows and its files in Storage.
 
 `manuscript_files.status` is read and shown in the badges and filters, but nothing updates it yet,
@@ -559,8 +564,10 @@ REVOKE ALL ON TABLE public.manuscripts FROM anon, authenticated;
 -- Read, create with a title, rename, delete (owner and dates are set by the database)
 GRANT SELECT, DELETE ON TABLE public.manuscripts TO authenticated;
 GRANT INSERT (title, document_type), UPDATE (title, document_type) ON TABLE public.manuscripts TO authenticated;
--- The backend (secret key) creates, lists and deletes manuscripts for the logged in user
+-- The backend (secret key) creates, lists, renames and deletes manuscripts for the logged in user.
+-- Updating is limited to the two columns the edit form changes.
 GRANT SELECT, INSERT, DELETE ON TABLE public.manuscripts TO service_role;
+GRANT UPDATE (title, document_type) ON TABLE public.manuscripts TO service_role;
 
 -- Enables Row Level Security (RLS) so users only ever reach their own manuscripts
 ALTER TABLE public.manuscripts ENABLE ROW LEVEL SECURITY;

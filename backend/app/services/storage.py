@@ -6,7 +6,12 @@ from postgrest import APIError
 from storage3.utils import StorageException
 
 from app.config import settings
-from app.schemas.manuscript import ManuscriptResponse, UploadResponse
+from app.schemas.manuscript import (
+    ManuscriptResponse,
+    ManuscriptUpdate,
+    ManuscriptUpdateResponse,
+    UploadResponse,
+)
 from app.services.bucket import delete_file, get_file_urls, upload_file
 from app.services.database import get_admin_client
 from app.services.pdf import PdfError, first_page_to_png
@@ -14,15 +19,28 @@ from app.services.pdf import PdfError, first_page_to_png
 logger = logging.getLogger(__name__)
 
 
+# The same rules apply when a manuscript is uploaded and when it is edited.
+# Both return the trimmed text.
+def check_title(title: str) -> str:
+    title = title.strip()
+    if not 1 <= len(title) <= 200:
+        raise HTTPException(422, "Title must be 1 to 200 characters.")
+    return title
+
+
+def check_document_type(document_type: str) -> str:
+    document_type = document_type.strip()
+    if not 1 <= len(document_type) <= 50:
+        raise HTTPException(422, "Document type must be 1 to 50 characters.")
+    return document_type
+
+
 # Uploads the file, then saves a manuscript row and its file row.
 def save_upload(
     file: UploadFile, user_id: str, title: str, document_type: str
 ) -> UploadResponse:
-    title, document_type = title.strip(), document_type.strip()
-    if not 1 <= len(title) <= 200:
-        raise HTTPException(422, "Title must be 1 to 200 characters.")
-    if not 1 <= len(document_type) <= 50:
-        raise HTTPException(422, "Document type must be 1 to 50 characters.")
+    title = check_title(title)
+    document_type = check_document_type(document_type)
 
     if file.content_type not in settings.allowed_content_types:
         raise HTTPException(415, f"Unsupported file type: {file.content_type}")
@@ -161,6 +179,45 @@ def list_manuscripts(user_id: str) -> list[ManuscriptResponse]:
         for manuscript in manuscripts
         if (file := first_files.get(manuscript["id"]))
     ]
+
+
+# Changes the title and/or the document type of a manuscript.
+# Fields that are None stay as they are.
+def update_manuscript(
+    manuscript_id: str, user_id: str, update: ManuscriptUpdate
+) -> ManuscriptUpdateResponse:
+    changes = {}
+    if update.title is not None:
+        changes["title"] = check_title(update.title)
+    if update.document_type is not None:
+        changes["document_type"] = check_document_type(update.document_type)
+    if not changes:
+        raise HTTPException(422, "Send a title or a document type to change.")
+
+    db = get_admin_client()
+    try:
+        # The admin client ignores RLS, so the owner must be checked here
+        result = (
+            db.table("manuscripts")
+            .update(changes)
+            .eq("id", manuscript_id)
+            .eq("owner_id", user_id)
+            .execute()
+        )
+    except APIError as error:
+        logger.warning("Supabase update failed: %s", error)
+        raise HTTPException(
+            502, "Could not save the changes. Please try again."
+        ) from error
+
+    # No row changed: the manuscript does not exist or belongs to someone else
+    if not result.data:
+        raise HTTPException(404, "Manuscript not found")
+
+    row = result.data[0]
+    return ManuscriptUpdateResponse(
+        id=row["id"], title=row["title"], document_type=row["document_type"]
+    )
 
 
 # Deletes a manuscript, its file rows (foreign key cascade) and its files in Storage.

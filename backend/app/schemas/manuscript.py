@@ -13,6 +13,18 @@ class UploadResponse(BaseModel):
     url: str
 
 
+# Body of PATCH: send only the fields that should change
+class ManuscriptUpdate(BaseModel):
+    title: str | None = None
+    document_type: str | None = None
+
+
+class ManuscriptUpdateResponse(BaseModel):
+    id: str
+    title: str
+    document_type: str
+
+
 class ManuscriptProcessPlan(BaseModel):
     manuscript_id: str
     user_id: str
