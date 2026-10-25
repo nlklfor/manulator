@@ -119,6 +119,21 @@ def test_list_returns_only_own_manuscripts(client, fake_supabase):
     assert manuscripts[0]["filename"] == "page.png"
     assert manuscripts[0]["status"] == "uploaded"
     assert manuscripts[0]["url"] == "https://temporary-link/user-1/manuscripts/page.png"
+    assert manuscripts[0]["transcription"] is None  # not transcribed yet
+    assert manuscripts[0]["overlay_url"] is None
+
+
+def test_list_includes_transcription_and_overlay(client, fake_supabase):
+    page = fake_supabase.tables["manuscript_files"][0]
+    page["status"] = "transcribed"
+    page["transcription"] = [{"index": 0, "text": "In nomine"}]
+    page["overlay_path"] = "user-1/overlays/a.jpg"
+
+    [manuscript] = client.get(URL).json()
+
+    assert manuscript["status"] == "transcribed"
+    assert manuscript["transcription"] == [{"index": 0, "text": "In nomine"}]
+    assert manuscript["overlay_url"] == "https://temporary-link/user-1/overlays/a.jpg"
 
 
 def test_list_requires_login():
