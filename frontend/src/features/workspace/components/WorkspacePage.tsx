@@ -36,8 +36,6 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
     options: {},
   };
 
-  // Called by the "Transcribe page" button with the chosen model id.
-  // TODO (ML team): call the real transcription API with entry.id and modelId,
   // then call setLines(...) with the result and set the status to "transcribed".
   // For now it only marks the page as "transcribing".
   function handleTranscribe(modelId: string) {
