@@ -51,9 +51,11 @@ def process_manuscript(process_plan: Annotated[str, Form()], file: Annotated[Upl
     overlay = "data:image/jpeg;base64," + base64.b64encode(overlay_bytes).decode()
 
     return ManuscriptProcessResponse(
+        success=True if result[plan.plan] is not None else False,
         manuscript_id=plan.manuscript_id,
         overlay=overlay,
         data={step: {k: v for k, v in r.items() if k != "image_path"} for step, r in result.items()},
+        message="Processing completed successfully" if result[plan.plan] else "Processing failed"
     )
 
 

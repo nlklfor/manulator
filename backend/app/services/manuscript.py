@@ -71,10 +71,10 @@ def load_manuscript_pages(manuscript_id: str, user_id: str) -> ManuscriptPage:
 # process_manuscript sends the manuscript file
 # and the processing plan to the ML service,
 async def process_manuscript(
-    user_plan: ManuscriptProcessPlan, user_id: str
+    user_plan: ManuscriptProcessPlan, manuscript_id: str, user_id: str
 ) -> ManuscriptTranscriptResponse:
     # load file from bucket
-    page = load_manuscript_pages(user_plan.manuscript_id, user_id)
+    page = load_manuscript_pages(manuscript_id, user_id)
 
     # send the file to the ML pipeline and get the overlay image
     # send httpx request to ml/ endpoint and get the overlay image
@@ -83,14 +83,13 @@ async def process_manuscript(
     form = {
         "process_plan": json.dumps(
             {
-                "manuscript_id": user_plan.manuscript_id,
+                "manuscript_id": manuscript_id,
                 "steps": [],
                 "plan": user_plan.plan,
                 "options": user_plan.options or {},
             }
         ),
     }
-    print(form)
     # Create a post request to the ML service
     # with a timeout of 300 seconds (5 minutes)
     async with httpx.AsyncClient(timeout=300.0) as client:
