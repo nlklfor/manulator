@@ -40,7 +40,7 @@ Each page has two files:
 
 ## Getting the images
 
-Download the 8 images from our shared Google Drive folder and put them in this folder: TODO add link
+Download the 8 images from our shared Google Drive folder and put them in this folder: https://drive.google.com/drive/folders/1hx6NOF619BJxAaB8GtIcF1iLeBNLYj3R?usp=sharing
 
 The images are ignored by Git (`ml/.gitignore`), so they stay local.
 
