@@ -19,3 +19,6 @@ __pycache__/
 
 # Pipeline results
 output/
+
+# Test page images: download them as described in each folder's README
+test_pages/**/*.jpg
