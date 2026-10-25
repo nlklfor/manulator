@@ -21,6 +21,11 @@ RUN uv sync --locked --no-dev
 COPY pylaia/pyproject.toml pylaia/uv.lock ./pylaia/
 RUN uv sync --locked --no-dev --project pylaia
 
+# PyLaia needs two things the slim image does not include:
+# libgomp (for torchaudio) and git (PyLaia crashes on import without it)
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 git \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY . .
 
 EXPOSE 8001
