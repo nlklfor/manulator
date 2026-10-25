@@ -196,11 +196,12 @@ ML_RESULT = {
     "manuscript_id": MANUSCRIPT_ID,
     "overlay": "data:image/jpeg;base64,anBn",  # b"jpg" in base64
     "data": {"Detect Lines": {"lines": [{"index": 0, "bbox": [0, 0, 10, 5]}]}},
+    "success": True,
+    "message": "Processing completed successfully",
 }
 
 PLAN = {
     "manuscript_id": MANUSCRIPT_ID,
-    "user_id": "user-1",
     "steps": None,
     "plan": "Detect Lines",
     "options": None,
