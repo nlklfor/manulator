@@ -170,7 +170,7 @@ def delete_manuscript(manuscript_id: str, user_id: str) -> None:
         # Read the paths first: the cascade removes the file rows with the manuscript
         files = (
             db.table("manuscript_files")
-            .select("storage_path")
+            .select("storage_path, overlay_path")
             .eq("manuscript_id", manuscript_id)
             .eq("owner_id", user_id)
             .execute()
@@ -193,8 +193,9 @@ def delete_manuscript(manuscript_id: str, user_id: str) -> None:
         raise HTTPException(404, "Manuscript not found")
 
     # Leftover files are harmless, so Storage problems do not fail the request
-    for row in files.data:
-        path = row["storage_path"]
+    paths = [row["storage_path"] for row in files.data]
+    paths += [row["overlay_path"] for row in files.data if row.get("overlay_path")]
+    for path in paths:
         try:
             if not delete_file(path):
                 logger.warning("File not found in Storage: %s", path)

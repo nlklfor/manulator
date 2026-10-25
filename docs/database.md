@@ -44,8 +44,9 @@ erDiagram
         bigint size_bytes
         integer position "1 = first file"
         text status "uploading, uploaded, transcribing, transcribed or corrected"
+        jsonb transcription "transcribed lines, empty until transcribed"
+        text overlay_path "page with the detected lines drawn on it, in uploads"
         timestamptz created_at
-        text status "required, defaults to uploaded"
     }
 ```
 
@@ -99,8 +100,9 @@ an array column is not needed in the database.
 | `size_bytes` | `bigint` | File size in bytes. Must be greater than zero. The current backend's 20 MB limit is separate from this database check. |
 | `position` | `integer` | File order inside the manuscript, starting at 1. Can be changed later. Positions are not required to be unique. |
 | `status` | `text` | Processing step of the page: `uploading`, `uploaded`, `transcribing`, `transcribed` or `corrected`. Defaults to `uploaded`. |
+| `transcription` | `jsonb` | Transcribed lines, saved by the backend after the ML service has read the page. Empty (`NULL`) until then. Each line: `{"index", "text", "bbox", "baseline", "boundary"}`. |
+| `overlay_path` | `text` | Path inside `uploads` of the overlay image (the page with the detected lines drawn on it), e.g. `<owner_id>/overlays/<file>.jpg`. Saved with the transcription; the old image is deleted when the page is transcribed again. Empty until then. |
 | `created_at` | `timestamptz` | When the file row was created. Defaults to `now()`. |
-| `status` | `text` | Required processing status. Defaults to `uploaded`; allowed values are listed below. Can be set when inserting a file and updated later. |
 
 The foreign key `(manuscript_id, owner_id)` references `manuscripts(id, owner_id)`.
 It prevents attaching a file to another user's manuscript. Deleting a manuscript deletes its file rows
@@ -132,9 +134,18 @@ Status is required and defaults to `uploaded`. Existing file records receive tha
 the column is added. If the application creates a record before the transfer finishes, it must
 explicitly set `uploading`, then change it to `uploaded` after success.
 
-The database validates the allowed values; the application controls when they change. Adding
-the column does not automatically start recognition, save transcription text or mark corrections
-as complete. The frontend's `upload-failed` error state is not one of the five stored statuses.
+The database validates the allowed values; the application controls when they change. When a
+"Transcribe" run finishes, the backend saves the lines in `transcription`, the overlay image in
+the bucket (its path in `overlay_path`) and sets the status to `transcribed`. The frontend's `upload-failed` error state is not one of the five stored statuses.
+
+To add the transcription columns to an existing project, run:
+
+```sql
+ALTER TABLE public.manuscript_files ADD COLUMN IF NOT EXISTS transcription JSONB;
+ALTER TABLE public.manuscript_files ADD COLUMN IF NOT EXISTS overlay_path TEXT;
+GRANT UPDATE (transcription, overlay_path, status) ON TABLE public.manuscript_files TO service_role;
+NOTIFY pgrst, 'reload schema';
+```
 
 Database status validation was tested on 16 October 2026. All 11 checks passed: the default value,
 saving and reading all five statuses, rejecting `finished`, an empty string, uppercase `UPLOADED`
@@ -612,18 +623,12 @@ CREATE TABLE public.manuscript_files (
     status TEXT NOT NULL DEFAULT 'uploaded'
         CONSTRAINT manuscript_files_status_check
         CHECK (status IN ('uploading', 'uploaded', 'transcribing', 'transcribed', 'corrected')),
+    -- transcribed lines, saved by the backend after the ML service has read the page
+    transcription JSONB,
+    -- overlay image (page with the detected lines drawn on it) inside the uploads bucket
+    overlay_path TEXT,
     -- records when the file was uploaded
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-    -- processing status of this file (stored in lowercase)
-    status TEXT NOT NULL DEFAULT 'uploaded'
-        CONSTRAINT manuscript_files_status_check
-        CHECK (status IN (
-            'uploading',
-            'uploaded',
-            'transcribing',
-            'transcribed',
-            'corrected'
-        )),
     -- links the file to its manuscript, refuses a manuscript owned by someone else, and deletes the file with the manuscript
     FOREIGN KEY (manuscript_id, owner_id) REFERENCES public.manuscripts(id, owner_id) ON DELETE CASCADE
 );
@@ -643,6 +648,8 @@ GRANT INSERT (manuscript_id, file_name, storage_path, content_type, size_bytes, 
 GRANT UPDATE (file_name, position) ON TABLE public.manuscript_files TO authenticated;
 -- The backend (secret key) adds, lists and deletes files for the logged in user
 GRANT SELECT, INSERT, DELETE ON TABLE public.manuscript_files TO service_role;
+-- The backend saves the transcription, the overlay and the status after the ML service has read the page
+GRANT UPDATE (transcription, overlay_path, status) ON TABLE public.manuscript_files TO service_role;
 
 -- Enables Row Level Security (RLS) so users only ever reach their own files
 ALTER TABLE public.manuscript_files ENABLE ROW LEVEL SECURITY;

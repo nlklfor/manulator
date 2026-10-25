@@ -128,6 +128,11 @@ def test_list_requires_login():
 
 
 def test_delete_manuscript(client, fake_supabase):
+    fake_supabase.tables["manuscript_files"][0]["overlay_path"] = (
+        "user-1/overlays/a.jpg"
+    )
+    fake_supabase.files["user-1/overlays/a.jpg"] = b"jpg"
+
     response = client.delete(f"{URL}/{MANUSCRIPT_ID}")
 
     assert response.status_code == 204  # 204 = done, nothing to return
@@ -138,6 +143,7 @@ def test_delete_manuscript(client, fake_supabase):
         OTHER_USERS_MANUSCRIPT_ID
     ]
     assert "user-1/manuscripts/page.png" not in fake_supabase.files
+    assert "user-1/overlays/a.jpg" not in fake_supabase.files
 
 
 def test_delete_with_wrong_id_deletes_nothing(client, fake_supabase):
@@ -229,6 +235,34 @@ def test_process_manuscript(client, fake_supabase, fake_ml_service):
         }
     ).encode()
     assert plan_json in body
+    # Line detection alone has no text, so nothing is saved
+    assert fake_supabase.tables["manuscript_files"][0]["status"] == "uploaded"
+
+
+def test_transcription_is_saved(client, fake_supabase, fake_ml_service):
+    transcribed = {
+        **ML_RESULT,
+        "data": {
+            "Detect Lines": {"lines": [{"index": 0, "bbox": [0, 0, 10, 5]}]},
+            "Transcribe": {"lines": [{"index": 0, "text": "In nomine"}]},
+        },
+    }
+    fake_ml_service(lambda request: httpx.Response(200, json=transcribed))
+
+    response = client.post(
+        f"{ML_URL}/{MANUSCRIPT_ID}", json={**PLAN, "plan": "Transcribe"}
+    )
+
+    assert response.status_code == 200
+    page = fake_supabase.tables["manuscript_files"][0]
+    assert page["status"] == "transcribed"
+    # Each line keeps its text and its position on the page
+    assert page["transcription"] == [
+        {"index": 0, "bbox": [0, 0, 10, 5], "text": "In nomine"}
+    ]
+    # The overlay image is kept in the bucket, the row only stores its path
+    assert page["overlay_path"].startswith("user-1/overlays/")
+    assert fake_supabase.files[page["overlay_path"]] == b"jpg"
 
 
 def test_process_manuscript_ml_service_fails(client, fake_supabase, fake_ml_service):
