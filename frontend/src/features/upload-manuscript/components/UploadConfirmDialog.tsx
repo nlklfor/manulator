@@ -5,7 +5,19 @@ import TextField from "@/features/auth/components/TextField";
 import type { UploadDetails } from "../api/uploadImage";
 
 // users can also type their own document type
-const DOCUMENT_TYPES = ["Religious", "Political", "Historical", "Literary", "Legal", "Other"];
+const DOCUMENT_TYPES = [
+  "Religious",
+  "Political",
+  "Historical",
+  "Literary",
+  "Legal",
+  "Charter",
+  "Register",
+  "Letter",
+  "Cartulary",
+  "Chronicle",
+  "Other",
+];
 
 interface UploadConfirmDialogProps {
   file: File;
