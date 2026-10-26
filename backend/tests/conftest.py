@@ -112,10 +112,6 @@ def fake_supabase(monkeypatch):
             self.new_row = {"id": str(uuid4()), **row}
             return self
 
-        def update(self, values):
-            self.new_values = values
-            return self
-
         def select(self, *_):
             return self
 
