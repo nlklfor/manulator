@@ -142,6 +142,64 @@ def test_list_requires_login():
     assert response.status_code in (401, 403)  # not logged in
 
 
+def test_update_title_and_document_type(client, fake_supabase):
+    response = client.patch(
+        f"{URL}/{MANUSCRIPT_ID}",
+        json={"title": "  New name ", "document_type": "Legal"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": MANUSCRIPT_ID,
+        "title": "New name",  # trimmed
+        "document_type": "Legal",
+    }
+    saved = fake_supabase.tables["manuscripts"][0]
+    assert saved["title"] == "New name"
+    assert saved["document_type"] == "Legal"
+
+
+def test_update_one_field_keeps_the_other(client, fake_supabase):
+    response = client.patch(f"{URL}/{MANUSCRIPT_ID}", json={"title": "Only name"})
+
+    assert response.status_code == 200
+    saved = fake_supabase.tables["manuscripts"][0]
+    assert saved["title"] == "Only name"
+    assert saved["document_type"] == "Religious"  # unchanged
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},  # nothing to change
+        {"title": "   "},
+        {"title": "x" * 201},
+        {"document_type": ""},
+        {"document_type": "x" * 51},
+    ],
+)
+def test_update_rejects_invalid_input(client, fake_supabase, body):
+    response = client.patch(f"{URL}/{MANUSCRIPT_ID}", json=body)
+
+    assert response.status_code == 422
+    assert fake_supabase.tables["manuscripts"][0]["title"] == "Letter"  # unchanged
+
+
+def test_update_other_users_manuscript_is_not_found(client, fake_supabase):
+    response = client.patch(
+        f"{URL}/{OTHER_USERS_MANUSCRIPT_ID}", json={"title": "Hacked"}
+    )
+
+    assert response.status_code == 404
+    assert fake_supabase.tables["manuscripts"][1]["title"] == "Secret"
+
+
+def test_update_requires_login():
+    response = TestClient(app).patch(f"{URL}/{MANUSCRIPT_ID}", json={"title": "x"})
+
+    assert response.status_code == 401
+
+
 def test_delete_manuscript(client, fake_supabase):
     fake_supabase.tables["manuscript_files"][0]["overlay_path"] = (
         "user-1/overlays/a.jpg"

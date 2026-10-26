@@ -3,6 +3,7 @@ import { validateFile } from "./validateFile";
 import type { LibraryEntry, UploadError } from "../types/upload";
 import { uploadImage, type UploadDetails } from "../api/uploadImage";
 import { getManuscripts } from "../api/getManuscripts";
+import { updateManuscript } from "../api/updateManuscript";
 
 const ERROR_DISPLAY_DURATION = 5000;
 
@@ -26,6 +27,7 @@ export function useFileSelection() {
         const loaded: LibraryEntry[] = manuscripts.map((manuscript) => ({
           id: manuscript.id,
           fileName: manuscript.title,
+          documentType: manuscript.document_type,
           fileType: manuscript.content_type,
           previewUrl: manuscript.url,
           status: manuscript.status,
@@ -91,6 +93,19 @@ export function useFileSelection() {
     });
   }, []);
 
+  // Saves a new name and document type, then shows them everywhere in the app.
+  // Throws when the backend refuses, so the edit form can show an error.
+  const editManuscript = useCallback(async (id: string, details: UploadDetails) => {
+    const saved = await updateManuscript(id, details);
+    setLibraryEntries((prev) =>
+      prev.map((entry) =>
+        entry.id === id
+          ? { ...entry, fileName: saved.title, documentType: saved.document_type }
+          : entry,
+      ),
+    );
+  }, []);
+
   const selectFile = useCallback((file: File) => {
     const validationError = validateFile(file);
 
@@ -117,6 +132,7 @@ export function useFileSelection() {
       const newEntry: LibraryEntry = {
         id,
         fileName: details.title,
+        documentType: details.documentType,
         fileType: file.type,
         previewUrl,
         status: "uploading",
@@ -165,6 +181,7 @@ export function useFileSelection() {
     confirmUpload,
     cancelUpload,
     removeManuscript,
+    editManuscript,
     updateEntryStatus,
   };
 }
