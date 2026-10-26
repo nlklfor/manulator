@@ -71,6 +71,7 @@ def fake_supabase(monkeypatch):
         ],
         "manuscript_files": [
             {
+                "id": "file-1",
                 "manuscript_id": MANUSCRIPT_ID,
                 "owner_id": "user-1",
                 "file_name": "page.png",
@@ -81,6 +82,7 @@ def fake_supabase(monkeypatch):
                 "status": "uploaded",
             },
             {
+                "id": "file-2",
                 "manuscript_id": OTHER_USERS_MANUSCRIPT_ID,
                 "owner_id": "user-2",
                 "file_name": "page.png",
@@ -102,6 +104,7 @@ def fake_supabase(monkeypatch):
             self.name = name
             self.is_delete = False
             self.new_row = None
+            self.changes = None
             self.filters = {}
             self.sort = None
 
@@ -110,6 +113,10 @@ def fake_supabase(monkeypatch):
             return self
 
         def select(self, *_):
+            return self
+
+        def update(self, changes):
+            self.changes = changes
             return self
 
         def delete(self):
@@ -132,6 +139,8 @@ def fake_supabase(monkeypatch):
             matching = [
                 row for row in rows if all(row[c] == v for c, v in self.filters.items())
             ]
+            for row in matching:
+                row.update(self.changes or {})
             if self.is_delete:
                 rows[:] = [row for row in rows if row not in matching]
                 if self.name == "manuscripts":

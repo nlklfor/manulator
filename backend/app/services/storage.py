@@ -123,7 +123,7 @@ def list_manuscripts(user_id: str) -> list[ManuscriptResponse]:
             db.table("manuscript_files")
             .select(
                 "manuscript_id, file_name, storage_path, content_type, "
-                "size_bytes, position, status"
+                "size_bytes, position, status, transcription, overlay_path"
             )
             .eq("owner_id", user_id)
             .order("position")
@@ -140,8 +140,13 @@ def list_manuscripts(user_id: str) -> list[ManuscriptResponse]:
     for row in files:
         first_files.setdefault(row["manuscript_id"], row)
 
+    # One request for all links: the pages and their overlays
+    paths = [row["storage_path"] for row in first_files.values()]
+    paths += [
+        row["overlay_path"] for row in first_files.values() if row.get("overlay_path")
+    ]
     try:
-        urls = get_file_urls([row["storage_path"] for row in first_files.values()])
+        urls = get_file_urls(paths)
     except StorageException as error:
         logger.warning("Could not create file links: %s", error)
         urls = {}
@@ -157,6 +162,8 @@ def list_manuscripts(user_id: str) -> list[ManuscriptResponse]:
             size=file["size_bytes"],
             status=file["status"],
             url=urls.get(file["storage_path"], ""),
+            transcription=file.get("transcription"),
+            overlay_url=urls.get(file.get("overlay_path") or ""),
         )
         for manuscript in manuscripts
         if (file := first_files.get(manuscript["id"]))
@@ -170,7 +177,7 @@ def delete_manuscript(manuscript_id: str, user_id: str) -> None:
         # Read the paths first: the cascade removes the file rows with the manuscript
         files = (
             db.table("manuscript_files")
-            .select("storage_path")
+            .select("storage_path, overlay_path")
             .eq("manuscript_id", manuscript_id)
             .eq("owner_id", user_id)
             .execute()
@@ -193,8 +200,9 @@ def delete_manuscript(manuscript_id: str, user_id: str) -> None:
         raise HTTPException(404, "Manuscript not found")
 
     # Leftover files are harmless, so Storage problems do not fail the request
-    for row in files.data:
-        path = row["storage_path"]
+    paths = [row["storage_path"] for row in files.data]
+    paths += [row["overlay_path"] for row in files.data if row.get("overlay_path")]
+    for path in paths:
         try:
             if not delete_file(path):
                 logger.warning("File not found in Storage: %s", path)
