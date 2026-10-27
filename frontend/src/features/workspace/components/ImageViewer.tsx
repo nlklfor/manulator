@@ -3,7 +3,7 @@
 // ImageViewer — left panel of the workspace: shows the scanned page and lets the
 // user zoom in/out, fit the page to the panel and drag it to pan.
 // The outlines of the detected lines are drawn on top of the page.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Field, Label, Switch } from "@headlessui/react";
 import { ImageOff, Maximize2, ZoomIn, ZoomOut } from "lucide-react";
 import type { TranscriptionLine } from "../types";
@@ -48,12 +48,35 @@ export function ImageViewer({ src, fileName, isPdf, lines, selectedN }: ImageVie
   const viewportRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState<{ width: number; height: number } | null>(null);
   const [showOutlines, setShowOutlines] = useState(true);
-  const outlined = lines.filter((line) => line.boundary.length > 2);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+
+  // Outline and number position of each line. Only depends on the lines, so
+  // panning and zooming do not compute it again.
+  const outlined = useMemo(
+    () =>
+      lines
+        .filter((line) => line.boundary.length > 2)
+        .map((line) => {
+          const xs = line.boundary.map(([x]) => x);
+          const left = Math.min(...xs);
+          const leftEnd = left + LEFT_END_SHARE * (Math.max(...xs) - left);
+          let ys = line.boundary.filter(([x]) => x <= leftEnd).map(([, y]) => y);
+          if (ys.length < 2) ys = line.boundary.map(([, y]) => y);
+          return {
+            n: line.n,
+            points: line.boundary.map(([x, y]) => `${x},${y}`).join(" "),
+            left,
+            middle: (Math.min(...ys) + Math.max(...ys)) / 2,
+          };
+        }),
+    [lines],
+  );
+  const lineGapOnPage = useMemo(() => medianGap(outlined.map((l) => l.middle)), [outlined]);
 
   // Follow the panel size, so the fitted page grows and shrinks with the window
   useEffect(() => {
     const el = viewportRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
+    if (!el) return;
     const observer = new ResizeObserver(([entry]) => {
       setViewport({ width: entry.contentRect.width, height: entry.contentRect.height });
     });
@@ -76,16 +99,7 @@ export function ImageViewer({ src, fileName, isPdf, lines, selectedN }: ImageVie
       ? { width: naturalSize.width * fitScale, height: naturalSize.height * fitScale }
       : null;
 
-  const numberSpots = outlined.map((line) => {
-    const xs = line.boundary.map(([x]) => x);
-    const left = Math.min(...xs);
-    const leftEnd = left + LEFT_END_SHARE * (Math.max(...xs) - left);
-    let ys = line.boundary.filter(([x]) => x <= leftEnd).map(([, y]) => y);
-    if (ys.length < 2) ys = line.boundary.map(([, y]) => y);
-    return { n: line.n, left, middle: (Math.min(...ys) + Math.max(...ys)) / 2 };
-  });
-  const lineGap = medianGap(numberSpots.map((s) => s.middle)) * (fitScale ?? 0) * zoom;
-  const showAllNumbers = lineGap >= MIN_NUMBER_GAP;
+  const showAllNumbers = lineGapOnPage * (fitScale ?? 0) * zoom >= MIN_NUMBER_GAP;
 
   function zoomIn() {
     setZoom((z) => Math.min(MAX_ZOOM, z * ZOOM_STEP));
@@ -185,8 +199,7 @@ export function ImageViewer({ src, fileName, isPdf, lines, selectedN }: ImageVie
             <div className="flex h-[520px] w-[390px] items-center justify-center rounded-lg bg-mt-surface text-sm text-mt-text-subtle shadow-md">
               PDF preview not available
             </div>
-          ) : !src ? (
-            // The backend sends an empty url when it could not create the preview link
+          ) : !src || failedSrc === src ? (
             <div className="flex h-[520px] w-[390px] items-center justify-center rounded-lg bg-mt-surface text-mt-text-subtle shadow-md">
               <ImageOff
                 className="h-10 w-10"
@@ -208,13 +221,13 @@ export function ImageViewer({ src, fileName, isPdf, lines, selectedN }: ImageVie
                     height: e.currentTarget.naturalHeight,
                   })
                 }
+                onError={() => setFailedSrc(src)}
                 className={`block select-none rounded-lg shadow-md ${fitted ? "h-full w-full" : ""}`}
               />
               {naturalSize && showOutlines && outlined.length > 0 && (
                 <>
                   <svg
                     aria-hidden="true"
-                    data-testid="line-overlay"
                     viewBox={`0 0 ${naturalSize.width} ${naturalSize.height}`}
                     preserveAspectRatio="none"
                     className="pointer-events-none absolute inset-0 h-full w-full"
@@ -224,9 +237,7 @@ export function ImageViewer({ src, fileName, isPdf, lines, selectedN }: ImageVie
                       return (
                         <polygon
                           key={line.n}
-                          data-line={line.n}
-                          data-selected={isSelected || undefined}
-                          points={line.boundary.map(([x, y]) => `${x},${y}`).join(" ")}
+                          points={line.points}
                           fill={isSelected ? "var(--color-mt-outline-selected)" : "none"}
                           fillOpacity={isSelected ? 0.12 : undefined}
                           stroke={
@@ -245,7 +256,7 @@ export function ImageViewer({ src, fileName, isPdf, lines, selectedN }: ImageVie
 
                   {/* Line numbers. Each sits on a zero-size anchor that undoes the
                       zoom, so the numbers keep the same size on screen. */}
-                  {numberSpots
+                  {outlined
                     .filter((spot) => showAllNumbers || spot.n === selectedN)
                     .map((spot) => (
                       <span
