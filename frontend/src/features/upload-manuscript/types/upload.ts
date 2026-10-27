@@ -17,4 +17,14 @@ export interface LibraryEntry {
   fileType: string;
   previewUrl: string;
   status: UploadStatus;
+  transcription?: TranscribedLine[] | null;
+}
+
+// One line of a saved transcription, as the backend sends it.
+export interface TranscribedLine {
+  index: number; // line number, starting at 0 (reading order)
+  text: string;
+  bbox?: [number, number, number, number];
+  baseline?: [number, number][];
+  boundary?: [number, number][];
 }

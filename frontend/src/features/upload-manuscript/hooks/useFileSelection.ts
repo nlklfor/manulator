@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { validateFile } from "./validateFile";
-import type { LibraryEntry, UploadError } from "../types/upload";
+import type { LibraryEntry, TranscribedLine, UploadError } from "../types/upload";
 import { uploadImage, type UploadDetails } from "../api/uploadImage";
 import { getManuscripts } from "../api/getManuscripts";
 import { updateManuscript } from "../api/updateManuscript";
@@ -31,6 +31,7 @@ export function useFileSelection() {
           fileType: manuscript.content_type,
           previewUrl: manuscript.url,
           status: manuscript.status,
+          transcription: manuscript.transcription,
         }));
         // Keep uploads started while the list was loading on top
         setLibraryEntries((prev) => [
@@ -81,6 +82,15 @@ export function useFileSelection() {
       prev.map((entry) => (entry.id === id ? { ...entry, status } : entry)),
     );
   }, []);
+
+  const updateEntryTranscription = useCallback(
+    (id: string, transcription: TranscribedLine[] | null) => {
+      setLibraryEntries((prev) =>
+        prev.map((entry) => (entry.id === id ? { ...entry, transcription } : entry)),
+      );
+    },
+    [],
+  );
 
   const removeManuscript = useCallback((id: string) => {
     setLibraryEntries((prev) => {
@@ -183,5 +193,6 @@ export function useFileSelection() {
     removeManuscript,
     editManuscript,
     updateEntryStatus,
+    updateEntryTranscription,
   };
 }
