@@ -30,7 +30,7 @@ erDiagram
         uuid id PK
         uuid owner_id FK "FK to auth.users.id"
         text title "required, max 200 characters after trimming"
-        text document_type "required, e.g. Religious, max 50 characters"
+        text document_type "required, e.g. Charter, max 50 characters"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -72,7 +72,7 @@ A user can create several manuscripts, and each manuscript can contain several f
 | `id` | `uuid` | Primary key. Generated automatically. |
 | `owner_id` | `uuid` | Defaults to the logged in user's `auth.uid()`. References `auth.users.id`; deleting the user deletes their manuscripts. |
 | `title` | `text` | Name shown in the library. Required; must contain 1 to 200 characters after trimming. |
-| `document_type` | `text` | What kind of document it is, chosen by the user when uploading, e.g. `Religious`, `Political`, `Historical`. Free text; must contain 1 to 50 characters after trimming. Defaults to `Other`. |
+| `document_type` | `text` | What kind of document it is, chosen by the user when uploading, e.g. `Charter`, `Register`, `Letter`. Free text; must contain 1 to 50 characters after trimming. Defaults to `Other`. |
 | `created_at` | `timestamptz` | When the manuscript row was created. Defaults to `now()`. |
 | `updated_at` | `timestamptz` | Defaults to `now()`. A trigger updates it whenever the manuscript row changes. Changing its file rows alone does not update this timestamp. |
 
@@ -537,7 +537,7 @@ CREATE TABLE public.manuscripts (
     owner_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
     -- name shown in the library (required, max 200 characters)
     title TEXT NOT NULL CHECK (char_length(trim(title)) BETWEEN 1 AND 200),
-    -- kind of document, e.g. Religious, Political, Historical (free text, max 50 characters)
+    -- kind of document, e.g. Charter, Register, Letter (free text, max 50 characters)
     document_type TEXT NOT NULL DEFAULT 'Other' CHECK (char_length(trim(document_type)) BETWEEN 1 AND 50),
     -- records when the manuscript was created
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL,

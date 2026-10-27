@@ -23,7 +23,7 @@ def list_manuscripts(user_id: str = Depends(get_current_user_id)):
 def upload_manuscript(
     file: UploadFile,
     title: str = Form(),
-    document_type: str = Form(),  # e.g. "Religious", "Political", "Historical"
+    document_type: str = Form(),  # e.g. "Charter", "Register", "Letter"
     user_id: str = Depends(get_current_user_id),
 ):
     return storage.save_upload(file, user_id, title, document_type)

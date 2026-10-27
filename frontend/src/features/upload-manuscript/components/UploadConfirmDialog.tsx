@@ -56,7 +56,7 @@ export function UploadConfirmDialog({ file, onConfirm, onCancel }: UploadConfirm
           required
           maxLength={50}
           list="document-type-options"
-          placeholder="e.g. Religious"
+          placeholder="e.g. Charter"
           hint="Pick a suggestion or type your own."
         />
         <datalist id="document-type-options">
