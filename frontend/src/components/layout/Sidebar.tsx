@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ChartNoAxesColumn, LayoutGrid, Search } from "lucide-react";
 import { ProfileMenu } from "@/components/layout/ProfileMenu";
+import { LogoMark } from "@/components/ui/LogoMark";
 import { useLibrary } from "@/features/upload-manuscript/context/LibraryContext";
 import { getFolders, parseFolder } from "@/features/upload-manuscript/constants/folders";
 
