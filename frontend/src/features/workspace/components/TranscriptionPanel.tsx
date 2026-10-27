@@ -3,10 +3,11 @@
 // TranscriptionPanel — right panel of the workspace.
 // It shows one of three states, depending on the page status:
 //   "uploaded"                -> empty state: pick a recognition model and start
+//                                (with the error of the last run, if it failed)
 //   "transcribing"            -> waiting for the HTR model
 //   "transcribed"/"corrected" -> the editable list of lines
 import { useState } from "react";
-import { ScanLine } from "lucide-react";
+import { CircleAlert, ScanLine } from "lucide-react";
 import type { UploadStatus } from "@/features/upload-manuscript/types/upload";
 import type { TranscriptionLine } from "../types";
 import { NothingToReview, TranscriptionLines } from "./TranscriptionLines";
@@ -27,6 +28,7 @@ interface TranscriptionPanelProps {
   onSaveLine: (n: number, text: string) => void;
   // Called with the id of the model the user picked
   onTranscribe: (modelId: string) => void;
+  error: string | null;
 }
 
 export function TranscriptionPanel({
@@ -36,6 +38,7 @@ export function TranscriptionPanel({
   onSelectLine,
   onSaveLine,
   onTranscribe,
+  error,
 }: TranscriptionPanelProps) {
   const [modelId, setModelId] = useState<string>(HTR_MODELS[0].id);
   const [lineFilter, setLineFilter] = useState<"all" | "review">("all");
@@ -107,6 +110,19 @@ export function TranscriptionPanel({
             </p>
           </div>
 
+          {/* The last run failed: the button below starts it again */}
+          {error && (
+            <div
+              role="alert"
+              className="flex w-full max-w-[320px] items-start gap-2 rounded-mt-md bg-mt-danger-bg px-3 py-2.5 text-left text-sm text-mt-danger-fg"
+            >
+              <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>
+                <strong className="font-semibold">Transcription failed.</strong> {error}
+              </span>
+            </div>
+          )}
+
           {/* Recognition model selector */}
           <div className="flex w-full max-w-[280px] flex-col gap-1.5 text-left">
             <label htmlFor="htr-model" className="text-sm font-medium text-mt-text">
@@ -145,7 +161,7 @@ export function TranscriptionPanel({
             className="inline-flex h-10 items-center gap-2 rounded-mt-md bg-mt-accent px-5 text-sm font-medium text-mt-accent-fg hover:bg-mt-accent-hover"
           >
             <ScanLine className="h-4 w-4" aria-hidden="true" />
-            Transcribe page
+            {error ? "Try again" : "Transcribe page"}
           </button>
           <p className="text-xs text-mt-text-subtle">Every line stays editable afterwards.</p>
         </div>
@@ -153,7 +169,10 @@ export function TranscriptionPanel({
 
       {/* Waiting for the HTR model */}
       {isTranscribing && (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+        <div
+          role="status"
+          className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center"
+        >
           <span
             className="h-7 w-7 animate-spin rounded-full border-2 border-mt-accent border-r-transparent"
             aria-hidden="true"
@@ -168,7 +187,13 @@ export function TranscriptionPanel({
       {/* Finished transcription */}
       {isTranscribed &&
         (lines.length === 0 ? (
-          <p className="p-8 text-center text-sm text-mt-text-muted">No lines to show yet.</p>
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
+            <strong className="text-sm font-semibold text-mt-text">No lines of text found</strong>
+            <span className="max-w-xs text-xs text-mt-text-muted">
+              The model did not find any handwriting on this page. Use Re-transcribe to run it
+              again.
+            </span>
+          </div>
         ) : visibleLines.length === 0 ? (
           <NothingToReview />
         ) : (

@@ -25,6 +25,7 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   const lines = useMemo(() => toTranscriptionLines(transcription), [transcription]);
   // The line selected in the list; its outline is highlighted on the scan
   const [selectedN, setSelectedN] = useState<number | null>(null);
+  const [transcribeError, setTranscribeError] = useState<string | null>(null);
 
   // For now the plan is to just transcribe the page
   const processPlan = {
@@ -34,22 +35,29 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   };
 
   // Runs line detection + transcription. On failure the page goes back to
-  // "uploaded", so the user can start again.
+  // "uploaded" and shows the error, so the user can start again.
   function handleTranscribe(modelId: string) {
     if (!entry) return;
     const id = entry.id;
     void modelId;
+
+    function fail(message: string) {
+      setTranscribeError(message);
+      updateEntryStatus(id, "uploaded");
+    }
+
+    setTranscribeError(null);
     updateEntryStatus(id, "transcribing");
     processManuscript(id, processPlan)
       .then((result) => {
         if (!result.success) {
-          updateEntryStatus(id, "uploaded");
+          fail(result.message ?? "The model could not read this page. Please try again.");
           return;
         }
         updateEntryTranscription(id, mergeProcessResult(result.data));
         updateEntryStatus(id, "transcribed");
       })
-      .catch(() => updateEntryStatus(id, "uploaded"));
+      .catch((error: Error) => fail(error.message));
   }
 
   // Store a corrected line and mark the page as corrected
@@ -154,6 +162,7 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
             onSelectLine={setSelectedN}
             onSaveLine={handleSaveLine}
             onTranscribe={handleTranscribe}
+            error={transcribeError}
           />
         </section>
       </div>

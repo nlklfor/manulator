@@ -67,6 +67,6 @@ export async function processManuscript(
         throw new Error(`Invalid process plan: ${error.status}`);
       }
     }
-    throw error;
+    throw new Error("We could not reach the recognition service. Please try again.");
   }
 }
