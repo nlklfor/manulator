@@ -15,7 +15,7 @@ export interface UploadResponse {
 
 export interface UploadDetails {
   title: string;
-  documentType: string; // e.g. "Religious", "Political", "Historical"
+  documentType: string; // e.g. "Charter", "Register", "Letter"
 }
 
 export async function uploadImage(file: File, details: UploadDetails): Promise<UploadResponse> {

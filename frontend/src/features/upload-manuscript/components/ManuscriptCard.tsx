@@ -5,6 +5,7 @@ import { useState } from "react";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { StatusBadge } from "./StatusBadge";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
+import { folderColor, folderOf } from "@/features/upload-manuscript/constants/folders";
 import { deleteManuscript } from "@/features/upload-manuscript/api/deleteManuscripts";
 import type { UploadDetails } from "@/features/upload-manuscript/api/uploadImage";
 import { EditManuscriptDialog } from "./EditManuscriptDialog";
@@ -68,6 +69,17 @@ export function ManuscriptCard({ entry, onDeleted, onEdit }: ManuscriptCardProps
           />
         )}
         <p className="truncate px-2.5 pt-2.5 text-sm font-medium text-mt-text">{entry.fileName}</p>
+        {/* Document type, with the colour of its folder (as typed, e.g. "Sermon" has the "Other" colour) */}
+        {entry.documentType && (
+          <p className="flex items-center gap-1.5 px-2.5 pt-0.5 text-xs text-mt-text-muted">
+            <span
+              aria-hidden="true"
+              className="size-2.5 flex-none rounded-[3px]"
+              style={{ backgroundColor: folderColor(folderOf(entry.documentType)) }}
+            />
+            <span className="truncate">{entry.documentType}</span>
+          </p>
+        )}
       </Link>
       <div className="px-2.5 pb-2.5">
         <StatusBadge status={entry.status} className="mt-1.5" />

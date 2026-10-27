@@ -13,7 +13,7 @@ export interface UploadError {
 export interface LibraryEntry {
   id: string;
   fileName: string; // the title of the manuscript
-  documentType: string; // e.g. "Religious", "Political"
+  documentType: string; // e.g. "Charter", "Letter"
   fileType: string;
   previewUrl: string;
   status: UploadStatus;
