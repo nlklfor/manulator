@@ -71,7 +71,9 @@ export default async function proxy(req: NextRequest) {
   return NextResponse.next();
 }
 
-// Routes Proxy should not run on
+// Routes Proxy should not run on: the API, Next.js assets and the files in public/.
+// Without the file types, logged-out visitors would be redirected to /auth instead of
+// getting the image or video (e.g. the intro video on the sign-in page).
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|.*\\.png$).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|.*\\.(?:png|jpg|jpeg|svg|mp4)$).*)"],
 };
