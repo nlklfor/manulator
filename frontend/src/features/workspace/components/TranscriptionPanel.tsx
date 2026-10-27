@@ -22,6 +22,8 @@ const HTR_MODELS = [
 interface TranscriptionPanelProps {
   status: UploadStatus;
   lines: TranscriptionLine[]; // filled by the transcription flow (ML team)
+  selectedN: number | null;
+  onSelectLine: (n: number) => void;
   onSaveLine: (n: number, text: string) => void;
   // Called with the id of the model the user picked
   onTranscribe: (modelId: string) => void;
@@ -30,6 +32,8 @@ interface TranscriptionPanelProps {
 export function TranscriptionPanel({
   status,
   lines,
+  selectedN,
+  onSelectLine,
   onSaveLine,
   onTranscribe,
 }: TranscriptionPanelProps) {
@@ -168,7 +172,12 @@ export function TranscriptionPanel({
         ) : visibleLines.length === 0 ? (
           <NothingToReview />
         ) : (
-          <TranscriptionLines lines={visibleLines} onSaveLine={onSaveLine} />
+          <TranscriptionLines
+            lines={visibleLines}
+            selectedN={selectedN}
+            onSelectLine={onSelectLine}
+            onSaveLine={onSaveLine}
+          />
         ))}
     </>
   );

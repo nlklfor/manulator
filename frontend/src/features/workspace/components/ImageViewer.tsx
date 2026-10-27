@@ -3,22 +3,24 @@
 // ImageViewer — left panel of the workspace: shows the scanned page and lets the
 // user zoom in/out, fit the page to the panel and drag it to pan.
 // The outlines of the detected lines are drawn on top of the page.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ImageOff, Maximize2, ZoomIn, ZoomOut } from "lucide-react";
 import type { TranscriptionLine } from "../types";
 
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 1.25;
+const FIT_PADDING = 24;
 
 interface ImageViewerProps {
   src: string;
   fileName: string;
   isPdf: boolean;
   lines: TranscriptionLine[];
+  selectedN: number | null;
 }
 
-export function ImageViewer({ src, fileName, isPdf, lines }: ImageViewerProps) {
+export function ImageViewer({ src, fileName, isPdf, lines, selectedN }: ImageViewerProps) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -28,6 +30,34 @@ export function ImageViewer({ src, fileName, isPdf, lines }: ImageViewerProps) {
     null,
   );
   const naturalSize = imageSize?.src === src ? imageSize : null;
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [viewport, setViewport] = useState<{ width: number; height: number } | null>(null);
+
+  // Follow the panel size, so the fitted page grows and shrinks with the window
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      setViewport({ width: entry.contentRect.width, height: entry.contentRect.height });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const fitScale =
+    naturalSize && viewport
+      ? Math.max(
+          0,
+          Math.min(
+            (viewport.width - 2 * FIT_PADDING) / naturalSize.width,
+            (viewport.height - 2 * FIT_PADDING) / naturalSize.height,
+          ),
+        )
+      : null;
+  const fitted =
+    naturalSize && fitScale !== null
+      ? { width: naturalSize.width * fitScale, height: naturalSize.height * fitScale }
+      : null;
 
   function zoomIn() {
     setZoom((z) => Math.min(MAX_ZOOM, z * ZOOM_STEP));
@@ -37,7 +67,7 @@ export function ImageViewer({ src, fileName, isPdf, lines }: ImageViewerProps) {
     setZoom((z) => Math.max(MIN_ZOOM, z / ZOOM_STEP));
   }
 
-  // "Fit" resets zoom and position
+  // "Fit" shows the whole page and centres it
   function fit() {
     setZoom(1);
     setPan({ x: 0, y: 0 });
@@ -96,6 +126,7 @@ export function ImageViewer({ src, fileName, isPdf, lines }: ImageViewerProps) {
 
       {/* Viewport: the page is centred and moved with CSS transform */}
       <div
+        ref={viewportRef}
         className={`relative min-h-0 flex-1 touch-none overflow-hidden bg-mt-sunken ${
           isDragging ? "cursor-grabbing" : "cursor-grab"
         }`}
@@ -124,7 +155,7 @@ export function ImageViewer({ src, fileName, isPdf, lines }: ImageViewerProps) {
               />
             </div>
           ) : (
-            <div className="relative">
+            <div className={`relative ${fitted ? "" : "invisible"}`} style={fitted ?? undefined}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={src}
@@ -137,7 +168,7 @@ export function ImageViewer({ src, fileName, isPdf, lines }: ImageViewerProps) {
                     height: e.currentTarget.naturalHeight,
                   })
                 }
-                className="block max-h-[520px] max-w-[390px] select-none rounded-lg object-contain shadow-md"
+                className={`block select-none rounded-lg shadow-md ${fitted ? "h-full w-full" : ""}`}
               />
               {naturalSize && lines.length > 0 && (
                 <svg
@@ -149,18 +180,25 @@ export function ImageViewer({ src, fileName, isPdf, lines }: ImageViewerProps) {
                 >
                   {lines
                     .filter((line) => line.boundary.length > 2)
-                    .map((line) => (
-                      <polygon
-                        key={line.n}
-                        data-line={line.n}
-                        points={line.boundary.map(([x, y]) => `${x},${y}`).join(" ")}
-                        fill="none"
-                        stroke="var(--mt-accent)"
-                        strokeWidth={1.5}
-                        // Keep the line width the same at every zoom level
-                        vectorEffect="non-scaling-stroke"
-                      />
-                    ))}
+                    .map((line) => {
+                      const isSelected = line.n === selectedN;
+                      return (
+                        <polygon
+                          key={line.n}
+                          data-line={line.n}
+                          data-selected={isSelected || undefined}
+                          points={line.boundary.map(([x, y]) => `${x},${y}`).join(" ")}
+                          fill={isSelected ? "var(--mt-accent)" : "none"}
+                          fillOpacity={isSelected ? 0.2 : undefined}
+                          stroke="var(--mt-accent)"
+                          strokeWidth={isSelected ? 3 : 1.5}
+                          // Fade the other outlines while a line is selected
+                          strokeOpacity={selectedN === null || isSelected ? 1 : 0.5}
+                          // Keep the line width the same at every zoom level
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      );
+                    })}
                 </svg>
               )}
             </div>

@@ -2,7 +2,7 @@
 
 // WorkspacePage — detail view of one manuscript page (route: /manuscript/<id>).
 // Layout: top bar, image panel on the left, transcription panel on the right.
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Download, ScanLine } from "lucide-react";
 import { useLibrary } from "@/features/upload-manuscript/context/LibraryContext";
@@ -23,6 +23,8 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
 
   const transcription = entry?.transcription;
   const lines = useMemo(() => toTranscriptionLines(transcription), [transcription]);
+  // The line selected in the list; its outline is highlighted on the scan
+  const [selectedN, setSelectedN] = useState<number | null>(null);
 
   // For now the plan is to just transcribe the page
   const processPlan = {
@@ -65,6 +67,7 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
     if (!entry) return;
     updateEntryTranscription(entry.id, null);
     updateEntryStatus(entry.id, "uploaded");
+    setSelectedN(null);
   }
 
   const isTranscribed = entry?.status === "transcribed" || entry?.status === "corrected";
@@ -140,12 +143,15 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
             fileName={entry.fileName}
             isPdf={entry.fileType === "application/pdf"}
             lines={lines}
+            selectedN={selectedN}
           />
         </section>
         <section aria-label="Transcription" className="flex min-w-0 flex-1 flex-col bg-mt-surface">
           <TranscriptionPanel
             status={entry.status}
             lines={lines}
+            selectedN={selectedN}
+            onSelectLine={setSelectedN}
             onSaveLine={handleSaveLine}
             onTranscribe={handleTranscribe}
           />
