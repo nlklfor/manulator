@@ -76,9 +76,9 @@ export function TranscriptionLines({
               key={line.n}
               className={`grid grid-cols-[36px_1fr] items-start rounded-mt-md ${
                 isEditing
-                  ? "bg-mt-raised shadow-[inset_0_0_0_2px_var(--mt-accent)]"
+                  ? "bg-mt-raised shadow-[inset_0_0_0_2px_var(--color-mt-accent)]"
                   : isSelected
-                    ? "bg-mt-accent-soft"
+                    ? "bg-mt-accent-soft shadow-[inset_0_0_0_1px_var(--color-mt-accent-soft-strong)]"
                     : "hover:bg-mt-hover"
               }`}
             >
