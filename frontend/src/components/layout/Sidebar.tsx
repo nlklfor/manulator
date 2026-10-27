@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ChartNoAxesColumn, LayoutGrid, Search } from "lucide-react";
 import { ProfileMenu } from "@/components/layout/ProfileMenu";
+import { LogoMark } from "@/components/ui/LogoMark";
 import { useLibrary } from "@/features/upload-manuscript/context/LibraryContext";
 import { getFolders, parseFolder } from "@/features/upload-manuscript/constants/folders";
 
@@ -38,12 +39,7 @@ export function Sidebar() {
     >
       {/* Manulator logo */}
       <Link href="/" aria-label="manulator home" className="flex h-10 items-center gap-2.5 px-1.5">
-        <span
-          aria-hidden="true"
-          className="flex size-7 flex-none items-center justify-center rounded-[7px] border-[1.5px] border-dashed border-mt-border-strong font-mono text-[8px] uppercase text-mt-text-subtle"
-        >
-          logo
-        </span>
+        <LogoMark className="size-7" />
         <span className="text-[17px] font-semibold text-mt-text">manulator</span>
       </Link>
 
