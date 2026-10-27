@@ -7,11 +7,6 @@ export const OTHER_FOLDER = "Other";
 
 // Colour of each folder (small square in the sidebar and on the cards)
 const FOLDER_COLORS: Record<string, string> = {
-  Religious: "#9A2B1C",
-  Political: "#3C5A94",
-  Historical: "#8A6A2E",
-  Literary: "#6B4F8A",
-  Legal: "#2F7D7A",
   Charter: "#B0562B",
   Register: "#4F5D75",
   Letter: "#A34A6E",

@@ -82,7 +82,7 @@ export function EditManuscriptDialog({
           required
           maxLength={50}
           list="edit-document-type-options"
-          placeholder="e.g. Religious"
+          placeholder="e.g. Charter"
           defaultValue={documentType}
           hint="Pick a suggestion or type your own."
         />

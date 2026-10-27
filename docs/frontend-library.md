@@ -10,7 +10,7 @@ type is the existing `manuscripts.document_type` (set in the upload form, change
   colour and number of pages. Empty folders are not shown.
 - The folders are the suggestions of the upload form (`DOCUMENT_TYPES` in
   `constants/documentTypes.ts`). Anything a user typed themselves (for example "Sermon") is listed in
-  **Other**. The match ignores capitalisation, so "religious" counts as "Religious".
+  **Other**. The match ignores capitalisation, so "charter" counts as "Charter".
 - Clicking a folder opens the library with the address `/?type=Charter`. The open folder is therefore
   kept on reload, with the back button, and in shared links. An unknown `?type=` is ignored and
   shows everything.
