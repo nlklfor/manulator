@@ -1,5 +1,6 @@
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { getAuthToken } from "@/lib/auth/session";
+import type { TranscribedLine } from "@/features/upload-manuscript/types/upload";
 
 const TRANSCRIBE_ENDPOINT = "/api/process-manuscripts/";
 
@@ -9,10 +10,15 @@ export interface ManuscriptProcessPlan {
   options: Record<string, string> | null;
 }
 
+export interface ProcessResultData {
+  "Detect Lines"?: { lines: Omit<TranscribedLine, "text">[] };
+  Transcribe?: { lines: { index: number; text: string }[] };
+}
+
 export interface ManuscriptProcessResponse {
-  manuscriptId: string;
-  overlay: string;
-  data: Record<string, string[]>;
+  manuscript_id: string;
+  overlay: string; // JPEG data URL with the lines drawn on the page
+  data: ProcessResultData;
   success: boolean;
   message: string | null;
 }
@@ -44,7 +50,7 @@ export async function processManuscript(
       return response;
     } else {
       return {
-        manuscriptId,
+        manuscript_id: manuscriptId,
         overlay: "",
         data: {},
         success: false,

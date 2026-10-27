@@ -138,10 +138,10 @@ export function TranscriptionLines({ lines, onSaveLine }: TranscriptionLinesProp
                   ))}
                   {isSelected && (
                     <span className="ml-2 text-[11px] text-mt-text-subtle">
-                      {line.confidence}% confidence
+                      {line.confidence !== null && `${line.confidence}% confidence · `}
                       {line.lowConfWords.length > 0
-                        ? ` · ${line.lowConfWords.length} uncertain · press Enter to correct`
-                        : " · press Enter to edit"}
+                        ? `${line.lowConfWords.length} uncertain · press Enter to correct`
+                        : "press Enter to edit"}
                     </span>
                   )}
                 </button>

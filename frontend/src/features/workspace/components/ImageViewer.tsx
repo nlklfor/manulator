@@ -2,8 +2,10 @@
 
 // ImageViewer — left panel of the workspace: shows the scanned page and lets the
 // user zoom in/out, fit the page to the panel and drag it to pan.
+// The outlines of the detected lines are drawn on top of the page.
 import { useRef, useState } from "react";
 import { ImageOff, Maximize2, ZoomIn, ZoomOut } from "lucide-react";
+import type { TranscriptionLine } from "../types";
 
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
@@ -13,14 +15,19 @@ interface ImageViewerProps {
   src: string;
   fileName: string;
   isPdf: boolean;
+  lines: TranscriptionLine[];
 }
 
-export function ImageViewer({ src, fileName, isPdf }: ImageViewerProps) {
+export function ImageViewer({ src, fileName, isPdf, lines }: ImageViewerProps) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   // Pointer position and pan at the moment the drag started
   const dragStart = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const [imageSize, setImageSize] = useState<{ src: string; width: number; height: number } | null>(
+    null,
+  );
+  const naturalSize = imageSize?.src === src ? imageSize : null;
 
   function zoomIn() {
     setZoom((z) => Math.min(MAX_ZOOM, z * ZOOM_STEP));
@@ -117,13 +124,46 @@ export function ImageViewer({ src, fileName, isPdf }: ImageViewerProps) {
               />
             </div>
           ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={src}
-              alt={fileName}
-              draggable={false}
-              className="block max-h-[520px] max-w-[390px] select-none rounded-lg object-contain shadow-md"
-            />
+            <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={src}
+                alt={fileName}
+                draggable={false}
+                onLoad={(e) =>
+                  setImageSize({
+                    src,
+                    width: e.currentTarget.naturalWidth,
+                    height: e.currentTarget.naturalHeight,
+                  })
+                }
+                className="block max-h-[520px] max-w-[390px] select-none rounded-lg object-contain shadow-md"
+              />
+              {naturalSize && lines.length > 0 && (
+                <svg
+                  aria-hidden="true"
+                  data-testid="line-overlay"
+                  viewBox={`0 0 ${naturalSize.width} ${naturalSize.height}`}
+                  preserveAspectRatio="none"
+                  className="pointer-events-none absolute inset-0 h-full w-full"
+                >
+                  {lines
+                    .filter((line) => line.boundary.length > 2)
+                    .map((line) => (
+                      <polygon
+                        key={line.n}
+                        data-line={line.n}
+                        points={line.boundary.map(([x, y]) => `${x},${y}`).join(" ")}
+                        fill="none"
+                        stroke="var(--mt-accent)"
+                        strokeWidth={1.5}
+                        // Keep the line width the same at every zoom level
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ))}
+                </svg>
+              )}
+            </div>
           )}
         </div>
 
