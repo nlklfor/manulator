@@ -6,11 +6,15 @@ import { CompactUploadBar } from "./CompactUploadBar";
 import { ManuscriptLibrary } from "./ManuscriptLibrary";
 import { UploadConfirmDialog } from "./UploadConfirmDialog";
 import { useCallback, useRef, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Toast } from "@/components/ui/Toast";
 import { Search, Upload, X } from "lucide-react";
 import { Segmented } from "@/components/ui/Segmented";
 import { useStatusFilter } from "../hooks/useStatusFilter";
+import { folderOf, parseFolder } from "../constants/folders";
 import { ACCEPTED_FILE_TYPES } from "../hooks/validateFile";
+import type { UploadDetails } from "../api/uploadImage";
 
 // ── Sort options ──────────────────────────────────────────────────────────────
 type SortOption = "newest" | "oldest" | "name";
@@ -39,6 +43,7 @@ export function UploadPageCard() {
     confirmUpload,
     cancelUpload,
     removeManuscript,
+    editManuscript,
   } = useLibrary();
   const [toast, setToast] = useState<{ message: string; success: boolean } | null>(null);
 
@@ -54,6 +59,12 @@ export function UploadPageCard() {
 
   const hasEntries = libraryEntries.length > 0;
 
+  // Folder chosen in the sidebar (?type=Charter). null = all manuscripts.
+  const openFolder = parseFolder(useSearchParams().get("type"));
+  const folderEntries = openFolder
+    ? libraryEntries.filter((entry) => folderOf(entry.documentType) === openFolder)
+    : libraryEntries;
+
   function handleDeleted(id: string, success: boolean, message: string) {
     if (success) {
       // Remove the manuscript from the library if deletion was successful
@@ -62,15 +73,21 @@ export function UploadPageCard() {
     setToast({ message, success });
   }
 
+  // Called by the edit form. It throws when saving fails, so the form can show the error.
+  async function handleEdit(id: string, details: UploadDetails) {
+    await editManuscript(id, details);
+    setToast({ message: "Changes saved", success: true });
+  }
+
   // Stable function, so the Toast timer is not restarted on every render
   const closeToast = useCallback(() => setToast(null), []);
 
   // ── Sort ──────────────────────────────────────────────────────────────────
   const sortedEntries = (() => {
     if (sort === "name")
-      return [...libraryEntries].sort((a, b) => a.fileName.localeCompare(b.fileName));
-    if (sort === "oldest") return [...libraryEntries].reverse();
-    return [...libraryEntries]; // "newest" = list order
+      return [...folderEntries].sort((a, b) => a.fileName.localeCompare(b.fileName));
+    if (sort === "oldest") return [...folderEntries].reverse();
+    return [...folderEntries]; // "newest" = list order
   })();
 
   // ── Status filter ─────────────────────────────────────────────────────────
@@ -106,10 +123,10 @@ export function UploadPageCard() {
       {/* ── Page header: title + sort dropdown + upload button ─────────────── */}
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-mt-text">All pages</h1>
+          <h1 className="text-2xl font-semibold text-mt-text">{openFolder ?? "All pages"}</h1>
           <p className="mt-1 text-sm text-mt-text-muted">
             {hasEntries
-              ? `${libraryEntries.length} page${libraryEntries.length > 1 ? "s" : ""}`
+              ? `${folderEntries.length} page${folderEntries.length === 1 ? "" : "s"}`
               : isLoading
                 ? "Loading pages…"
                 : "No pages yet"}
@@ -227,17 +244,31 @@ export function UploadPageCard() {
             />
 
             {displayedEntries.length > 0 ? (
-              <ManuscriptLibrary entries={displayedEntries} onDeleted={handleDeleted} />
+              <ManuscriptLibrary
+                entries={displayedEntries}
+                onDeleted={handleDeleted}
+                onEdit={handleEdit}
+              />
             ) : (
               <div className="rounded-mt-md border border-mt-border bg-mt-surface px-4 py-10 text-center">
                 <p className="text-sm text-mt-text-muted">
-                  {nameQuery && statusFilter !== "all"
-                    ? `No "${activeFilterLabel}" pages match "${nameQuery}"`
-                    : nameQuery
-                      ? `No pages match "${nameQuery}"`
-                      : `No pages with status "${activeFilterLabel}"`}
+                  {folderEntries.length === 0
+                    ? `No manuscripts in "${openFolder}" yet`
+                    : nameQuery && statusFilter !== "all"
+                      ? `No "${activeFilterLabel}" pages match "${nameQuery}"`
+                      : nameQuery
+                        ? `No pages match "${nameQuery}"`
+                        : `No pages with status "${activeFilterLabel}"`}
                 </p>
-                {(nameQuery || statusFilter !== "all") && (
+                {folderEntries.length === 0 && (
+                  <Link
+                    href="/"
+                    className="mt-3 inline-block text-sm font-medium text-mt-accent-text underline underline-offset-2 hover:text-mt-accent-hover"
+                  >
+                    Show all pages
+                  </Link>
+                )}
+                {folderEntries.length > 0 && (nameQuery || statusFilter !== "all") && (
                   <button
                     type="button"
                     onClick={() => {

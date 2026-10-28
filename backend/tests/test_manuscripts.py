@@ -119,6 +119,21 @@ def test_list_returns_only_own_manuscripts(client, fake_supabase):
     assert manuscripts[0]["filename"] == "page.png"
     assert manuscripts[0]["status"] == "uploaded"
     assert manuscripts[0]["url"] == "https://temporary-link/user-1/manuscripts/page.png"
+    assert manuscripts[0]["transcription"] is None  # not transcribed yet
+    assert manuscripts[0]["overlay_url"] is None
+
+
+def test_list_includes_transcription_and_overlay(client, fake_supabase):
+    page = fake_supabase.tables["manuscript_files"][0]
+    page["status"] = "transcribed"
+    page["transcription"] = [{"index": 0, "text": "In nomine"}]
+    page["overlay_path"] = "user-1/overlays/a.jpg"
+
+    [manuscript] = client.get(URL).json()
+
+    assert manuscript["status"] == "transcribed"
+    assert manuscript["transcription"] == [{"index": 0, "text": "In nomine"}]
+    assert manuscript["overlay_url"] == "https://temporary-link/user-1/overlays/a.jpg"
 
 
 def test_list_requires_login():
@@ -127,7 +142,70 @@ def test_list_requires_login():
     assert response.status_code in (401, 403)  # not logged in
 
 
+def test_update_title_and_document_type(client, fake_supabase):
+    response = client.patch(
+        f"{URL}/{MANUSCRIPT_ID}",
+        json={"title": "  New name ", "document_type": "Legal"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": MANUSCRIPT_ID,
+        "title": "New name",  # trimmed
+        "document_type": "Legal",
+    }
+    saved = fake_supabase.tables["manuscripts"][0]
+    assert saved["title"] == "New name"
+    assert saved["document_type"] == "Legal"
+
+
+def test_update_one_field_keeps_the_other(client, fake_supabase):
+    response = client.patch(f"{URL}/{MANUSCRIPT_ID}", json={"title": "Only name"})
+
+    assert response.status_code == 200
+    saved = fake_supabase.tables["manuscripts"][0]
+    assert saved["title"] == "Only name"
+    assert saved["document_type"] == "Religious"  # unchanged
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},  # nothing to change
+        {"title": "   "},
+        {"title": "x" * 201},
+        {"document_type": ""},
+        {"document_type": "x" * 51},
+    ],
+)
+def test_update_rejects_invalid_input(client, fake_supabase, body):
+    response = client.patch(f"{URL}/{MANUSCRIPT_ID}", json=body)
+
+    assert response.status_code == 422
+    assert fake_supabase.tables["manuscripts"][0]["title"] == "Letter"  # unchanged
+
+
+def test_update_other_users_manuscript_is_not_found(client, fake_supabase):
+    response = client.patch(
+        f"{URL}/{OTHER_USERS_MANUSCRIPT_ID}", json={"title": "Hacked"}
+    )
+
+    assert response.status_code == 404
+    assert fake_supabase.tables["manuscripts"][1]["title"] == "Secret"
+
+
+def test_update_requires_login():
+    response = TestClient(app).patch(f"{URL}/{MANUSCRIPT_ID}", json={"title": "x"})
+
+    assert response.status_code == 401
+
+
 def test_delete_manuscript(client, fake_supabase):
+    fake_supabase.tables["manuscript_files"][0]["overlay_path"] = (
+        "user-1/overlays/a.jpg"
+    )
+    fake_supabase.files["user-1/overlays/a.jpg"] = b"jpg"
+
     response = client.delete(f"{URL}/{MANUSCRIPT_ID}")
 
     assert response.status_code == 204  # 204 = done, nothing to return
@@ -138,6 +216,7 @@ def test_delete_manuscript(client, fake_supabase):
         OTHER_USERS_MANUSCRIPT_ID
     ]
     assert "user-1/manuscripts/page.png" not in fake_supabase.files
+    assert "user-1/overlays/a.jpg" not in fake_supabase.files
 
 
 def test_delete_with_wrong_id_deletes_nothing(client, fake_supabase):
@@ -190,11 +269,12 @@ ML_RESULT = {
     "manuscript_id": MANUSCRIPT_ID,
     "overlay": "data:image/jpeg;base64,anBn",  # b"jpg" in base64
     "data": {"Detect Lines": {"lines": [{"index": 0, "bbox": [0, 0, 10, 5]}]}},
+    "success": True,
+    "message": "Processing completed successfully",
 }
 
 PLAN = {
     "manuscript_id": MANUSCRIPT_ID,
-    "user_id": "user-1",
     "steps": None,
     "plan": "Detect Lines",
     "options": None,
@@ -206,7 +286,7 @@ ML_URL = "/api/process-manuscripts"
 def test_process_manuscript(client, fake_supabase, fake_ml_service):
     requests = fake_ml_service(lambda request: httpx.Response(200, json=ML_RESULT))
 
-    response = client.put(f"{ML_URL}/{MANUSCRIPT_ID}", json=PLAN)
+    response = client.post(f"{ML_URL}/{MANUSCRIPT_ID}", json=PLAN)
 
     assert response.status_code == 200
     assert response.json() == ML_RESULT
@@ -229,12 +309,40 @@ def test_process_manuscript(client, fake_supabase, fake_ml_service):
         }
     ).encode()
     assert plan_json in body
+    # Line detection alone has no text, so nothing is saved
+    assert fake_supabase.tables["manuscript_files"][0]["status"] == "uploaded"
+
+
+def test_transcription_is_saved(client, fake_supabase, fake_ml_service):
+    transcribed = {
+        **ML_RESULT,
+        "data": {
+            "Detect Lines": {"lines": [{"index": 0, "bbox": [0, 0, 10, 5]}]},
+            "Transcribe": {"lines": [{"index": 0, "text": "In nomine"}]},
+        },
+    }
+    fake_ml_service(lambda request: httpx.Response(200, json=transcribed))
+
+    response = client.post(
+        f"{ML_URL}/{MANUSCRIPT_ID}", json={**PLAN, "plan": "Transcribe"}
+    )
+
+    assert response.status_code == 200
+    page = fake_supabase.tables["manuscript_files"][0]
+    assert page["status"] == "transcribed"
+    # Each line keeps its text and its position on the page
+    assert page["transcription"] == [
+        {"index": 0, "bbox": [0, 0, 10, 5], "text": "In nomine"}
+    ]
+    # The overlay image is kept in the bucket, the row only stores its path
+    assert page["overlay_path"].startswith("user-1/overlays/")
+    assert fake_supabase.files[page["overlay_path"]] == b"jpg"
 
 
 def test_process_manuscript_ml_service_fails(client, fake_supabase, fake_ml_service):
     fake_ml_service(lambda request: httpx.Response(500, json={"detail": "boom"}))
 
-    response = client.put(f"{ML_URL}/{MANUSCRIPT_ID}", json=PLAN)
+    response = client.post(f"{ML_URL}/{MANUSCRIPT_ID}", json=PLAN)
 
     assert response.status_code == 502  # 502 = the ML service behind us failed
 
@@ -247,7 +355,7 @@ def test_process_manuscript_ml_service_unreachable(
 
     fake_ml_service(not_running)
 
-    response = client.put(f"{ML_URL}/{MANUSCRIPT_ID}", json=PLAN)
+    response = client.post(f"{ML_URL}/{MANUSCRIPT_ID}", json=PLAN)
 
     assert response.status_code == 502
 
@@ -259,7 +367,7 @@ def test_process_other_users_manuscript_is_not_found(
     requests = fake_ml_service(lambda request: httpx.Response(200, json=ML_RESULT))
     plan = {**PLAN, "manuscript_id": OTHER_USERS_MANUSCRIPT_ID, "user_id": "user-2"}
 
-    response = client.put(f"{ML_URL}/{OTHER_USERS_MANUSCRIPT_ID}", json=plan)
+    response = client.post(f"{ML_URL}/{OTHER_USERS_MANUSCRIPT_ID}", json=plan)
 
     assert response.status_code == 404
     assert requests == []  # the file is never sent to the ML service

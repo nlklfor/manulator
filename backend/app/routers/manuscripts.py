@@ -2,7 +2,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, UploadFile
 
-from app.schemas.manuscript import ManuscriptResponse, UploadResponse
+from app.schemas.manuscript import (
+    ManuscriptResponse,
+    ManuscriptUpdate,
+    ManuscriptUpdateResponse,
+    UploadResponse,
+)
 from app.services import storage
 from app.services.auth import get_current_user_id
 
@@ -18,10 +23,19 @@ def list_manuscripts(user_id: str = Depends(get_current_user_id)):
 def upload_manuscript(
     file: UploadFile,
     title: str = Form(),
-    document_type: str = Form(),  # e.g. "Religious", "Political", "Historical"
+    document_type: str = Form(),  # e.g. "Charter", "Register", "Letter"
     user_id: str = Depends(get_current_user_id),
 ):
     return storage.save_upload(file, user_id, title, document_type)
+
+
+@router.patch("/{manuscript_id}", response_model=ManuscriptUpdateResponse)
+def update_manuscript(
+    manuscript_id: UUID,
+    update: ManuscriptUpdate,
+    user_id: str = Depends(get_current_user_id),
+):
+    return storage.update_manuscript(str(manuscript_id), user_id, update)
 
 
 @router.delete("/{manuscript_id}", status_code=204)

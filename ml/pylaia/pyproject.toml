@@ -12,3 +12,13 @@ dependencies = [
 dev = [
     "pip>=26.2.1",
 ]
+
+[tool.uv]
+# torch 1.13.1 asks for its CUDA packages on every Linux, but they only exist for
+# x86_64. Without this, Docker on Apple Silicon (Linux aarch64) can't install PyLaia.
+override-dependencies = [
+    "nvidia-cublas-cu11; sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "nvidia-cuda-nvrtc-cu11; sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "nvidia-cuda-runtime-cu11; sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "nvidia-cudnn-cu11; sys_platform == 'linux' and platform_machine == 'x86_64'",
+]

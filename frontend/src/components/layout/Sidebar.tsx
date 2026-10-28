@@ -1,18 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { ChartNoAxesColumn, LayoutGrid, Search } from "lucide-react";
 import { ProfileMenu } from "@/components/layout/ProfileMenu";
-
-// Placeholder data until manuscripts and the logged-in user come from the backend (JUST A MOCKUP)
-const PLACEHOLDER_MANUSCRIPTS = [
-  { name: "Psalter · Cod. 22", color: "#9A2B1C", pages: 7 },
-  { name: "Book of Hours · MS 7", color: "#3C5A94", pages: 1 },
-  { name: "Charter, 1287", color: "#8A6A2E", pages: 2 },
-];
-
-// Placeholder data until the logged-in user come from the backend (JUST A MOCKUP)
+import { LogoMark } from "@/components/ui/LogoMark";
+import { useLibrary } from "@/features/upload-manuscript/context/LibraryContext";
+import { getFolders, parseFolder } from "@/features/upload-manuscript/constants/folders";
 
 // Shared look of one row in the sidebar
 const ROW = "flex h-9 w-full items-center gap-2.5 rounded-mt-md px-2.5 text-sm font-medium";
@@ -26,9 +20,17 @@ const ROW_LINK = `${ROW} text-mt-text-muted hover:bg-mt-hover hover:text-mt-text
 export function Sidebar() {
   // The address of the open page, used to highlight the matching link
   const pathname = usePathname();
-  const onLibrary = pathname === "/";
+  const onLibraryPage = pathname === "/";
   const onSearch = pathname === "/search";
   const onProfile = pathname === "/profile";
+
+  // Folders = document types of the user's manuscripts, with their number of pages.
+  // The open folder is in the address (/?type=Charter), so a reload or the back button keeps it.
+  const { libraryEntries } = useLibrary();
+  const folders = getFolders(libraryEntries);
+  const openFolder = parseFolder(useSearchParams().get("type"));
+  // "Library" is the "All" row: it shows every manuscript
+  const onLibrary = onLibraryPage && !openFolder;
 
   return (
     <nav
@@ -37,12 +39,7 @@ export function Sidebar() {
     >
       {/* Manulator logo */}
       <Link href="/" aria-label="manulator home" className="flex h-10 items-center gap-2.5 px-1.5">
-        <span
-          aria-hidden="true"
-          className="flex size-7 flex-none items-center justify-center rounded-[7px] border-[1.5px] border-dashed border-mt-border-strong font-mono text-[8px] uppercase text-mt-text-subtle"
-        >
-          logo
-        </span>
+        <LogoMark className="size-7" />
         <span className="text-[17px] font-semibold text-mt-text">manulator</span>
       </Link>
 
@@ -55,6 +52,11 @@ export function Sidebar() {
         >
           <LayoutGrid className="size-4" aria-hidden="true" />
           Library
+          {libraryEntries.length > 0 && (
+            <span className="ml-auto font-mono text-xs text-mt-text-subtle">
+              {libraryEntries.length}
+            </span>
+          )}
         </Link>
         {/* Search page: full-text search through transcriptions */}
         <Link
@@ -67,24 +69,33 @@ export function Sidebar() {
         </Link>
       </div>
 
-      {/* Manuscripts */}
+      {/* Folders: one per document type that has manuscripts */}
       <div className="flex flex-col gap-0.5">
         <span className="px-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-mt-text-subtle">
-          Manuscripts
+          Document types
         </span>
-        {PLACEHOLDER_MANUSCRIPTS.map((manuscript) => (
-          <button key={manuscript.name} type="button" disabled className={ROW_INACTIVE}>
-            <span
-              aria-hidden="true"
-              className="size-2.5 flex-none rounded-[3px]"
-              style={{ backgroundColor: manuscript.color }}
-            />
-            <span className="truncate">{manuscript.name}</span>
-            <span className="ml-auto font-mono text-xs text-mt-text-subtle">
-              {manuscript.pages}
-            </span>
-          </button>
-        ))}
+        {folders.length === 0 && (
+          <span className="px-2.5 text-sm text-mt-text-subtle">No manuscripts yet</span>
+        )}
+        {folders.map((folder) => {
+          const isOpen = onLibraryPage && openFolder === folder.name;
+          return (
+            <Link
+              key={folder.name}
+              href={`/?type=${encodeURIComponent(folder.name)}`}
+              aria-current={isOpen ? "page" : undefined}
+              className={isOpen ? ROW_CURRENT : ROW_LINK}
+            >
+              <span
+                aria-hidden="true"
+                className="size-2.5 flex-none rounded-[3px]"
+                style={{ backgroundColor: folder.color }}
+              />
+              <span className="truncate">{folder.name}</span>
+              <span className="ml-auto font-mono text-xs text-mt-text-subtle">{folder.count}</span>
+            </Link>
+          );
+        })}
       </div>
 
       {/* Empty space that pushes the last group to the bottom */}

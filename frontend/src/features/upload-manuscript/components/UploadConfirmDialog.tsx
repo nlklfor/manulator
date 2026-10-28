@@ -3,9 +3,7 @@
 import { useEffect, useRef, type SubmitEvent } from "react";
 import TextField from "@/features/auth/components/TextField";
 import type { UploadDetails } from "../api/uploadImage";
-
-// users can also type their own document type
-const DOCUMENT_TYPES = ["Religious", "Political", "Historical", "Literary", "Legal", "Other"];
+import { DOCUMENT_TYPES } from "../constants/documentTypes";
 
 interface UploadConfirmDialogProps {
   file: File;
@@ -58,7 +56,7 @@ export function UploadConfirmDialog({ file, onConfirm, onCancel }: UploadConfirm
           required
           maxLength={50}
           list="document-type-options"
-          placeholder="e.g. Religious"
+          placeholder="e.g. Charter"
           hint="Pick a suggestion or type your own."
         />
         <datalist id="document-type-options">

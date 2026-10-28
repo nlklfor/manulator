@@ -2,6 +2,14 @@ version = 1
 revision = 3
 requires-python = "==3.10.*"
 
+[manifest]
+overrides = [
+    { name = "nvidia-cublas-cu11", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cuda-nvrtc-cu11", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cuda-runtime-cu11", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cudnn-cu11", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+
 [[package]]
 name = "absl-py"
 version = "2.5.1"
@@ -963,10 +971,10 @@ name = "torch"
 version = "1.13.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu11", marker = "sys_platform == 'linux'" },
-    { name = "nvidia-cuda-nvrtc-cu11", marker = "sys_platform == 'linux'" },
-    { name = "nvidia-cuda-runtime-cu11", marker = "sys_platform == 'linux'" },
-    { name = "nvidia-cudnn-cu11", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-cublas-cu11", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cuda-nvrtc-cu11", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cuda-runtime-cu11", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cudnn-cu11", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "typing-extensions" },
 ]
 wheels = [

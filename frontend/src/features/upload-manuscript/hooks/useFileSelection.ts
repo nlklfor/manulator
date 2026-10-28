@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { validateFile } from "./validateFile";
-import type { LibraryEntry, UploadError } from "../types/upload";
+import type { LibraryEntry, TranscribedLine, UploadError } from "../types/upload";
 import { uploadImage, type UploadDetails } from "../api/uploadImage";
 import { getManuscripts } from "../api/getManuscripts";
+import { updateManuscript } from "../api/updateManuscript";
 
 const ERROR_DISPLAY_DURATION = 5000;
 
@@ -26,9 +27,11 @@ export function useFileSelection() {
         const loaded: LibraryEntry[] = manuscripts.map((manuscript) => ({
           id: manuscript.id,
           fileName: manuscript.title,
+          documentType: manuscript.document_type,
           fileType: manuscript.content_type,
           previewUrl: manuscript.url,
           status: manuscript.status,
+          transcription: manuscript.transcription,
         }));
         // Keep uploads started while the list was loading on top
         setLibraryEntries((prev) => [
@@ -80,6 +83,15 @@ export function useFileSelection() {
     );
   }, []);
 
+  const updateEntryTranscription = useCallback(
+    (id: string, transcription: TranscribedLine[] | null) => {
+      setLibraryEntries((prev) =>
+        prev.map((entry) => (entry.id === id ? { ...entry, transcription } : entry)),
+      );
+    },
+    [],
+  );
+
   const removeManuscript = useCallback((id: string) => {
     setLibraryEntries((prev) => {
       const manuscriptToRemove = prev.find((e) => e.id === id);
@@ -89,6 +101,19 @@ export function useFileSelection() {
       }
       return prev.filter((e) => e.id !== id);
     });
+  }, []);
+
+  // Saves a new name and document type, then shows them everywhere in the app.
+  // Throws when the backend refuses, so the edit form can show an error.
+  const editManuscript = useCallback(async (id: string, details: UploadDetails) => {
+    const saved = await updateManuscript(id, details);
+    setLibraryEntries((prev) =>
+      prev.map((entry) =>
+        entry.id === id
+          ? { ...entry, fileName: saved.title, documentType: saved.document_type }
+          : entry,
+      ),
+    );
   }, []);
 
   const selectFile = useCallback((file: File) => {
@@ -117,6 +142,7 @@ export function useFileSelection() {
       const newEntry: LibraryEntry = {
         id,
         fileName: details.title,
+        documentType: details.documentType,
         fileType: file.type,
         previewUrl,
         status: "uploading",
@@ -165,6 +191,8 @@ export function useFileSelection() {
     confirmUpload,
     cancelUpload,
     removeManuscript,
+    editManuscript,
     updateEntryStatus,
+    updateEntryTranscription,
   };
 }

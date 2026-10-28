@@ -74,6 +74,12 @@ Our professor suggested PyLaia instead of Kraken's own reading model. Kraken sti
 - Can add a character language model (n-gram) when decoding. It predicts which characters are likely to come next and fixes some reading errors. Teklia reports about 12% lower CER on average with it.
 - Gives a confidence score per line, useful to flag lines a person should check.
 
+## Experimental Step: Correct the transcribed text by a correction model
+- The transcription model might make errors
+- It might help to increase the translation accuracy by correcting these errors before translating the transcribed text
+- Dataset: On Hugging Face the wnkh/IOC Dataset can be used to train a ByT5-correcting model. 
+- Model: ByT5
+
 ## 3. Translation
 
 The Latin text from gets translated into a modern language
@@ -84,6 +90,12 @@ The Latin text from gets translated into a modern language
 | --- | --- | --- | --- | --- | --- | --- |
 | Bui et al. 2026 | HTR model + GPT-4o | Specialized HTR + LLM that sees image and text | Medieval manuscripts, Latin → English | Moderate: meaning often right, but details missing or wrong | Paid | Simplest setup worked best |
 | Rosu 2025 | LITERA | Chain of LLM calls | Clean Latin → English | Good on clean text | Paid; free version weaker | Literal translation works well |
+ | Bui et al. 2025 | Opus-MT | Transformer | Clean Latin → English | Moderate: meaning often right, but details missing or wrong | Free | Works on clean text, but not on messy text |
+ | BryanFalkowski: CCMatrix: Mining Billions of High-Quality Parallel Sentences on the WEB | BryanFalkowski/english-to-latin-v2|English and Latin texts|This model is designed to execute Latin-to-English translations, built using the extensive CCMatrix dataset. The CCMatrix dataset is a vast compilation of high-quality parallel sentences drawn from the public CommonCrawl dataset, consisting of over 4.5 billion sentence pairs across 576 language pairs. The model is devised to harness the power of this substantial corpus, aiming to provide an effective and precise solution for Latin translation tasks.| This model is still trained
+
+ ## 4. Translation and Summarization
+ To translate Manuscripts from Latin to English and to summarize it afterwards (in English too) the following model might be useful
+ - https://huggingface.co/LatinNLP/LatinSummarizerModel?utm_source=chatgpt.com
 
 - one paper matched our pipeline for medieval Latin manuscripts: a specialized reading model, then an LLM that gets both the image and the transcription and translates it.
 - Translation of medieval manuscripts is still hard: old Latin, abbreviations, and reading errors from the transcription step.

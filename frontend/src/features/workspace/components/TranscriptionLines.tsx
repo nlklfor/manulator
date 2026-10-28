@@ -11,19 +11,25 @@ import type { TranscriptionLine } from "../types";
 
 interface TranscriptionLinesProps {
   lines: TranscriptionLine[]; // the lines to show (already filtered)
+  selectedN: number | null;
+  onSelectLine: (n: number) => void;
   onSaveLine: (n: number, text: string) => void;
 }
 
 const KEY_CLASS = "rounded border border-mt-border-strong px-1 font-mono text-[10px]";
 
-export function TranscriptionLines({ lines, onSaveLine }: TranscriptionLinesProps) {
-  const [selectedN, setSelectedN] = useState<number | null>(null);
+export function TranscriptionLines({
+  lines,
+  selectedN,
+  onSelectLine,
+  onSaveLine,
+}: TranscriptionLinesProps) {
   const [editingN, setEditingN] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLOListElement>(null);
 
   function startEdit(line: TranscriptionLine) {
-    setSelectedN(line.n);
+    onSelectLine(line.n);
     setEditingN(line.n);
     setDraft(line.text);
   }
@@ -37,7 +43,7 @@ export function TranscriptionLines({ lines, onSaveLine }: TranscriptionLinesProp
 
   function handleClick(line: TranscriptionLine) {
     if (selectedN === line.n) startEdit(line);
-    else setSelectedN(line.n);
+    else onSelectLine(line.n);
   }
 
   // Arrow keys move the selection and the keyboard focus
@@ -50,7 +56,7 @@ export function TranscriptionLines({ lines, onSaveLine }: TranscriptionLinesProp
       e.key === "ArrowDown" ? Math.min(lines.length - 1, index + 1) : Math.max(0, index - 1);
     const next = lines[nextIndex];
     if (!next) return;
-    setSelectedN(next.n);
+    onSelectLine(next.n);
     listRef.current?.querySelector<HTMLButtonElement>(`[data-line="${next.n}"]`)?.focus();
   }
 
@@ -70,9 +76,9 @@ export function TranscriptionLines({ lines, onSaveLine }: TranscriptionLinesProp
               key={line.n}
               className={`grid grid-cols-[36px_1fr] items-start rounded-mt-md ${
                 isEditing
-                  ? "bg-mt-raised shadow-[inset_0_0_0_2px_var(--mt-accent)]"
+                  ? "bg-mt-raised shadow-[inset_0_0_0_2px_var(--color-mt-accent)]"
                   : isSelected
-                    ? "bg-mt-accent-soft"
+                    ? "bg-mt-accent-soft shadow-[inset_0_0_0_1px_var(--color-mt-accent-soft-strong)]"
                     : "hover:bg-mt-hover"
               }`}
             >
@@ -138,10 +144,10 @@ export function TranscriptionLines({ lines, onSaveLine }: TranscriptionLinesProp
                   ))}
                   {isSelected && (
                     <span className="ml-2 text-[11px] text-mt-text-subtle">
-                      {line.confidence}% confidence
+                      {line.confidence !== null && `${line.confidence}% confidence · `}
                       {line.lowConfWords.length > 0
-                        ? ` · ${line.lowConfWords.length} uncertain · press Enter to correct`
-                        : " · press Enter to edit"}
+                        ? `${line.lowConfWords.length} uncertain · press Enter to correct`
+                        : "press Enter to edit"}
                     </span>
                   )}
                 </button>

@@ -2,14 +2,15 @@
 
 // WorkspacePage — detail view of one manuscript page (route: /manuscript/<id>).
 // Layout: top bar, image panel on the left, transcription panel on the right.
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Download, ScanLine } from "lucide-react";
 import { useLibrary } from "@/features/upload-manuscript/context/LibraryContext";
 import { StatusBadge } from "@/features/upload-manuscript/components/StatusBadge";
 import { ImageViewer } from "./ImageViewer";
 import { TranscriptionPanel } from "./TranscriptionPanel";
-import type { TranscriptionLine } from "../types";
+import { processManuscript } from "@/features/workspace/api/process-manuscript";
+import { mergeProcessResult, toTranscriptionLines } from "../transcription";
 
 interface WorkspacePageProps {
   manuscriptId: string;
@@ -17,34 +18,64 @@ interface WorkspacePageProps {
 
 export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   // The library lives in memory (LibraryContext), so we look the page up by id.
-  const { libraryEntries, updateEntryStatus } = useLibrary();
+  const { libraryEntries, updateEntryStatus, updateEntryTranscription } = useLibrary();
   const entry = libraryEntries.find((e) => e.id === manuscriptId);
 
-  // The transcribed lines of this page. Filled by the transcription flow (ML team),
-  // see handleTranscribe. Empty until then.
-  const [lines, setLines] = useState<TranscriptionLine[]>([]);
+  const transcription = entry?.transcription;
+  const lines = useMemo(() => toTranscriptionLines(transcription), [transcription]);
+  // The line selected in the list; its outline is highlighted on the scan
+  const [selectedN, setSelectedN] = useState<number | null>(null);
+  const [transcribeError, setTranscribeError] = useState<string | null>(null);
 
-  // Called by the "Transcribe page" button with the chosen model id.
-  // TODO (ML team): call the real transcription API with entry.id and modelId,
-  // then call setLines(...) with the result and set the status to "transcribed".
-  // For now it only marks the page as "transcribing".
+  // For now the plan is to just transcribe the page
+  const processPlan = {
+    steps: [],
+    plan: "Transcribe",
+    options: {},
+  };
+
+  // Runs line detection + transcription. On failure the page goes back to
+  // "uploaded" and shows the error, so the user can start again.
   function handleTranscribe(modelId: string) {
+    if (!entry) return;
+    const id = entry.id;
     void modelId;
-    if (entry) updateEntryStatus(entry.id, "transcribing");
+
+    function fail(message: string) {
+      setTranscribeError(message);
+      updateEntryStatus(id, "uploaded");
+    }
+
+    setTranscribeError(null);
+    updateEntryStatus(id, "transcribing");
+    processManuscript(id, processPlan)
+      .then((result) => {
+        if (!result.success) {
+          fail(result.message ?? "The model could not read this page. Please try again.");
+          return;
+        }
+        updateEntryTranscription(id, mergeProcessResult(result.data));
+        updateEntryStatus(id, "transcribed");
+      })
+      .catch((error: Error) => fail(error.message));
   }
 
   // Store a corrected line and mark the page as corrected
   function handleSaveLine(n: number, text: string) {
-    setLines((prev) =>
-      prev.map((l) => (l.n === n ? { ...l, text, lowConfWords: [], confidence: 100 } : l)),
+    if (!entry?.transcription) return;
+    updateEntryTranscription(
+      entry.id,
+      entry.transcription.map((l) => (l.index === n - 1 ? { ...l, text } : l)),
     );
-    if (entry) updateEntryStatus(entry.id, "corrected");
+    updateEntryStatus(entry.id, "corrected");
   }
 
   // Go back to the empty state, so the user can pick a model and run it again
   function handleReTranscribe() {
-    setLines([]);
-    if (entry) updateEntryStatus(entry.id, "uploaded");
+    if (!entry) return;
+    updateEntryTranscription(entry.id, null);
+    updateEntryStatus(entry.id, "uploaded");
+    setSelectedN(null);
   }
 
   const isTranscribed = entry?.status === "transcribed" || entry?.status === "corrected";
@@ -119,14 +150,19 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
             src={entry.previewUrl}
             fileName={entry.fileName}
             isPdf={entry.fileType === "application/pdf"}
+            lines={lines}
+            selectedN={selectedN}
           />
         </section>
         <section aria-label="Transcription" className="flex min-w-0 flex-1 flex-col bg-mt-surface">
           <TranscriptionPanel
             status={entry.status}
             lines={lines}
+            selectedN={selectedN}
+            onSelectLine={setSelectedN}
             onSaveLine={handleSaveLine}
             onTranscribe={handleTranscribe}
+            error={transcribeError}
           />
         </section>
       </div>

@@ -3,11 +3,30 @@ services:
     build: ./backend # use backend/Dockerfile
     ports:
       - "8000:8000" # local port : container port
+    environment:
+      # Inside Docker the ML service is reached by its service name, not 127.0.0.1
+      ML_SERVICE_URL: http://ml:8001
     volumes:
       - ./backend:/app # share the code, so changes reload without rebuilding
     healthcheck:
       # Healthy if /api/health answers
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s # check every 10 seconds
+      timeout: 5s # a slower check counts as failed
+      retries: 5 # unhealthy after 5 failed checks in a row
+      start_period: 15s # failures during startup don't count
+
+  ml:
+    build: ./ml # use ml/Dockerfile
+    ports:
+      - "8001:8001" # local port : container port
+    volumes:
+      - ./ml:/app # share the code, so changes reload without rebuilding
+      - /app/.venv # but keep the container's own installed packages
+      - /app/pylaia/.venv # same for PyLaia
+    healthcheck:
+      # Healthy if /health answers
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
       interval: 10s # check every 10 seconds
       timeout: 5s # a slower check counts as failed
       retries: 5 # unhealthy after 5 failed checks in a row

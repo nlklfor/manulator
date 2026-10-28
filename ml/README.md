@@ -25,7 +25,8 @@ Kraken's line finder comes with Kraken itself; nothing to download.
 ## Run the ML service
 
 It runs on port 8001, so it doesn't clash with the main backend on port 8000. Start it from `ml/`:
-
+    
+    cd ml
     uv run uvicorn app.main:app --reload --port 8001
 
 Check that it works: open http://127.0.0.1:8001/health in the browser. It should show `{"status":"ok"}`. All endpoints are listed at http://127.0.0.1:8001/docs.
