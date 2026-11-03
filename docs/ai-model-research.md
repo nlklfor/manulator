@@ -279,6 +279,14 @@ Most mistakes come from reading; Kraken's line finding adds about 2 to 9 points.
 - The line-finding measure counts a found line as missed when its outline differs too much from the expert's.
 - The CATMuS overlap check could only use lines without abbreviations; we skipped nearby pages as a safety distance.
 
+# Part 3: Further research
+
+Each topic has its own file in [research/](research/), using [research/TEMPLATE.md](research/TEMPLATE.md):
+
+- [Translation models](research/translation-models.md) (#141, story #140)
+- [Summarization models](research/summarization-models.md) (story #142)
+- [Classifiers and the multiple classifier system](research/classifiers.md) (#114, #115, #147–#150, #128, story #145)
+
 # Sources
 
 ### Line finding
