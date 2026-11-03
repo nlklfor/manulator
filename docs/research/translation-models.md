@@ -9,6 +9,7 @@
   
   ## What we tried
   Models: google/mT5-small, google/ mT5-base, Helsinki-NLP/opus-mt-la-en
+  ByT5 has not been tested, but it might be a good option for noisy input (OCR errors, abbreviations, spelling variations).
 
   ## Train Data
   On Hugging face the follwing datasets might be suitable for training a translation model from Latin to English:
