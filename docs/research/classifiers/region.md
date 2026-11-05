@@ -27,7 +27,6 @@ Notes:
   roughly square tile (see Datasets).
 - Results are reported per manuscript (average of the predictions for all its lines/tiles).
 
-## Test pages
 
 ## Pretrained models
 
