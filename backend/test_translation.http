@@ -1,0 +1,46 @@
+# Test the translation step.
+# Start the ML service first, from ml/: uv run uvicorn app.main:app --reload --port 8001
+
+### 1. ML service directly, with the body the backend sends
+POST http://127.0.0.1:8001/api/process-manuscripts/translate
+Content-Type: application/json
+
+{
+  "manuscript_id": "test-translation",
+  "lines": [
+    {"index": 0, "text": "In nomine Domini nostri Iesu Christi, amen."},
+    {"index": 1, "text": "Ego Carolus, rex Francorum, omnibus fidelibus salutem."},
+    {"index": 3, "text": "Notum sit omnibus quod monasterium sancti Galli terram accepit."},
+    {"index": 4, "text": "Haec terra iuxta flumen Rhenum sita est."},
+    {"index": 5, "text": "Monachi ibi ecclesiam novam aedificare volunt."},
+    {"index": 6, "text": "Abbas fratres suos ad orationem vocavit."},
+    {"index": 7, "text": "Post orationem omnes in silentio laboraverunt."},
+    {"index": 8, "text": "Pauperes et peregrini in domo hospitum recipiuntur."},
+    {"index": 9, "text": "Panem et vinum eis libenter dant."},
+    {"index": 10, "text": "Hieme frigus magnum erat et nix multa cecidit."},
+    {"index": 11, "text": "Tamen fratres opus suum non reliquerunt."},
+    {"index": 12, "text": "Vere novo agri iterum virides facti sunt."},
+    {"index": 13, "text": "Rex ipse monasterium visitavit et donum magnum dedit."},
+    {"index": 14, "text": "Libros quoque pretiosos in bibliotheca posuit."},
+    {"index": 15, "text": "Scriptores diligenter codices antiquos describebant."},
+    {"index": 16, "text": "Pueri in schola linguam Latinam discebant."},
+    {"index": 17, "text": "Magister eos cum patientia docebat."},
+    {"index": 18, "text": "Si quis hanc donationem violare temptaverit, iram Dei incurrat."},
+    {"index": 19, "text": "Testes huius rei sunt comes Udalricus et episcopus Salomon."},
+    {"index": 20, "text": "Scriptum est anno ab incarnatione Domini octingentesimo."},
+    {"index": 21, "text": "Datum in palatio regis, mense Maio."},
+    {"index": 22, "text": "Feliciter in Dei nomine, amen."},
+    {"index": 25, "text": "Finis."}
+  ]
+}
+
+### 2. Through the backend (start it too: cd backend, uv run uvicorn app.main:app --reload)
+# The lines are loaded from the database, so the manuscript must already be transcribed.
+@token = <access token from POST /api/auth/>
+@manuscriptId = <manuscript uuid>
+
+POST http://127.0.0.1:8000/api/translate-manuscripts/{{manuscriptId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"manuscript_id": "{{manuscriptId}}", "target_language": "en"}

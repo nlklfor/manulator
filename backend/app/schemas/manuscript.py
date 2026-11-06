@@ -39,6 +39,18 @@ class ManuscriptTranscriptResponse(BaseModel):
     message: str | None
 
 
+class TranslationPlan(BaseModel):
+    plan: str = "Translate"
+    target_language: str = "en"
+
+
+class ManuscriptTranslationResponse(BaseModel):
+    manuscript_id: str
+    translated_lines: list[dict]  # list of dicts with "index" and "text"
+    success: bool
+    message: str | None
+
+
 class ManuscriptResponse(UploadResponse):
     status: str  # status of the first file, e.g. "uploaded"
     created_at: datetime
