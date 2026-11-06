@@ -6,10 +6,12 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
 
 from app.config import settings
-from app.schemas.manuscripts import ManuscriptProcessResponse, ManuscriptProcessPlan
+from app.schemas.manuscripts import ManuscriptProcessResponse, ManuscriptProcessPlan, ManuscriptTranslationResponse, \
+    TranslationPlan
 from services.pipeline import Task, Pipeline
 
 router = APIRouter(prefix="/process-manuscripts", tags=["manuscripts"])
+
 
 @router.post("/", response_model=ManuscriptProcessResponse)
 def process_manuscript(process_plan: Annotated[str, Form()], file: Annotated[UploadFile, File()]):
@@ -59,4 +61,26 @@ def process_manuscript(process_plan: Annotated[str, Form()], file: Annotated[Upl
     )
 
 
+@router.post("/translate", response_model=ManuscriptTranslationResponse)
+def translate_manuscript(translation_plan: TranslationPlan) -> ManuscriptTranslationResponse:
+    plan = translation_plan.plan
 
+    # create the translation task
+    task = Task(input=plan, data={"lines": translation_plan.lines},
+                options={"target_language": translation_plan.target_language,
+                         "skip_dependencies": True})
+
+    # create the pipeline and run it
+    pipeline = Pipeline(task)
+
+    if plan not in pipeline.actions:
+        raise HTTPException(status_code=400, detail=f"Unknown step: {plan}")
+
+    result = pipeline.run()
+
+    return ManuscriptTranslationResponse(
+        manuscript_id=translation_plan.manuscript_id,
+        translated_lines=result[plan],
+        success=True if result[plan] is not None else False,
+        message="Translation completed successfully" if result[plan] else "Translation failed"
+    )
