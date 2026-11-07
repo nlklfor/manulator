@@ -9,8 +9,12 @@ from postgrest import APIError
 from storage3.utils import StorageException
 
 from app.config import settings
-from app.schemas.manuscript import ManuscriptProcessPlan, ManuscriptTranscriptResponse, ManuscriptTranslationResponse, \
-    TranslationPlan
+from app.schemas.manuscript import (
+    ManuscriptProcessPlan,
+    ManuscriptTranscriptResponse,
+    ManuscriptTranslationResponse,
+    TranslationPlan,
+)
 from app.services.bucket import delete_file, download_file, upload_file
 from app.services.database import get_admin_client
 
@@ -25,11 +29,11 @@ class ManuscriptPage:
     image_bytes: bytes
     overlay_path: str | None  # overlay saved by an earlier run, if any
 
+
 @dataclass
 class Transcription:
     manuscript_id: str
     lines: list[dict]
-
 
 
 # Loads all files (pages) of a manuscript from the bucket, in page order.
@@ -165,6 +169,7 @@ def save_transcription(
         except StorageException as error:
             logger.warning("Could not delete old overlay: %s", error)
 
+
 # This method loads the transcribed lines from the database.
 def load_transcription(manuscript_id: str, user_id: str) -> Transcription:
     # Read the manuscript from the database
@@ -198,13 +203,16 @@ def load_transcription(manuscript_id: str, user_id: str) -> Transcription:
         ) from error
 
     if not transcribed_lines.data or len(transcribed_lines.data) == 0:
-        raise HTTPException(404, "No transcribed lines found or the manuscript has not been transcribed yet")
+        raise HTTPException(
+            404,
+            "No transcribed lines found or the manuscript has not been transcribed yet",
+        )
 
     row = transcribed_lines.data[0]
 
     if not row.get("transcription"):
         raise HTTPException(404, "The manuscript has not been transcribed yet")
-    # Read the transcribed lines and return them as a list of dicts with "index" and "text"
+    # Return the transcribed lines as a list of dicts with "index" and "text"
     lines = []
     for line in row["transcription"]:
         if not line.get("text"):
@@ -216,17 +224,27 @@ def load_transcription(manuscript_id: str, user_id: str) -> Transcription:
     transcription = Transcription(manuscript_id=manuscript_id, lines=lines)
     return transcription
 
-# This function reads the transcribed lines from the database and forwards them to the ML service for translation.
+
+# This function reads the transcribed lines from the database
+# and forwards them to the ML service for translation.
 # The ML service returns the translated lines
 # The translated lines are not saved in the database yet
-async def translate_manuscript(manuscript_id: str, translation_plan: TranslationPlan, user_id: str) -> ManuscriptTranslationResponse:
+async def translate_manuscript(
+    manuscript_id: str, translation_plan: TranslationPlan, user_id: str
+) -> ManuscriptTranslationResponse:
     if translation_plan.target_language != "en":
-        raise HTTPException(400, "Only translation to English is supported at the moment")
+        raise HTTPException(
+            400, "Only translation to English is supported at the moment"
+        )
 
     # load the transcribed lines from the database
     transcription = load_transcription(manuscript_id, user_id)
-    data = {"manuscript_id": manuscript_id, "lines": transcription.lines,
-            "plan": translation_plan.plan, "target_language": translation_plan.target_language}
+    data = {
+        "manuscript_id": manuscript_id,
+        "lines": transcription.lines,
+        "plan": translation_plan.plan,
+        "target_language": translation_plan.target_language,
+    }
 
     # Create a post request to the ML service
     # with a timeout of 300 seconds (5 minutes)
@@ -246,6 +264,6 @@ async def translate_manuscript(manuscript_id: str, translation_plan: Translation
     result = ManuscriptTranslationResponse.model_validate(response.json())
 
     # save translation
-    #save_translation(text)
+    # save_translation(text)
 
     return result
