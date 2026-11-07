@@ -22,7 +22,7 @@ From `ml/`:
 
 Kraken's line finder comes with Kraken itself; nothing to download.
 
-The translation model is private on Hugging Face. Copy `.env.example` to `.env` or `.env.local` (`.env.local` wins if both set it) and set `HF_TOKEN` to an access token with read access to it. The model is downloaded on the first translation request.
+The translation model is private on Hugging Face. Copy `.env.example` to `.env` or `.env` (`.env` wins if both set it) and set `HF_TOKEN` to an access token with read access to it. The model is downloaded on the first translation request.
 
 ## Run the ML service
 

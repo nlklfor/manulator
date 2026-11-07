@@ -4,11 +4,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # .env.local overrides .env; both are git-ignored
+    # .env overrides .env; both are git-ignored
     model_config = SettingsConfigDict(
         env_file=(
-            Path(__file__).parent.parent / ".env",
-            Path(__file__).parent.parent / ".env.local",
+            Path(__file__).parent.parent / ".env"
         ),
         extra="ignore",
     )
