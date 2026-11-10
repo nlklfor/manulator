@@ -1,5 +1,6 @@
 from services.segmentation import run_segmentation
 from services.transcription import run_transcription
+from services.translation import run_translation
 
 
 class Task:
@@ -37,6 +38,7 @@ class Pipeline:
         self.actions = {
             "Detect Lines": run_segmentation,
             "Transcribe": run_transcription,
+            "Translate": run_translation,
         }
 
     # run the action specified in the task, along with its dependencies
@@ -50,14 +52,18 @@ class Pipeline:
             # the final action to run is the one specified in the task
             action_func = self.actions[self.task.input]
 
-            # run all dependencies first
-            for dependency in dependencies:
-                if dependency in self.actions:
-                    dep_func = self.actions[dependency]
-                    print(f"Running dependency: {dependency}")
-                    result[dependency] = dep_func(self.task.data, self.task.options)
-                else:
-                    raise ValueError(f"Unknown dependency: {dependency}")
+            if (self.task.options or {}).get("skip_dependencies"):
+                print(f"Skipping dependencies for action: {self.task.input}")
+            else:
+                # run all dependencies first
+                for dependency in dependencies:
+                    if dependency in self.actions:
+                        dep_func = self.actions[dependency]
+                        print(f"Running dependency: {dependency}")
+                        result[dependency] = dep_func(self.task.data, self.task.options)
+                    else:
+                        raise ValueError(f"Unknown dependency: {dependency}")
+
             print(f"Running action: {self.task.input}")
             result[self.task.input] = action_func(self.task.data, self.task.options)
 

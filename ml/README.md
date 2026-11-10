@@ -22,6 +22,8 @@ From `ml/`:
 
 Kraken's line finder comes with Kraken itself; nothing to download.
 
+The translation model is private on Hugging Face. Copy `.env.example` to `.env` or `.env` (`.env` wins if both set it) and set `HF_TOKEN` to an access token with read access to it. The model is downloaded on the first translation request.
+
 ## Run the ML service
 
 It runs on port 8001, so it doesn't clash with the main backend on port 8000. Start it from `ml/`:

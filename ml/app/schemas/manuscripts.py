@@ -13,3 +13,16 @@ class ManuscriptProcessResponse(BaseModel):
     data: dict
     success: bool = False
     message: str|None = None
+
+class ManuscriptTranslationResponse(BaseModel):
+    manuscript_id: str
+    translated_lines: list[dict]  # list of dicts with "index" and "text"
+    success: bool = False
+    message: str|None = None
+
+
+class TranslationPlan(BaseModel):
+    lines: list[dict]
+    manuscript_id: str
+    plan: str = "Translate"
+    target_language: str = "en"
