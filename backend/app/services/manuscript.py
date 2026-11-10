@@ -10,6 +10,7 @@ from storage3.utils import StorageException
 
 from app.config import settings
 from app.schemas.manuscript import (
+    LineCorrectionResponse,
     ManuscriptProcessPlan,
     ManuscriptTranscriptResponse,
     ManuscriptTranslationResponse,
@@ -168,6 +169,74 @@ def save_transcription(
             delete_file(page.overlay_path)
         except StorageException as error:
             logger.warning("Could not delete old overlay: %s", error)
+
+
+# A corrected line must not be empty. Returns the trimmed text.
+def check_line_text(text: str) -> str:
+    text = text.strip()
+    if not text:
+        raise HTTPException(422, "The corrected line must not be empty.")
+    return text
+
+
+# Replaces the text of one transcribed line with the researcher's correction and
+# marks the page "corrected". Only the latest text is kept: the model's original
+# reading is overwritten.
+def save_line_correction(
+    manuscript_id: str, line_index: int, text: str, user_id: str
+) -> LineCorrectionResponse:
+    text = check_line_text(text)
+    db = get_admin_client()
+    try:
+        files = (
+            db.table("manuscript_files")
+            .select("id, transcription")
+            .eq("manuscript_id", manuscript_id)
+            .eq("owner_id", user_id)
+            .order("position")
+            .execute()
+        )
+    except APIError as error:
+        logger.warning("Supabase query failed: %s", error)
+        raise HTTPException(
+            502, "Could not read the manuscript. Please try again."
+        ) from error
+
+    if not files.data:
+        raise HTTPException(404, "Manuscript not found")
+
+    page = files.data[0]  # only the first page is transcribed for now
+    lines = page.get("transcription")
+    if not lines:
+        raise HTTPException(409, "The manuscript has not been transcribed yet.")
+    if not any(line.get("index") == line_index for line in lines):
+        raise HTTPException(404, "Line not found")
+
+    corrected = [
+        {**line, "text": text} if line.get("index") == line_index else line
+        for line in lines
+    ]
+    try:
+        result = (
+            db.table("manuscript_files")
+            .update({"transcription": corrected, "status": "corrected"})
+            .eq("id", page["id"])
+            .eq("owner_id", user_id)
+            .execute()
+        )
+    except APIError as error:
+        logger.warning("Saving the correction failed: %s", error)
+        raise HTTPException(
+            502, "Could not save the correction. Please try again."
+        ) from error
+
+    # The row was deleted between reading and saving
+    if not result.data:
+        raise HTTPException(404, "Manuscript not found")
+
+    return LineCorrectionResponse(
+        manuscript_id=manuscript_id, index=line_index, text=text, status="corrected"
+    )
 
 
 # This method loads the transcribed lines from the database.

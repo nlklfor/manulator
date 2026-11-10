@@ -231,9 +231,14 @@ including the file status column. The library is loaded from the database:
   the status is 422. It returns the saved `id`, `title` and `document_type`. A manuscript that does
   not exist or belongs to someone else returns 404.
 - `DELETE /api/upload-manuscripts/{id}` deletes the manuscript, its file rows and its files in Storage.
+- `PATCH /api/upload-manuscripts/{id}/lines/{index}` replaces the `text` of one line in
+  `manuscript_files.transcription` with the researcher's correction and sets `status` to
+  `corrected`. The line's other fields are kept, and the model's original text is overwritten:
+  only the latest text is stored. No new column is needed. See `backend/README.md` for the
+  request, response and status codes.
 
-`manuscript_files.status` is read and shown in the badges and filters, but nothing updates it yet,
-so all saved files currently stay `uploaded`.
+`manuscript_files.status` is read and shown in the badges and filters. The backend sets it to
+`transcribed` after a transcription run and to `corrected` after a saved line correction.
 
 Storage
 

@@ -101,6 +101,7 @@ the work, and the schema defines the JSON that is returned.
 | `POST` | `/api/auth/register`      | Register an account with Supabase Auth            |
 | `POST` | `/api/auth/logout`        | End the Supabase session of the bearer token      |
 | `POST` | `/api/upload-manuscripts` | Upload a manuscript (JPEG, PNG or PDF, max 20 MB) |
+| `PATCH` | `/api/upload-manuscripts/{id}/lines/{index}` | Save the correction of one transcribed line |
 
 Registration expects a JSON body with `email`, `display name` and `password`. It returns `201` when
 Supabase accepts the request, `409` when Supabase reports that the email is already
