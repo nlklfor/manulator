@@ -16,7 +16,7 @@ CLaMM (ICDAR 2017)
 - Big download: 12.1 GB
 
 CATMuS Medieval
-- Link: [Hugging Face](https://huggingface.co/datasets/CATMuS/medieval) · [Paper](https://malamatenia.github.io/pdfs/catmus.pdf)
+- Link: [Hugging Face](https://huggingface.co/datasets/CATMuS/medieval) - [Paper](https://malamatenia.github.io/pdfs/catmus.pdf)
 - Size: about 195,000 line images from 200+ manuscripts. Each line has script type, century, language and genre
 - Only 15,230 lines (41 manuscripts) are Latin from the 13th–14th century, about 8% of the dataset
 - 2,728 of those lines are "Documents of practice" (charters, acts), mostly Cursiva
@@ -59,7 +59,7 @@ Deep-Style-Detector
 - Accuracy not checked TO CHECK
 
 Paleographia Digitalis
-- Link: [GitHub](https://github.com/MariaJGamboa/PaleographiaDigitalis) · [Live demo](https://sidereus.dev/paleographia-digitalis)
+- Link: [GitHub](https://github.com/MariaJGamboa/PaleographiaDigitalis) - [Live demo](https://sidereus.dev/paleographia-digitalis)
 - Student project (Bologna, 2025/26): ConvNeXt-Small and EfficientNet-V2-S trained on CLaMM, 12 classes
 - The demo can be tried on one of our pages without installing anything
 - 80.4% correct on its own validation split (908 images, 20% random split of CLaMM), not on the official CLaMM test sets, so not directly comparable with 85.2% / 76.5%
