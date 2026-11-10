@@ -2,7 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth, manuscripts, manuscripts_transcription, password
+from app.routers import (
+    auth,
+    manuscripts,
+    manuscripts_transcription,
+    manuscripts_translation,
+    password,
+)
 
 app = FastAPI(title="Manulator API")
 
@@ -18,6 +24,8 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(password.router, prefix="/api")
 
 app.include_router(manuscripts_transcription.router, prefix="/api")
+
+app.include_router(manuscripts_translation.router, prefix="/api")
 
 
 @app.get("/")
