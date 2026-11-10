@@ -10,6 +10,7 @@ import { StatusBadge } from "@/features/upload-manuscript/components/StatusBadge
 import { ImageViewer } from "./ImageViewer";
 import { TranscriptionPanel } from "./TranscriptionPanel";
 import { processManuscript } from "@/features/workspace/api/process-manuscript";
+import { saveLineCorrection } from "@/features/workspace/api/correct-line";
 import { mergeProcessResult, toTranscriptionLines } from "../transcription";
 
 interface WorkspacePageProps {
@@ -18,7 +19,7 @@ interface WorkspacePageProps {
 
 export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   // The library lives in memory (LibraryContext), so we look the page up by id.
-  const { libraryEntries, updateEntryStatus, updateEntryTranscription } = useLibrary();
+  const { libraryEntries, isLoading, updateEntryStatus, updateEntryTranscription } = useLibrary();
   const entry = libraryEntries.find((e) => e.id === manuscriptId);
 
   const transcription = entry?.transcription;
@@ -60,14 +61,18 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
       .catch((error: Error) => fail(error.message));
   }
 
-  // Store a corrected line and mark the page as corrected
-  function handleSaveLine(n: number, text: string) {
+  // Saves a corrected line through the backend. The workspace and the library show the
+  // text only after the backend has stored it. Throws on failure, so the editor keeps
+  // the entered text and shows the error.
+  async function handleSaveLine(n: number, text: string) {
     if (!entry?.transcription) return;
+    const id = entry.id;
+    const saved = await saveLineCorrection(id, n - 1, text);
     updateEntryTranscription(
-      entry.id,
-      entry.transcription.map((l) => (l.index === n - 1 ? { ...l, text } : l)),
+      id,
+      entry.transcription.map((l) => (l.index === saved.index ? { ...l, text: saved.text } : l)),
     );
-    updateEntryStatus(entry.id, "corrected");
+    updateEntryStatus(id, saved.status);
   }
 
   // Go back to the empty state, so the user can pick a model and run it again
@@ -80,7 +85,21 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
 
   const isTranscribed = entry?.status === "transcribed" || entry?.status === "corrected";
 
-  // Unknown id, e.g. after a browser refresh (the library is not persisted yet)
+  if (!entry && isLoading) {
+    return (
+      <div
+        role="status"
+        className="flex min-h-screen items-center justify-center gap-3 text-sm text-mt-text-muted"
+      >
+        <span
+          className="h-5 w-5 animate-spin rounded-full border-2 border-mt-accent border-r-transparent"
+          aria-hidden="true"
+        />
+        Loading manuscript…
+      </div>
+    );
+  }
+
   if (!entry) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-12 text-center">

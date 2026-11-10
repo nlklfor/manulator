@@ -22,7 +22,7 @@ The page only displays and edits a transcription. Running the recognition (calli
 
 The library page and the workspace must read the same list of uploaded pages. Each call to `useFileSelection()` creates its own copy of the state, so components use `useLibrary()` instead. `LibraryProvider` is mounted through `providers.tsx` in `src/app/(dashboard)/layout.tsx`, so it lives for as long as the user is inside the dashboard: it survives navigation between the library and the workspace, it is not created on the sign-in pages (no requests before login), and it is discarded when the user leaves the dashboard (for example on logout).
 
-The library is loaded from the backend (`GET /api/upload-manuscripts`) when the dashboard opens, so a page refresh keeps it, and the workspace works for any saved manuscript. The page `status` is only kept in the browser for now: after a reload every page is back to `uploaded`, until the backend saves it.
+The library is loaded from the backend (`GET /api/upload-manuscripts`) when the dashboard opens, so a page refresh keeps it, and the workspace works for any saved manuscript. While the list is loading, the workspace shows "Loading manuscript…" instead of "Manuscript not found". The saved `status` and `transcription` (with the latest corrections) come from the same response.
 
 ## States of the right panel
 
@@ -30,7 +30,7 @@ The panel follows the status of the page (`LibraryEntry.status`):
 
 1. `uploaded`: "Not transcribed yet", the **Recognition model** dropdown and the **Transcribe page** button.
 2. `transcribing`: a spinner while the model works.
-3. `transcribed` or `corrected`: the list of lines. Click a line to select it, click again or press Enter to edit, Enter saves, Esc cancels, arrow up/down move. Words with low confidence are underlined. The **Needs review** tab shows only lines that still have uncertain words. Saving a line sets the status to `corrected`.
+3. `transcribed` or `corrected`: the list of lines. Click a line to select it, click again or press Enter to edit, arrow up/down move. Words with low confidence are underlined. The **Needs review** tab shows only lines that still have uncertain words.
 
 **Re-transcribe** (top bar, only after a transcription) clears the lines and goes back to state 1.
 
@@ -59,5 +59,4 @@ The `lines` are kept in the state of `WorkspacePage`, so they are lost when the 
 ## Not done yet
 
 - **Export:** the button is shown but disabled. There is no export dialog or download.
-- **Saved status:** statuses set in the workspace (transcribing, transcribed, corrected) are not saved by the backend yet.
 - **PDF preview:** PDFs show a placeholder instead of the page. The plan is to convert PDFs to images in the backend. Only the first page of a PDF is used.
