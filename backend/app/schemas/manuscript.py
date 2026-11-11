@@ -51,6 +51,17 @@ class ManuscriptTranslationResponse(BaseModel):
     message: str | None
 
 
+class LineCorrection(BaseModel):
+    text: str
+
+
+class LineCorrectionResponse(BaseModel):
+    manuscript_id: str
+    index: int  # same line index as in the transcription (reading order)
+    text: str
+    status: str
+
+
 class ManuscriptResponse(UploadResponse):
     status: str  # status of the first file, e.g. "uploaded"
     created_at: datetime
