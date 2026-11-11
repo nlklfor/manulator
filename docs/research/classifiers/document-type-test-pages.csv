@@ -1,0 +1,55 @@
+file,type,source,licence,hard,note
+charter_01.jpg,charter,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+charter_02.png,charter,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+charter_03.png,charter,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+charter_04.png,charter,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+charter_05.jpg,charter,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+charter_06.jpg,charter,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+charter_07.jpg,charter,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+charter_08.jpg,charter,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+charter_09.jpg,charter,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+charter_10.jpg,charter,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+codex_01.jpg,codex,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",yes,mostly a big initial - could also count as illuminated
+codex_02.jpg,codex,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+codex_03.jpg,codex,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+codex_04.jpg,codex,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+codex_05.jpg,codex,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+codex_06.jpg,codex,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+codex_07.jpg,codex,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+codex_08.jpg,codex,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+codex_09.jpg,codex,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+codex_10.jpg,codex,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+illuminated_01.jpg,illuminated,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+illuminated_02.jpg,illuminated,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+illuminated_03.jpg,illuminated,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+illuminated_04.jpg,illuminated,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+illuminated_05.jpg,illuminated,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+illuminated_06.jpg,illuminated,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+illuminated_07.jpg,illuminated,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+illuminated_08.jpg,illuminated,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+illuminated_09.jpg,illuminated,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+illuminated_10.jpg,illuminated,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+illuminated_11.jpg,illuminated,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,was register_06; calligraphy page with a large red flourished initial
+illuminated_12.jpg,illuminated,Zentralbibliothek Zürich (file metadata),to check,,was register_09; full-page miniature from an illustrated chronicle
+other_blank_01.jpg,other,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+other_blank_02.jpg,other,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+other_blank_03.jpg,other,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+other_blank_04.jpg,other,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+other_fragment_01.jpg,other,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,papyrus; same papyrus as other_fragment_03
+other_fragment_02.jpg,other,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+other_fragment_03.jpg,other,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,"same papyrus as other_fragment_01 - not independent, replace if possible"
+other_fragment_04.jpg,other,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+other_fragment_05.jpg,other,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,yes,was binding1.jpg; torn parchment leaf with two columns
+other_printed_01.jpg,other,ULB Düsseldorf (banner on the scan),to check,,library banner cropped (original in _originals/)
+other_printed_02.jpg,other,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,yes,"two columns and a decorated initial, looks like a codex"
+other_printed_03.jpg,other,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,yes,"two columns, looks like a codex"
+register_01.jpg,register,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+register_02.jpg,register,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+register_03.jpg,register,likely e-codices (image server tag in the file),"e-codices: CC non-commercial, if confirmed",,
+register_04.jpg,register,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,two-page spread
+register_05.jpg,register,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+register_06.jpg,register,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,yes,"running-text record entries, few list or table features"
+register_07.jpg,register,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,two-page spread
+register_08.jpg,register,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,,
+register_09.jpg,register,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,yes,"verse (a prayer) in short lines, not a real register - replace if possible"
+register_10.jpg,register,"unknown: one of e-codices, manuscript.ku.dk, Europeana, NLS, Wikimedia",unknown,yes,"black-and-white scan, record with marginal entries"
