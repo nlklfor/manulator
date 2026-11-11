@@ -25,7 +25,7 @@ interface TranscriptionPanelProps {
   lines: TranscriptionLine[]; // filled by the transcription flow (ML team)
   selectedN: number | null;
   onSelectLine: (n: number) => void;
-  onSaveLine: (n: number, text: string) => void;
+  onSaveLine: (n: number, text: string) => Promise<void>;
   // Called with the id of the model the user picked
   onTranscribe: (modelId: string) => void;
   error: string | null;
