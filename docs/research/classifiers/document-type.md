@@ -22,11 +22,7 @@ existing labels onto them or label a small set ourselves.
 | [ATRIUM page classification set (Czech Academy of Sciences archive)](https://arxiv.org/html/2606.07558v1) | 11 page types: plain text (handwritten, printed, typed), table/form layouts, drawings, photos | about 48,500 annotated pages | Published in the LINDAT repository (more than 35 GB). CC BY-NC 4.0, according to the [model card](https://huggingface.co/ufal/vit-historical-page) | Partly. Pages are from 1920–2020, not medieval. Useful for methods and as a pretraining source |
 | [Complex Layout Classification, CLC (Hebrew pages)](https://arxiv.org/html/2606.17355) | 8 page layout classes (separator-defined layouts) | 155 pages | Images and labels on GitHub (TAU-CH/midrash_clc). Licence not stated | Low. Hebrew only, very specific layouts. Small-data example |
 | [Vatican manuscript illustrations dataset](https://arxiv.org/html/2609.33449v1) | 22 classes of illustration crops, including Blank Page and Text Only Page | 15,000 crops | Not released yet. Authors plan to release annotations and a script to rebuild from IIIF. Images cannot be redistributed | Low for now. Interesting for the "other / blank" classes |
-| [CATMuS Medieval](https://huggingface.co/datasets/CATMuS/medieval/blob/main/README.md) | Metadata includes genre and script (exact columns to verify) | 160,000+ lines, 200+ manuscripts | CC-BY-4.0 | Possible. Check whether the genre field helps. It is line-level, so it needs grouping by page |
 | [Survey of Historical Document Image Datasets](https://arxiv.org/pdf/2203.08504) | Overview paper | n/a | n/a | Use it to find more datasets (to read) |
-
-Not suitable: RVL-CDIP (modern documents such as letters, memos, invoices). It
-matters only because the pretrained models below were trained on it.
 
 ## Benchmarks
 
