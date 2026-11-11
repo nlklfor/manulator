@@ -30,6 +30,8 @@
 | Stavronikita 114 | Codex | 15th c. | Greek | Mount Athos | Single century | 44 pages, 1,051 lines | Open access | Pratikakis, Papazoglou, Symeonidis & Tsochatzidis, 2021 | [ΧΦ114.zip](https://zenodo.org/records/5578251/files/%CE%A7%CE%A6114.zip?download=1) |
 | READ-BAD (cBAD) | Archival documents | 15th–20th c. | Multilingual | Europe (9 archives) | Collection only | 2,035 pages, 4.2 GB | Open access | Grüning, Labahn, Diem, Kleber & Fiel, DAS 2018 | [cBAD v4 .zip](https://zenodo.org/records/1491441/files/READ-ICDAR2017-cBAD-dataset-v4.zip?download=1) |
 | RASM2018 | Scientific manuscripts | 8th–19th c. | Arabic | Islamic world | Collection only | ~100 pages | Open access | Clausner et al., ICFHR 2018 | [DOI 10.23636/1135](https://doi.org/10.23636/1135) |
+
+
 CATMuS can be downloaded in full with `huggingface-cli download CATMuS/medieval --repo-type dataset`;
 
 ## 2. Benchmarks
@@ -40,6 +42,7 @@ CATMuS can be downloaded in full with `huggingface-cli download CATMuS/medieval 
 | ICDAR 2021 HDC | MAE (years) | **21.9** | Text-line CNN (Brno) | [Kišš et al. 2022](https://arxiv.org/abs/2201.09575) |
 | MPS | MAE (years) | **≈ 10** | Handcrafted features + SVR | [He et al. 2016](https://zenodo.org/records/1194357) |
 | DIVA-HisDB | MAE (years) | **5.4** | EfficientNet-B2, evidential regression | [Chodavarapu 2026](https://arxiv.org/abs/2605.06475) (preprint) |
+
 
 Findings:
 - ImageNet pretraining adds 6–17 points on CLaMM (ResNet-152: 20.6 % to 37.9 %).
@@ -54,6 +57,7 @@ Findings:
 | CATMuS test split | ~5 per century, 9th–15th c. | Fits our project |
 | Saint Gall, Parzival, DIVA-HisDB | 2–3 per manuscript | Unseen manuscripts, known century |
 
+
 ## 4. Recommended models
 
 No public model is trained for manuscript dating. All candidates are fine-tuned on date labels. 
@@ -66,10 +70,13 @@ No public model is trained for manuscript dating. All candidates are fine-tuned 
 | 4 | TrOCR-medieval encoder only | ViT trained on medieval handwriting | ~86M (encoder) | Features already tuned to medieval scripts; text-line input | HTR on CATMuS ([HF](https://huggingface.co/medieval-data/trocr-medieval-base)); dating untested |
 | 5 | SigLIP 2 ViT-B/16 | Image-text ViT | ~86M (image encoder) | Robust general features | Not tested on dating |
 | 6 | DiT-base | ViT trained on document images | 86M | Pretrained on documents rather than photos | Document classification; dating untested |
+
+
 Fine-tuning plan:
 1. **Linear probe** on frozen features (DINOv3 ViT-B, TrOCR encoder, ResNet-152), to compare which features hold the most date information.
 2. **Full fine-tuning** of the best backbone on CATMuS text lines (fp16, batch 16–32; use gradient accumulation if memory runs out).
 3. **LoRA** as a fallback if full fine-tuning overfits.
+
 
 ### Training choices:
 - Input: text lines, averaged to a page prediction.
