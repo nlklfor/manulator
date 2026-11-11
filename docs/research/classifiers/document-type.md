@@ -95,17 +95,10 @@ Where the pages come from, and what we may do with them:
 
 Rules:
 
-- One person labels a page by its layout, a second person checks. Unclear pages are dropped, not guessed.
 - File names are `<type>_<nn>`, and `other_<kind>_<nn>` for the other class (blank, fragment, printed).
 - CSV columns: `file`, `type`, `source`, `licence`, `hard` (a page we expect to be difficult), `note`.
 - **Use: internal evaluation only.** The exact source of most pages was not recorded when they were downloaded. 21 pages are probably from e-codices (the image server's tag is in the file), 2 are known from the scan (Zentralbibliothek Zürich, ULB Düsseldorf), and 31 come from one of the sources below. So the images stay in the team's Drive folder: not in Git, not in a demo, not shared outside the team. The test set for a public result (next ticket) records the link of every page when it is downloaded.
 - The pages do not overlap `ml/test_pages/` or the e-NDP pages from spike #22.
-
-Hard cases (marked `hard` in the CSV), useful to see where a classifier fails:
-
-- Early printed books with two columns or decorated initials look like codex pages (`other_printed_02`, `other_printed_03`).
-- A fragment can keep a normal two-column layout (`other_fragment_05`).
-- Registers with running text look like codex pages (`register_06`, `register_10`).
 
 ## Recommendation
 
@@ -129,11 +122,3 @@ ticket:
    sources than the training data. If each type came from one collection, the
    model could learn the scan style instead of the layout; a good score on
    pages from other sources shows it learned the layout.
-
-## Open questions
-
-- The source of 31 test pages is unknown and 21 are only probably from e-codices (column `source`). Fine for internal tests; for a published result, rebuild the test set from pages with a recorded link, or find the originals with a reverse image search.
-- Replace `register_09` (verse) and `other_fragment_03` (same papyrus as `other_fragment_01`), and add 2-3 binding images to the other class.
-- Decide whether two-page spreads stay or are cropped to single pages.
-- Does the CATMuS genre field map onto our types? Check the dataset viewer.
-- Agree the class list with the other classifiers (script, period, region) and the supervisor.
