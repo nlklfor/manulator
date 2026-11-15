@@ -25,4 +25,7 @@ class Settings(BaseSettings):
     # Hugging Face access token, needed for the private translation model
     hf_token: str | None = None
 
+    # Claude API key, used to classify uploaded pages
+    anthropic_api_key: str | None = None
+
 settings = Settings()
