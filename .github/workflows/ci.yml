@@ -52,3 +52,23 @@ jobs:
 
       - name: Run tests
         run: uv run pytest # run tests with pytest
+  ml:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ml # run every command inside the ml/ folder
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7 # download the repo code
+
+      - name: Install uv # install uv and Python 3.12 (same as ml/.python-version)
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true # reuse downloads so torch is not fetched on every run
+
+      - name: Install dependencies
+        run: uv sync --dev # install dependencies from ml/pyproject.toml
+
+      - name: Run tests
+        run: uv run pytest # run the ml tests with pytest
