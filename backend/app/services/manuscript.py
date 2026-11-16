@@ -313,6 +313,7 @@ async def translate_manuscript(
         "lines": transcription.lines,
         "plan": translation_plan.plan,
         "target_language": translation_plan.target_language,
+        "translation_type": translation_plan.translation_type,
     }
 
     # Create a post request to the ML service

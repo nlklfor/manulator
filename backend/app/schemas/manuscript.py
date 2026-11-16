@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -42,6 +43,8 @@ class ManuscriptTranscriptResponse(BaseModel):
 class TranslationPlan(BaseModel):
     plan: str = "Translate"
     target_language: str = "en"
+    # "text": translate the whole text at once, "sentence": sentence by sentence
+    translation_type: Literal["text", "sentence"] = "text"
 
 
 class ManuscriptTranslationResponse(BaseModel):

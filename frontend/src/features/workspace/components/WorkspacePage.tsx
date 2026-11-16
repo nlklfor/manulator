@@ -2,15 +2,22 @@
 
 // WorkspacePage — detail view of one manuscript page (route: /manuscript/<id>).
 // Layout: top bar, image panel on the left, transcription panel on the right.
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Download, ScanLine } from "lucide-react";
+import { ChevronRight, Download, Languages, ScanLine } from "lucide-react";
 import { useLibrary } from "@/features/upload-manuscript/context/LibraryContext";
 import { StatusBadge } from "@/features/upload-manuscript/components/StatusBadge";
 import { ImageViewer } from "./ImageViewer";
 import { TranscriptionPanel } from "./TranscriptionPanel";
+import { TranslationPanel } from "./TranslationPanel";
 import { processManuscript } from "@/features/workspace/api/process-manuscript";
 import { saveLineCorrection } from "@/features/workspace/api/correct-line";
+import {
+  translateManuscript,
+  translationPlan,
+  type Translation,
+  type TranslationType,
+} from "@/features/workspace/api/translate-manuscript";
 import { mergeProcessResult, toTranscriptionLines } from "../transcription";
 
 interface WorkspacePageProps {
@@ -27,6 +34,15 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   // The line selected in the list; its outline is highlighted on the scan
   const [selectedN, setSelectedN] = useState<number | null>(null);
   const [transcribeError, setTranscribeError] = useState<string | null>(null);
+  const [view, setView] = useState<"transcription" | "translation">("transcription");
+  // The translation is not saved by the backend yet, so it lives only in this page
+  const [translation, setTranslation] = useState<Translation | null>(null);
+  const [translationType, setTranslationType] = useState<TranslationType>("text");
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translateError, setTranslateError] = useState<string | null>(null);
+  const [isTranslationOutdated, setIsTranslationOutdated] = useState(false);
+  // Counts translation requests, so the result of an outdated request is ignored
+  const translationRequestRef = useRef(0);
 
   // For now the plan is to just transcribe the page
   const processPlan = {
@@ -61,6 +77,38 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
       .catch((error: Error) => fail(error.message));
   }
 
+  // Translates the transcribed page. A failed translation keeps the old one (if any)
+  // and never changes the transcription.
+  async function handleTranslate() {
+    if (!entry || isTranslating) return;
+    const request = ++translationRequestRef.current;
+    setView("translation");
+    setIsTranslating(true);
+    setTranslateError(null);
+    try {
+      const result = await translateManuscript(entry.id, translationPlan(translationType));
+      if (request !== translationRequestRef.current) return;
+      setTranslation(result);
+      setIsTranslationOutdated(false);
+    } catch (error) {
+      if (request !== translationRequestRef.current) return;
+      setTranslateError(
+        error instanceof Error ? error.message : "Could not translate the page. Please try again.",
+      );
+    } finally {
+      if (request === translationRequestRef.current) setIsTranslating(false);
+    }
+  }
+
+  // Forgets the translation, e.g. when the page is transcribed again
+  function resetTranslation() {
+    translationRequestRef.current++;
+    setTranslation(null);
+    setIsTranslating(false);
+    setTranslateError(null);
+    setIsTranslationOutdated(false);
+  }
+
   // Saves a corrected line through the backend. The workspace and the library show the
   // text only after the backend has stored it. Throws on failure, so the editor keeps
   // the entered text and shows the error.
@@ -73,6 +121,7 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
       entry.transcription.map((l) => (l.index === saved.index ? { ...l, text: saved.text } : l)),
     );
     updateEntryStatus(id, saved.status);
+    if (translation) setIsTranslationOutdated(true);
   }
 
   // Go back to the empty state, so the user can pick a model and run it again
@@ -81,6 +130,8 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
     updateEntryTranscription(entry.id, null);
     updateEntryStatus(entry.id, "uploaded");
     setSelectedN(null);
+    resetTranslation();
+    setView("transcription");
   }
 
   const isTranscribed = entry?.status === "transcribed" || entry?.status === "corrected";
@@ -147,6 +198,25 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
           </button>
         )}
 
+        {isTranscribed && (
+          <button
+            type="button"
+            onClick={() => void handleTranslate()}
+            disabled={isTranslating}
+            className="inline-flex h-9 items-center gap-1.5 rounded-mt-md border border-mt-border-strong bg-mt-raised px-3.5 text-sm font-medium text-mt-text hover:bg-mt-hover disabled:cursor-wait disabled:opacity-60"
+          >
+            {isTranslating ? (
+              <span
+                className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent"
+                aria-hidden="true"
+              />
+            ) : (
+              <Languages className="h-4 w-4" aria-hidden="true" />
+            )}
+            {isTranslating ? "Translating…" : "Translate"}
+          </button>
+        )}
+
         {/* Export is not implemented yet, so the button stays disabled */}
         <button
           type="button"
@@ -173,16 +243,55 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
             selectedN={selectedN}
           />
         </section>
-        <section aria-label="Transcription" className="flex min-w-0 flex-1 flex-col bg-mt-surface">
-          <TranscriptionPanel
-            status={entry.status}
-            lines={lines}
-            selectedN={selectedN}
-            onSelectLine={setSelectedN}
-            onSaveLine={handleSaveLine}
-            onTranscribe={handleTranscribe}
-            error={transcribeError}
-          />
+        <section
+          aria-label={view === "translation" ? "Translation" : "Transcription"}
+          className="flex min-w-0 flex-1 flex-col bg-mt-surface"
+        >
+          {/* Temporary view switch, replaced by the tabs of #175 */}
+          <div
+            role="group"
+            aria-label="Which view to show"
+            className="flex shrink-0 gap-0.5 border-b border-mt-border px-4 pt-2"
+          >
+            {(["transcription", "translation"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={view === v}
+                onClick={() => setView(v)}
+                className={`-mb-px h-9 border-b-2 px-3 text-sm font-medium ${
+                  view === v
+                    ? "border-mt-accent text-mt-text"
+                    : "border-transparent text-mt-text-muted hover:text-mt-text"
+                }`}
+              >
+                {v === "transcription" ? "Transcription" : "Translation"}
+              </button>
+            ))}
+          </div>
+
+          {view === "transcription" ? (
+            <TranscriptionPanel
+              status={entry.status}
+              lines={lines}
+              selectedN={selectedN}
+              onSelectLine={setSelectedN}
+              onSaveLine={handleSaveLine}
+              onTranscribe={handleTranscribe}
+              error={transcribeError}
+            />
+          ) : (
+            <TranslationPanel
+              isTranscribed={isTranscribed}
+              translationType={translationType}
+              onTranslationTypeChange={setTranslationType}
+              translation={translation}
+              isTranslating={isTranslating}
+              error={translateError}
+              isOutdated={isTranslationOutdated}
+              onTranslate={() => void handleTranslate()}
+            />
+          )}
         </section>
       </div>
     </div>
