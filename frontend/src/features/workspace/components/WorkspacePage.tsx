@@ -1,15 +1,27 @@
 "use client";
 
 // WorkspacePage — detail view of one manuscript page (route: /manuscript/<id>).
-// Layout: top bar, image panel on the left, transcription panel on the right.
+// Layout: top bar, the page image on the left (can be hidden), a drag bar to resize,
+// and on the right the text views as browser-like tabs: Transcription, Translation
+// (with "Compare": transcription and translation side by side) and Summary.
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Download, Languages, ScanLine } from "lucide-react";
+import {
+  ChevronRight,
+  Download,
+  Languages,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ScanLine,
+} from "lucide-react";
 import { useLibrary } from "@/features/upload-manuscript/context/LibraryContext";
 import { StatusBadge } from "@/features/upload-manuscript/components/StatusBadge";
 import { ImageViewer } from "./ImageViewer";
 import { TranscriptionPanel } from "./TranscriptionPanel";
 import { TranslationPanel } from "./TranslationPanel";
+import { SummaryPanel } from "./SummaryPanel";
+import { ResizeHandle } from "./ResizeHandle";
+import { tabId, tabPanelId, WorkspaceTabs, type WorkspaceTab } from "./WorkspaceTabs";
 import { processManuscript } from "@/features/workspace/api/process-manuscript";
 import { saveLineCorrection } from "@/features/workspace/api/correct-line";
 import {
@@ -19,6 +31,11 @@ import {
   type TranslationType,
 } from "@/features/workspace/api/translate-manuscript";
 import { mergeProcessResult, toTranscriptionLines } from "../transcription";
+
+// The image takes this share of the width at first, and stays between MIN and MAX
+const DEFAULT_IMAGE_SHARE = 0.56;
+const MIN_IMAGE_SHARE = 0.2;
+const MAX_IMAGE_SHARE = 0.8;
 
 interface WorkspacePageProps {
   manuscriptId: string;
@@ -34,7 +51,14 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   // The line selected in the list; its outline is highlighted on the scan
   const [selectedN, setSelectedN] = useState<number | null>(null);
   const [transcribeError, setTranscribeError] = useState<string | null>(null);
-  const [view, setView] = useState<"transcription" | "translation">("transcription");
+  // The panels side by side and their widths; image and transcription by default
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>("transcription");
+  // Translation tab only: transcription and translation side by side
+  const [isComparing, setIsComparing] = useState(false);
+  const [isImageVisible, setIsImageVisible] = useState(true);
+  // Width of the image as a share of the workspace; changed with the drag bar
+  const [imageShare, setImageShare] = useState(DEFAULT_IMAGE_SHARE);
+  const splitRef = useRef<HTMLDivElement>(null);
   // The translation is not saved by the backend yet, so it lives only in this page
   const [translation, setTranslation] = useState<Translation | null>(null);
   const [translationType, setTranslationType] = useState<TranslationType>("text");
@@ -82,7 +106,7 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   async function handleTranslate() {
     if (!entry || isTranslating) return;
     const request = ++translationRequestRef.current;
-    setView("translation");
+    setActiveTab("translation");
     setIsTranslating(true);
     setTranslateError(null);
     try {
@@ -131,10 +155,44 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
     updateEntryStatus(entry.id, "uploaded");
     setSelectedN(null);
     resetTranslation();
-    setView("transcription");
+    setActiveTab("transcription");
   }
 
   const isTranscribed = entry?.status === "transcribed" || entry?.status === "corrected";
+
+  // The content of one text tab
+  function renderTab(tab: WorkspaceTab) {
+    if (!entry) return null;
+    switch (tab) {
+      case "transcription":
+        return (
+          <TranscriptionPanel
+            status={entry.status}
+            lines={lines}
+            selectedN={selectedN}
+            onSelectLine={setSelectedN}
+            onSaveLine={handleSaveLine}
+            onTranscribe={handleTranscribe}
+            error={transcribeError}
+          />
+        );
+      case "translation":
+        return (
+          <TranslationPanel
+            isTranscribed={isTranscribed}
+            translationType={translationType}
+            onTranslationTypeChange={setTranslationType}
+            translation={translation}
+            isTranslating={isTranslating}
+            error={translateError}
+            isOutdated={isTranslationOutdated}
+            onTranslate={() => void handleTranslate()}
+          />
+        );
+      case "summary":
+        return <SummaryPanel />;
+    }
+  }
 
   if (!entry && isLoading) {
     return (
@@ -229,69 +287,85 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
         </button>
       </header>
 
-      {/* Two panels */}
-      <div className="flex min-h-0 flex-1">
-        <section
-          aria-label="Page image"
-          className="flex w-[56%] shrink-0 flex-col border-r border-mt-border bg-mt-sunken"
-        >
-          <ImageViewer
-            src={entry.previewUrl}
-            fileName={entry.fileName}
-            isPdf={entry.fileType === "application/pdf"}
-            lines={lines}
-            selectedN={selectedN}
-          />
-        </section>
-        <section
-          aria-label={view === "translation" ? "Translation" : "Transcription"}
-          className="flex min-w-0 flex-1 flex-col bg-mt-surface"
-        >
-          {/* Temporary view switch, replaced by the tabs of #175 */}
-          <div
-            role="group"
-            aria-label="Which view to show"
-            className="flex shrink-0 gap-0.5 border-b border-mt-border px-4 pt-2"
+      <div ref={splitRef} className="flex min-h-0 flex-1">
+        {/* Left: the page image, or a narrow bar to show it again */}
+        {isImageVisible ? (
+          <section
+            aria-label="Page image"
+            style={{ flexBasis: `${imageShare * 100}%` }}
+            className="flex min-w-0 shrink-0 grow-0 flex-col bg-mt-sunken"
           >
-            {(["transcription", "translation"] as const).map((v) => (
+            <div className="flex h-10 shrink-0 items-center justify-between border-b border-mt-border bg-mt-sunken px-3">
+              <span className="text-sm font-medium text-mt-text-muted">Image</span>
               <button
-                key={v}
                 type="button"
-                aria-pressed={view === v}
-                onClick={() => setView(v)}
-                className={`-mb-px h-9 border-b-2 px-3 text-sm font-medium ${
-                  view === v
-                    ? "border-mt-accent text-mt-text"
-                    : "border-transparent text-mt-text-muted hover:text-mt-text"
-                }`}
+                onClick={() => setIsImageVisible(false)}
+                className="inline-flex h-7 items-center gap-1.5 rounded-mt-md px-2 text-xs font-medium text-mt-text-muted hover:bg-mt-hover hover:text-mt-text"
               >
-                {v === "transcription" ? "Transcription" : "Translation"}
+                <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
+                Hide
               </button>
-            ))}
-          </div>
-
-          {view === "transcription" ? (
-            <TranscriptionPanel
-              status={entry.status}
+            </div>
+            <ImageViewer
+              src={entry.previewUrl}
+              fileName={entry.fileName}
+              isPdf={entry.fileType === "application/pdf"}
               lines={lines}
               selectedN={selectedN}
-              onSelectLine={setSelectedN}
-              onSaveLine={handleSaveLine}
-              onTranscribe={handleTranscribe}
-              error={transcribeError}
             />
-          ) : (
-            <TranslationPanel
-              isTranscribed={isTranscribed}
-              translationType={translationType}
-              onTranslationTypeChange={setTranslationType}
-              translation={translation}
-              isTranslating={isTranslating}
-              error={translateError}
-              isOutdated={isTranslationOutdated}
-              onTranslate={() => void handleTranslate()}
-            />
-          )}
+          </section>
+        ) : (
+          <div className="flex w-10 shrink-0 flex-col items-center border-r border-mt-border bg-mt-sunken py-1.5">
+            <button
+              type="button"
+              onClick={() => setIsImageVisible(true)}
+              title="Show image"
+              aria-label="Show image"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-mt-md text-mt-text-muted hover:bg-mt-hover hover:text-mt-text"
+            >
+              <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+
+        {isImageVisible && (
+          <ResizeHandle
+            label="Resize image and text"
+            value={imageShare}
+            onResize={(delta) =>
+              setImageShare((share) =>
+                Math.min(Math.max(share + delta, MIN_IMAGE_SHARE), MAX_IMAGE_SHARE),
+              )
+            }
+            containerRef={splitRef}
+          />
+        )}
+
+        {/* Right: the text views as tabs */}
+        <section aria-label="Text" className="flex min-w-0 flex-1 flex-col bg-mt-surface">
+          <WorkspaceTabs
+            active={activeTab}
+            onSelect={setActiveTab}
+            isComparing={isComparing}
+            onCompareChange={setIsComparing}
+          />
+          <div
+            role="tabpanel"
+            id={tabPanelId(activeTab)}
+            aria-labelledby={tabId(activeTab)}
+            className="flex min-h-0 flex-1"
+          >
+            {activeTab === "translation" && isComparing ? (
+              <>
+                <div className="flex min-w-0 flex-1 flex-col border-r border-mt-border">
+                  {renderTab("transcription")}
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col">{renderTab("translation")}</div>
+              </>
+            ) : (
+              <div className="flex min-w-0 flex-1 flex-col">{renderTab(activeTab)}</div>
+            )}
+          </div>
         </section>
       </div>
     </div>
