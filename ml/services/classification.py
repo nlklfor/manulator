@@ -10,8 +10,7 @@ from app.config import settings
 MODEL = "claude-haiku-5-5"
 
 PROMPT = (
-    "This is a page from a historical manuscript. Identify its century, script, "
-    "language, region and document type. Use 'unknown' for anything you cannot tell."
+    'This is a page from a historical manuscript. Identify its century, script, language, region and document type ("Charter", "Register", "Letter", "Cartulary", "Chronicle", "Other"). Use "unknown" for anything you cannot tell.'
 )
 
 
