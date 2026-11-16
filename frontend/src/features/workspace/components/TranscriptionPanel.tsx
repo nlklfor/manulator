@@ -49,6 +49,7 @@ export function TranscriptionPanel({
 
   // Lines that still contain words the model was unsure about
   const reviewCount = lines.filter((l) => l.lowConfWords.length > 0).length;
+  const correctedCount = lines.filter((l) => l.originalText !== null).length;
   const visibleLines =
     lineFilter === "review" ? lines.filter((l) => l.lowConfWords.length > 0) : lines;
 
@@ -60,7 +61,7 @@ export function TranscriptionPanel({
           <h2 className="text-[15px] font-semibold text-mt-text">Transcription</h2>
           <span className="text-xs text-mt-text-subtle">
             {isTranscribed
-              ? `${lines.length} lines · ${reviewCount ? `${reviewCount} to review` : "all reviewed"}`
+              ? `${lines.length} lines · ${correctedCount} corrected · ${reviewCount ? `${reviewCount} to review` : "all reviewed"}`
               : isTranscribing
                 ? "Working…"
                 : "No text yet"}

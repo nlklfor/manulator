@@ -70,7 +70,11 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
     const saved = await saveLineCorrection(id, n - 1, text);
     updateEntryTranscription(
       id,
-      entry.transcription.map((l) => (l.index === saved.index ? { ...l, text: saved.text } : l)),
+      entry.transcription.map((l) =>
+        l.index === saved.index
+          ? { ...l, text: saved.text, original_text: saved.original_text ?? undefined }
+          : l,
+      ),
     );
     updateEntryStatus(id, saved.status);
   }

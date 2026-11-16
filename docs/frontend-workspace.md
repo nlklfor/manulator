@@ -30,7 +30,7 @@ The panel follows the status of the page (`LibraryEntry.status`):
 
 1. `uploaded`: "Not transcribed yet", the **Recognition model** dropdown and the **Transcribe page** button.
 2. `transcribing`: a spinner while the model works.
-3. `transcribed` or `corrected`: the list of lines. Click a line to select it, click again or press Enter to edit, arrow up/down move. Words with low confidence are underlined. The **Needs review** tab shows only lines that still have uncertain words.
+3. `transcribed` or `corrected`: the list of lines. Click a line to select it, click again or press Enter to edit, arrow up/down move. Words with low confidence are underlined. The **Needs review** tab shows only lines that still have uncertain words. Corrected lines (lines with `original_text`) are tinted green with a green bar on the left (the bar stays when the line is selected), and the header counts the corrected lines.
 
 **Re-transcribe** (top bar, only after a transcription) clears the lines and goes back to state 1.
 
