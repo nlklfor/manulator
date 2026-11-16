@@ -15,7 +15,7 @@ class Task:
         self.actions = {
             "Detect Lines": run_segmentation,
             "Transcribe": run_transcription,
-            "Translate": None,
+            "Translate": run_translation,
             "Summarize": None
         }
         self.data = data
@@ -39,6 +39,7 @@ class Pipeline:
             "Detect Lines": run_segmentation,
             "Transcribe": run_transcription,
             "Translate": run_translation,
+            "Summarize": None
         }
 
     # run the action specified in the task, along with its dependencies

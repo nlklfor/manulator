@@ -25,4 +25,5 @@ class TranslationPlan(BaseModel):
     lines: list[dict]
     manuscript_id: str
     plan: str = "Translate"
-    target_language: str = "en"
+    target_language: str = "English"
+    type: str = "full"

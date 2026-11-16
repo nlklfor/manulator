@@ -68,7 +68,7 @@ def translate_manuscript(translation_plan: TranslationPlan) -> ManuscriptTransla
     # create the translation task
     task = Task(input=plan, data={"lines": translation_plan.lines},
                 options={"target_language": translation_plan.target_language,
-                         "skip_dependencies": True})
+                         "skip_dependencies": True, "type": translation_plan.type})
 
     # create the pipeline and run it
     pipeline = Pipeline(task)

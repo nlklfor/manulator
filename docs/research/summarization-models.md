@@ -11,7 +11,8 @@
   ## A first try
   Flan-T5-base might be a good first option, because it is trained on a wide range of tasks and can be prompted to summarize text. It is possible to tell the model how it should summarize (briefly, in detail, etc.)
   It has not been tested yet, but it might be a good option for noisy input (OCR errors, abbreviations, spelling variations).
-  
+  Also the model is not too large, so it can be used on our local machine. The model is available on huggingface: https://huggingface.co/google/flan-t5-base  
+
   If the the performance is low, we can try fine-tuning it on a small set of Latin summaries. 
   The training data could be the same as for the translation model, but with English summaries instead of translations.
 
@@ -22,12 +23,12 @@
   However, it is a larger model and might require more resources to train and run.
 
   ## What we tried
-  No tests and no fine tuning conducted yet
+  No tests and no fine tuning conducted yet. Please have a look at the plan for fine tuning LongT5 below. It is based on the assumption that Flan-T5-base does not perform well enough.
 
   ## Train Data
   ***Dataset***
   
-Possible training datasets for text summarization are: 
+  Possible training datasets for text summarization are: 
 - LatinSummarizer Dataset: https://huggingface.co/datasets/LatinNLP/latin-summarizer-dataset
 - https://huggingface.co/datasets/LatinNLP/LatinSummarizer
 - prg-unibe/dodis-historical-documents: https://huggingface.co/datasets/prg-unibe/dodis-historical-documents/viewer/default/train?row=0
@@ -38,8 +39,8 @@ Possible training datasets for text summarization are:
   [LatinNLP/latin-summarizer-dataset](https://huggingface.co/datasets/LatinNLP/latin-summarizer-dataset)
 
   ## Fine tuning Plan for LongT5
-  In case Flan-T5-base does perform well, we can adapt the following training plan: 
-- Use a subset of kmfoda/booksum and fine tune LongT5 on it. The subset should be small enough to fit in the GPU memory, but large enough to learn the task.
+  In case Flan-T5-base does not perform well, we can adapt the following training plan: 
+- Use a subset of kmfoda/booksum (available on huggingface) and fine tune LongT5 on it. The subset should be small enough to fit in the GPU memory, but large enough to learn the task.
 - Then train the model on prg-unibe/dodis-historical-documents. By training the model on this dataset it will learn to summarize (older) document contents. This Dataset contains content about politics, history, and culture.
 - Finally fine tune the LongT5 model on LatinNLP/latin-summarizer-dataset. This dataset contains content about politics, history, and culture. It is a small dataset, but it is in Latin and it is relevant to our task.
 - As evaluation metric we can use ROUGE, which is a common metric for summarization tasks. It measures the overlap between the generated summary and the reference summary. We can also use BLEU, which is another common metric for summarization tasks. It measures the overlap between the generated summary and the reference summary.
