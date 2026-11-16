@@ -59,6 +59,8 @@ class LineCorrectionResponse(BaseModel):
     manuscript_id: str
     index: int  # same line index as in the transcription (reading order)
     text: str
+    # The model's reading of the line, None if the text is the model's reading
+    original_text: str | None = None
     status: str
 
 
