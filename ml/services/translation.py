@@ -2,8 +2,7 @@ from functools import lru_cache
 
 import numpy as np
 import torch
-from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer, XLMForTokenClassification, \
-    AutoModelForMaskedLM, AutoModelForTokenClassification
+from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer, AutoModelForTokenClassification
 
 from app.config import settings
 
