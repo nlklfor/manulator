@@ -6,7 +6,7 @@ from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokeni
 
 from app.config import settings
 
-DEFAULT_MODEL = "RomanoAISPEC/helsinki_mul_en_large_cosine_v0"
+DEFAULT_MODEL = "RomanoAISPEC/helsinki_mul_en_large_cosine_v1"
 QWEN_INSTRUCT = "Qwen/Qwen2.5-1.5B-Instruct"
 GOOGLE_GEMMA3 = "google/gemma-3-27b-it"
 DEFAULT_LANGUAGE = "English"
