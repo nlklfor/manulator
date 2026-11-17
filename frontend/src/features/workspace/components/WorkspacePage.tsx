@@ -61,7 +61,7 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   const splitRef = useRef<HTMLDivElement>(null);
   // The translation is not saved by the backend yet, so it lives only in this page
   const [translation, setTranslation] = useState<Translation | null>(null);
-  const [translationType, setTranslationType] = useState<TranslationType>("text");
+  const [translationType, setTranslationType] = useState<TranslationType>("full");
   const [isTranslating, setIsTranslating] = useState(false);
   const [translateError, setTranslateError] = useState<string | null>(null);
   const [isTranslationOutdated, setIsTranslationOutdated] = useState(false);

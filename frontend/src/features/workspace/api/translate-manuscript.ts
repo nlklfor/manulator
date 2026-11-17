@@ -3,23 +3,27 @@ import { getAuthToken } from "@/lib/auth/session";
 
 const TRANSLATE_ENDPOINT = "/api/translate-manuscripts";
 
-// "text": the whole text is translated at once, "sentence": sentence by sentence
-export type TranslationType = "text" | "sentence";
+// How the ML service translates:
+//   "full"      -> the whole text at once (LLM), returned as one part
+//   "sentences" -> sentence by sentence, one part per sentence
+//   "lines"     -> line by line, one part per transcribed line
+export type TranslationType = "full" | "sentences" | "lines";
 
 export const TRANSLATION_TYPES: { id: TranslationType; label: string }[] = [
-  { id: "text", label: "Whole text" },
-  { id: "sentence", label: "Sentence by sentence" },
+  { id: "full", label: "Whole text" },
+  { id: "sentences", label: "Sentence by sentence" },
+  { id: "lines", label: "Line by line" },
 ];
 
 // What the backend should do: only "Translate" to English is supported for now
 export interface TranslationPlan {
   plan: "Translate";
-  target_language: "en";
-  translation_type: TranslationType;
+  target_language: "English";
+  type: TranslationType;
 }
 
-export function translationPlan(translationType: TranslationType = "text"): TranslationPlan {
-  return { plan: "Translate", target_language: "en", translation_type: translationType };
+export function translationPlan(type: TranslationType = "full"): TranslationPlan {
+  return { plan: "Translate", target_language: "English", type };
 }
 
 export interface ManuscriptTranslationResponse {
@@ -29,17 +33,23 @@ export interface ManuscriptTranslationResponse {
   message: string | null;
 }
 
+// One translated part: the whole text, a sentence or a line
+export interface TranslationPart {
+  n: number;
+  text: string;
+}
+
 // A finished translation, as the page shows it
 export interface Translation {
   type: TranslationType;
-  parts: string[]; // the translated sentences (or lines) in reading order
+  parts: TranslationPart[];
 }
 
-export function toTranslationParts(response: ManuscriptTranslationResponse): string[] {
+export function toTranslationParts(response: ManuscriptTranslationResponse): TranslationPart[] {
   return [...response.translated_lines]
     .sort((a, b) => a.index - b.index)
-    .map((line) => line.text.trim())
-    .filter(Boolean);
+    .map((part) => ({ n: part.index + 1, text: part.text.trim() }))
+    .filter((part) => part.text);
 }
 
 // Translates the transcribed page. Resolves with the translation, throws an Error
@@ -71,7 +81,7 @@ export async function translateManuscript(
       response.message || "The model could not translate this page. Please try again.",
     );
   }
-  return { type: plan.translation_type, parts };
+  return { type: plan.type, parts };
 }
 
 function translationErrorMessage(error: unknown): string {

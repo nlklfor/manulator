@@ -9,7 +9,7 @@ import {
 
 interface TranslationPanelProps {
   isTranscribed: boolean;
-  // How the text is translated: the whole text at once or sentence by sentence
+  // How the text is translated: whole text, sentence by sentence or line by line
   translationType: TranslationType;
   onTranslationTypeChange: (type: TranslationType) => void;
   translation: Translation | null;
@@ -40,9 +40,9 @@ export function TranslationPanel({
             {isTranslating
               ? "Working…"
               : translation
-                ? translation.type === "sentence"
-                  ? `English · ${translation.parts.length} sentences`
-                  : "English"
+                ? translation.type === "full"
+                  ? "English"
+                  : `English · ${translation.parts.length} ${translation.type}`
                 : "No translation yet"}
           </span>
         </div>
@@ -123,25 +123,29 @@ export function TranslationPanel({
                   </span>
                 </div>
               )}
-              {translation.type === "sentence" ? (
-                <ol lang="en" aria-label="Translated sentences" className="flex flex-col gap-0.5">
-                  {translation.parts.map((sentence, i) => (
+              {translation.type !== "full" ? (
+                <ol
+                  lang="en"
+                  aria-label={`Translated ${translation.type}`}
+                  className="flex flex-col gap-0.5"
+                >
+                  {translation.parts.map((part) => (
                     <li
-                      key={i}
+                      key={part.n}
                       className="grid grid-cols-[36px_1fr] items-start rounded-mt-md hover:bg-mt-hover"
                     >
                       <span className="py-2 pr-2 text-right font-mono text-[10px] text-mt-text-subtle">
-                        {i + 1}
+                        {part.n}
                       </span>
                       <span className="py-2 pl-1 pr-3 text-[15px] leading-7 text-mt-text">
-                        {sentence}
+                        {part.text}
                       </span>
                     </li>
                   ))}
                 </ol>
               ) : (
                 <p lang="en" className="text-[15px] leading-7 text-mt-text">
-                  {translation.parts.join(" ")}
+                  {translation.parts.map((part) => part.text).join(" ")}
                 </p>
               )}
             </>
