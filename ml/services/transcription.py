@@ -1,32 +1,23 @@
-"""Step 2 of the pipeline: read the text of each line with PyLaia (HOME-Alcar model).
+"""Step 2 of the pipeline: read the text of each line with Kraken (our fine-tuned model, #124).
 
 Uses the line images that step 1 (segmentation.py) saved in
-output/segmentation/<image_id>/lines/. PyLaia needs Python 3.10, so it runs in
-its own environment (ml/pylaia) as a separate program.
+output/segmentation/<image_id>/lines/. Test results and why we chose this model:
+docs/research/htr-finetuning.md
 """
 
 import json
-import os
-import re
-import subprocess
-import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from kraken import rpred
+from kraken.containers import BaselineLine, Segmentation
+from kraken.lib import models
 from PIL import Image
 
 ML_DIR = Path(__file__).resolve().parents[1]  # ml/, one level above services/
 SEGMENTATION_DIR = ML_DIR / "output" / "segmentation"  # where step 1 saved the lines
 OUTPUT_DIR = ML_DIR / "output" / "transcription"  # where this step saves its result
-MODEL_DIR = ML_DIR / "models" / "pylaia-home-alcar"
-PYLAIA_DIR = ML_DIR / "pylaia"  # PyLaia's own environment (Python 3.10)
-CONFIG_FILE = ML_DIR / "pylaia_decode.yaml"  # PyLaia settings that never change
-
-# HOME-Alcar was trained on lines that are exactly 128 pixels high
-LINE_HEIGHT = 128
-
-# One result line printed by PyLaia, e.g.:  0003.png tum adlierunt quod postmodum
-RESULT_LINE = re.compile(r"^(\d+)\.png ?(.*)$")
+MODEL_FILE = ML_DIR / "models" / "catmus-finetuned" / "model.mlmodel"  # fine-tuned Kraken (#124)
 
 
 @dataclass
@@ -43,82 +34,40 @@ def run_transcription(data: dict, options: dict | None = None, out_dir=None) -> 
     lines_dir = SEGMENTATION_DIR / image_id / "lines"
     out_dir = Path(out_dir) if out_dir else OUTPUT_DIR
 
-    # The resized copies are only needed while PyLaia runs. Each page gets its own
-    # temporary folder, so two pages read at the same time never mix up their files.
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_dir = Path(tmp)
-        names = resize_lines_to_128(lines_dir, tmp_dir)
-        # A page without lines has nothing to read
-        pylaia_output = run_pylaia(tmp_dir, names) if names else ""
+    model = models.load_any(str(MODEL_FILE), device="cpu")
+    lines = []
+    for path in sorted(lines_dir.glob("*.png")):
+        text = read_line(model, Image.open(path))
+        lines.append(TranscribedLine(index=int(path.stem), text=text))
 
-    lines = read_pylaia_output(pylaia_output)
     json_path = save_as_json(lines, out_dir / image_id / "transcription.json")
     return {"lines": lines, "json_path": json_path}
 
 
-def resize_lines_to_128(lines_dir: Path, tmp_dir: Path) -> list[str]:
-    """Save a 128-pixel-high copy of every line image in tmp_dir. Returns the names."""
-    names = []
-    for path in sorted(lines_dir.glob("*.png")):
-        image = Image.open(path)
-        # Keep the proportions: the width grows by the same factor as the height
-        width = round(image.width * LINE_HEIGHT / image.height)
-        image.resize((width, LINE_HEIGHT)).save(tmp_dir / path.name)
-        names.append(path.name)
-    return names
+def read_line(model, image: Image.Image) -> str:
+    """Read one line image with Kraken.
 
-
-def run_pylaia(image_dir: Path, names: list[str]) -> str:
-    """Run PyLaia on the images `names` in image_dir and return what it printed."""
-    # PyLaia reads the names of the images from a file
-    img_list = image_dir / "img_list.txt"
-    img_list.write_text("\n".join(names), encoding="utf-8")
-
-    command = [
-        "uv",
-        "run",
-        "--project",
-        str(PYLAIA_DIR),
-        "--no-sync",
-        "python",
-        str(PYLAIA_DIR / "decode.py"),  # pylaia-htr-decode-ctc, but works on Windows too
-        "--config",
-        str(CONFIG_FILE),
-        str(MODEL_DIR / "syms.txt"),  # which number stands for which character
-        str(img_list),  # which images to read
-        "--img_dirs",
-        f"[{image_dir}]",  # where the images are
-    ]
-    # On Windows, Python opens files in the Windows encoding by default.
-    # PYTHONUTF8=1 makes PyLaia open syms.txt as UTF-8, like on Mac and Linux.
-    env = {**os.environ, "PYTHONUTF8": "1"}
-    # cwd=ML_DIR: the paths in the config are relative to ml/
-    completed = subprocess.run(
-        command,
-        cwd=ML_DIR,
-        env=env,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",  # PyLaia's output can contain special characters
-        check=True,
-        timeout=600,
-    )
-    return completed.stdout
-
-
-def read_pylaia_output(output: str) -> list[TranscribedLine]:
-    """Turn what PyLaia printed into TranscribedLines, sorted by line number.
-
-    PyLaia reads several lines at the same time, so it prints them in random order.
+    The model was trained on baselines (the line the letters sit on). The line image
+    has none, so we give it a straight baseline at 3/4 of its height and the whole
+    image as its outline. This is how the model was tested (15.8% CER).
     """
-    lines = []
-    for row in output.splitlines():
-        match = RESULT_LINE.match(row.strip())
-        if not match:
-            continue  # warnings, progress bar, ...
-        number, text = match.groups()
-        lines.append(TranscribedLine(index=int(number), text=text.strip()))
-    return sorted(lines, key=lambda line: line.index)
+    width, height = image.size
+    line = BaselineLine(
+        id="line",
+        baseline=[(0, int(height * 0.75)), (width - 1, int(height * 0.75))],
+        boundary=[(0, 0), (width - 1, 0), (width - 1, height - 1), (0, height - 1)],
+    )
+    page = Segmentation(
+        type="baselines",
+        imagename="line",
+        text_direction="horizontal-lr",
+        script_detection=False,
+        lines=[line],
+    )
+    try:
+        return next(rpred.rpred(model, image, page)).prediction.strip()
+    except Exception:  # a tiny image (a speck, not a line): nothing to read
+        return ""
 
 
 def save_as_json(lines: list[TranscribedLine], json_path: Path) -> Path:

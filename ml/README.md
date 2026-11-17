@@ -2,7 +2,7 @@
 
 Machine learning part of Manulator: a small FastAPI service that runs the models for finding and reading the lines on manuscript pages. The main backend calls it; the browser never does.
 
-Model choice and test results: [docs/ai-model-research.md](../docs/ai-model-research.md).
+Model choice and test results: [docs/research/ai-model-research.md](../docs/research/ai-model-research.md).
 
 ## Setup
 
@@ -17,10 +17,12 @@ Two environments, because PyLaia only works with an older Python:
 
 From `ml/`:
 
-    cd pylaia
-    uv run hf download Teklia/pylaia-home-alcar --local-dir ../models/pylaia-home-alcar
+    uv run hf download isabusta/manulator-kraken model.mlmodel --local-dir models/catmus-finetuned
 
-Kraken's line finder comes with Kraken itself; nothing to download.
+This is our fine-tuned Kraken model for reading the lines (#124, results in
+[docs/research/htr-finetuning.md](../docs/research/htr-finetuning.md)). It is private on Isabelle's
+account, so the command only works with her token; until it moves to a team organisation, ask her for
+the file. Kraken's line finder comes with Kraken itself; nothing to download.
 
 The translation model is private on Hugging Face. Copy `.env.example` to `.env` or `.env` (`.env` wins if both set it) and set `HF_TOKEN` to an access token with read access to it. The model is downloaded on the first translation request.
 
@@ -37,7 +39,7 @@ Stop it with Ctrl+C.
 
 ## Transcribe a page
 
-The pipeline finds the lines on a page (Kraken, `services/segmentation.py`) and then reads them (PyLaia, `services/transcription.py`).
+The pipeline finds the lines on a page (Kraken, `services/segmentation.py`) and then reads them (Kraken, `services/transcription.py`).
 
 To try it, open http://127.0.0.1:8001/docs, then `POST /api/process-manuscripts/` → "Try it out". Choose a page image as `file` and use this as `process_plan`:
 
@@ -49,7 +51,7 @@ The text is saved in `output/transcription/page1/transcription.json`, one entry 
 
 To only find the lines, use `"Detect Lines"` instead of `"Transcribe"`. The results are in `output/segmentation/page1/` (line images and `overlay.jpg`).
 
-PyLaia's settings are in `pylaia_decode.yaml`. PyLaia only reads lines that are exactly 128 pixels high, so `transcription.py` resizes them first.
+The model file is set in `MODEL_FILE` at the top of `transcription.py`.
 
 ## Run the tests
 
@@ -63,9 +65,9 @@ From `ml/`:
 - `services/`: the ML steps, one file each
   - `pipeline.py`: runs the steps in the right order (Detect Lines → Transcribe)
   - `segmentation.py`: step 1, find the lines (Kraken)
-  - `transcription.py`: step 2, read the lines (PyLaia), with its settings in `pylaia_decode.yaml`
+  - `transcription.py`: step 2, read the lines (Kraken)
 - `tests/`: tests
-- `pylaia/`: the PyLaia environment
+- `pylaia/`: the PyLaia environment (no longer used by the pipeline, to be removed)
 - `data/`, `models/`: downloaded pages and models (not in Git, everyone downloads their own)
 - `output/`: results of the pipeline (not in Git)
 

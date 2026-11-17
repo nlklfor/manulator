@@ -1,25 +1,28 @@
-from services.transcription import read_pylaia_output
+import json
+
+import pytest
+from PIL import Image
+
+from services.transcription import MODEL_FILE, TranscribedLine, read_line, save_as_json
 
 
-def test_read_pylaia_output_sorts_lines_and_skips_noise():
-    # What PyLaia prints: info messages, results in random order, progress bar
-    output = (
-        "[2026-10-19 INFO laia] Arguments: ...\n"
-        "0002.png Egressi clenavicula\n"
-        "0000.png comitibus Gallo\n"
-        "0001.png to nomine comini\n"
-        "Decoding: 100%\n"
-    )
+def test_save_as_json_keeps_order_and_special_letters(tmp_path):
+    lines = [TranscribedLine(0, "comitibus Gallo"), TranscribedLine(1, "Königsfelden")]
 
-    lines = read_pylaia_output(output)
+    path = save_as_json(lines, tmp_path / "page1" / "transcription.json")
 
-    assert [line.index for line in lines] == [0, 1, 2]
-    assert lines[0].text == "comitibus Gallo"
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    assert saved == [
+        {"index": 0, "text": "comitibus Gallo"},
+        {"index": 1, "text": "Königsfelden"},
+    ]
 
 
-def test_read_pylaia_output_keeps_empty_lines():
-    # A line where the model read nothing still counts, so the numbers stay correct
-    lines = read_pylaia_output("0000.png\n")
+@pytest.mark.skipif(not MODEL_FILE.exists(), reason="Kraken model not downloaded")
+def test_read_line_returns_empty_text_for_a_tiny_image():
+    # A speck that segmentation took for a line: nothing to read, but no crash
+    from kraken.lib import models
 
-    assert len(lines) == 1
-    assert lines[0].text == ""
+    model = models.load_any(str(MODEL_FILE), device="cpu")
+
+    assert read_line(model, Image.new("L", (3, 3), 255)) == ""
