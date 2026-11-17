@@ -301,7 +301,7 @@ def load_transcription(manuscript_id: str, user_id: str) -> Transcription:
 async def translate_manuscript(
     manuscript_id: str, translation_plan: TranslationPlan, user_id: str
 ) -> ManuscriptTranslationResponse:
-    if translation_plan.target_language != "en":
+    if translation_plan.target_language != "English":
         raise HTTPException(
             400, "Only translation to English is supported at the moment"
         )
@@ -313,7 +313,7 @@ async def translate_manuscript(
         "lines": transcription.lines,
         "plan": translation_plan.plan,
         "target_language": translation_plan.target_language,
-        "translation_type": translation_plan.translation_type,
+        "type": translation_plan.type,
     }
 
     # Create a post request to the ML service
