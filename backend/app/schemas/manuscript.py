@@ -41,7 +41,8 @@ class ManuscriptTranscriptResponse(BaseModel):
 
 class TranslationPlan(BaseModel):
     plan: str = "Translate"
-    target_language: str = "en"
+    target_language: str = "English"
+    type: str = "full"
 
 
 class ManuscriptTranslationResponse(BaseModel):
