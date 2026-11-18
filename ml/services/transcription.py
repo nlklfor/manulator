@@ -9,6 +9,7 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from huggingface_hub import hf_hub_download
 from kraken import rpred
 from kraken.containers import BaselineLine, Segmentation
 from kraken.lib import models
@@ -17,7 +18,8 @@ from PIL import Image
 ML_DIR = Path(__file__).resolve().parents[1]  # ml/, one level above services/
 SEGMENTATION_DIR = ML_DIR / "output" / "segmentation"  # where step 1 saved the lines
 OUTPUT_DIR = ML_DIR / "output" / "transcription"  # where this step saves its result
-MODEL_FILE = ML_DIR / "models" / "catmus-finetuned" / "model.mlmodel"  # fine-tuned Kraken (#124)
+MODEL_REPO = "isabusta/manulator-kraken"  # our fine-tuned Kraken (#124) on Hugging Face
+MODEL_FILE = ML_DIR / "models" / "catmus-finetuned" / "model.mlmodel"  # where it is saved locally
 
 
 @dataclass
@@ -34,7 +36,7 @@ def run_transcription(data: dict, options: dict | None = None, out_dir=None) -> 
     lines_dir = SEGMENTATION_DIR / image_id / "lines"
     out_dir = Path(out_dir) if out_dir else OUTPUT_DIR
 
-    model = models.load_any(str(MODEL_FILE), device="cpu")
+    model = models.load_any(str(download_model()), device="cpu")
     lines = []
     for path in sorted(lines_dir.glob("*.png")):
         text = read_line(model, Image.open(path))
@@ -42,6 +44,13 @@ def run_transcription(data: dict, options: dict | None = None, out_dir=None) -> 
 
     json_path = save_as_json(lines, out_dir / image_id / "transcription.json")
     return {"lines": lines, "json_path": json_path}
+
+
+def download_model() -> Path:
+    """Download the model from Hugging Face the first time; after that, use the saved file."""
+    if not MODEL_FILE.exists():
+        hf_hub_download(MODEL_REPO, MODEL_FILE.name, local_dir=MODEL_FILE.parent)
+    return MODEL_FILE
 
 
 def read_line(model, image: Image.Image) -> str:

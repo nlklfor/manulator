@@ -15,14 +15,11 @@ Two environments, because PyLaia only works with an older Python:
 
 ## Download the models (once)
 
-From `ml/`:
-
-    uv run hf download isabusta/manulator-kraken model.mlmodel --local-dir models/catmus-finetuned
-
-This is our fine-tuned Kraken model for reading the lines (#124, results in
-[docs/research/htr-finetuning.md](../docs/research/htr-finetuning.md)). It is private on Isabelle's
-account, so the command only works with her token; until it moves to a team organisation, ask her for
-the file. Kraken's line finder comes with Kraken itself; nothing to download.
+The model for reading the lines (our fine-tuned Kraken, #124, results in
+[docs/research/htr-finetuning.md](../docs/research/htr-finetuning.md)) is downloaded automatically
+from Hugging Face ([isabusta/manulator-kraken](https://huggingface.co/isabusta/manulator-kraken)) the
+first time a page is transcribed, and saved in `models/catmus-finetuned/`.
+Kraken's line finder comes with Kraken itself; nothing to download.
 
 The translation model is private on Hugging Face. Copy `.env.example` to `.env` or `.env` (`.env` wins if both set it) and set `HF_TOKEN` to an access token with read access to it. The model is downloaded on the first translation request.
 
