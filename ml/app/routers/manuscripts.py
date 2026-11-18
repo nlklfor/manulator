@@ -16,6 +16,7 @@ router = APIRouter(prefix="/process-manuscripts", tags=["manuscripts"])
 
 @router.post("/classify", response_model=Classification)
 def classify_manuscript(file: Annotated[UploadFile, File()]):
+    # The model is set in ml/.env (CLASSIFIER_MODEL), see services/classification.py
     if file.content_type not in settings.allowed_content_types:
         raise HTTPException(status_code=415, detail="Invalid file format")
     limit = settings.max_upload_mb * 1024 * 1024

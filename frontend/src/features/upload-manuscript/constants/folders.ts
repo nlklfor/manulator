@@ -12,6 +12,7 @@ const FOLDER_COLORS: Record<string, string> = {
   Letter: "#A34A6E",
   Cartulary: "#7A4E2D",
   Chronicle: "#3E7C5A",
+  Book: "#5B6B3A",
   Other: "#8A8478",
 };
 
