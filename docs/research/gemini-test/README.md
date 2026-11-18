@@ -8,9 +8,9 @@ Gemini is good enough for language detection, translation and summary, so we can
 
 | Page | Year | Place | Language | Summary | Translation | Categorization |
 | --- | --- | --- | --- | --- | --- | --- |
-| U-17_0002_r | 1291 | Säckingen | Latin ✅ | ✅ 78 words, 25 s | ✅ 8 sentences, 44 s | not run |
-| U-17_0234_r | 1350 | Basel | Latin ✅ | ✅ 72 words, 22 s | ✅ 6 sentences, 75 s | not run |
-| U-17_0616_r | 1442 | Basel | Latin ✅ | ✅ 78 words, 49 s | ✅ 10 sentences, 65 s | not run |
+| U-17_0002_r | 1291 | Säckingen | Latin | 78 words, 25 s | 8 sentences, 44 s | not run |
+| U-17_0234_r | 1350 | Basel | Latin | 72 words, 22 s | 6 sentences, 75 s | not run |
+| U-17_0616_r | 1442 | Basel | Latin | 78 words, 49 s | 10 sentences, 65 s | not run |
 
 Times are how long Gemini took to answer
 
