@@ -7,6 +7,7 @@ How well each model works: ml/eval/README.md.
 """
 
 import base64
+import io
 import json
 import typing
 import urllib.error
@@ -15,6 +16,7 @@ from functools import lru_cache
 from typing import Literal
 
 import anthropic
+from PIL import Image
 from pydantic import BaseModel
 
 from app.config import settings
@@ -89,8 +91,19 @@ def answer_format() -> dict:
 
 def classify_page(image: bytes, media_type: str) -> Classification:
     """Ask the app's model (CLASSIFIER_MODEL in ml/.env) about one page."""
+    if media_type == "image/tiff":  # the models only take JPEG or PNG
+        image, media_type = tiff_to_jpeg(image), "image/jpeg"
     classify, _ = get_classifier(settings.classifier_model)
     return classify(image, media_type)
+
+
+def tiff_to_jpeg(image: bytes) -> bytes:
+    picture = Image.open(io.BytesIO(image))
+    if picture.mode not in ("L", "RGB"):  # e.g. 16-bit or with transparency
+        picture = picture.convert("RGB")
+    buffer = io.BytesIO()
+    picture.save(buffer, "JPEG", quality=90)
+    return buffer.getvalue()
 
 
 def get_classifier(choice: str, effort: str | None = None):

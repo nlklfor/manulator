@@ -37,3 +37,25 @@ def test_classify_reports_unknown_model(monkeypatch):
 
     assert response.status_code == 502
     assert "Unknown model" in response.json()["detail"]
+
+
+def test_classify_accepts_tiff(monkeypatch):
+    # CLaMM images are TIFF: they are turned into JPEG before the model sees them
+    import io
+    from PIL import Image
+    from services import classification
+    seen = {}
+
+    def fake_model(image, media_type):
+        seen["media_type"] = media_type
+        return Classification(century="9th century", script="Caroline", language="Latin",
+                              region="France", document_type="Book")
+    monkeypatch.setattr(classification, "get_classifier", lambda choice: (fake_model, "fake"))
+    tiff = io.BytesIO()
+    Image.new("L", (20, 20), 255).save(tiff, "TIFF")
+
+    response = client.post("/api/process-manuscripts/classify",
+                           files={"file": ("page.tif", tiff.getvalue(), "image/tiff")})
+
+    assert response.status_code == 200
+    assert seen["media_type"] == "image/jpeg"
