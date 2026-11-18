@@ -6,7 +6,8 @@
 //   Arrow up / down   -> move the selection
 // A correction counts as saved only once the backend has confirmed it. If saving
 // fails, the editor stays open with the entered text, so the user can try again.
-// Words the model was unsure about are underlined.
+// Words the model was unsure about are underlined. Lines the user has corrected are
+// tinted green, with a green bar on the left that stays visible when the line is selected.
 import { useEffect, useRef, useState } from "react";
 import { Check, CircleAlert } from "lucide-react";
 import type { TranscriptionLine } from "../types";
@@ -129,15 +130,20 @@ export function TranscriptionLines({
         {lines.map((line) => {
           const isEditing = editingN === line.n;
           const isSelected = selectedN === line.n;
+          const isCorrected = line.originalText !== null;
           return (
             <li
               key={line.n}
               className={`grid grid-cols-[36px_1fr] items-start rounded-mt-md ${
                 isEditing
                   ? "bg-mt-raised shadow-[inset_0_0_0_2px_var(--color-mt-accent)]"
-                  : isSelected
-                    ? "bg-mt-accent-soft shadow-[inset_0_0_0_1px_var(--color-mt-accent-soft-strong)]"
-                    : "hover:bg-mt-hover"
+                  : isSelected && isCorrected
+                    ? "bg-mt-accent-soft shadow-[inset_3px_0_0_var(--color-mt-success-fg),inset_0_0_0_1px_var(--color-mt-accent-soft-strong)]"
+                    : isSelected
+                      ? "bg-mt-accent-soft shadow-[inset_0_0_0_1px_var(--color-mt-accent-soft-strong)]"
+                      : isCorrected
+                        ? "bg-mt-success-bg shadow-[inset_3px_0_0_var(--color-mt-success-fg)]"
+                        : "hover:bg-mt-hover"
               }`}
             >
               <span
@@ -257,6 +263,7 @@ export function TranscriptionLines({
                         : "press Enter to edit"}
                     </span>
                   )}
+                  {isCorrected && <span className="sr-only"> (corrected)</span>}
                 </button>
               )}
             </li>
@@ -280,7 +287,14 @@ export function TranscriptionLines({
         <span className="flex items-center gap-1">
           <kbd className={KEY_CLASS}>Esc</kbd> Cancel
         </span>
-        <span className="ml-auto">
+        <span className="ml-auto flex items-center gap-1.5">
+          <span
+            className="h-3 w-4 rounded-sm bg-mt-success-bg shadow-[inset_2px_0_0_var(--color-mt-success-fg)]"
+            aria-hidden="true"
+          />
+          = corrected
+        </span>
+        <span>
           <span className="underline decoration-dotted decoration-mt-warning-fg underline-offset-4">
             word
           </span>{" "}

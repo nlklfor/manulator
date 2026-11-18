@@ -100,7 +100,7 @@ an array column is not needed in the database.
 | `size_bytes` | `bigint` | File size in bytes. Must be greater than zero. The current backend's 20 MB limit is separate from this database check. |
 | `position` | `integer` | File order inside the manuscript, starting at 1. Can be changed later. Positions are not required to be unique. |
 | `status` | `text` | Processing step of the page: `uploading`, `uploaded`, `transcribing`, `transcribed` or `corrected`. Defaults to `uploaded`. |
-| `transcription` | `jsonb` | Transcribed lines, saved by the backend after the ML service has read the page. Empty (`NULL`) until then. Each line: `{"index", "text", "bbox", "baseline", "boundary"}`. |
+| `transcription` | `jsonb` | Transcribed lines, saved by the backend after the ML service has read the page. Empty (`NULL`) until then. Each line: `{"index", "text", "bbox", "baseline", "boundary"}`. A line the user has corrected also has `"original_text"` (the model's reading). |
 | `overlay_path` | `text` | Path inside `uploads` of the overlay image (the page with the detected lines drawn on it), e.g. `<owner_id>/overlays/<file>.jpg`. Saved with the transcription; the old image is deleted when the page is transcribed again. Empty until then. |
 | `created_at` | `timestamptz` | When the file row was created. Defaults to `now()`. |
 
@@ -233,8 +233,9 @@ including the file status column. The library is loaded from the database:
 - `DELETE /api/upload-manuscripts/{id}` deletes the manuscript, its file rows and its files in Storage.
 - `PATCH /api/upload-manuscripts/{id}/lines/{index}` replaces the `text` of one line in
   `manuscript_files.transcription` with the researcher's correction and sets `status` to
-  `corrected`. The line's other fields are kept, and the model's original text is overwritten:
-  only the latest text is stored. No new column is needed. See `backend/README.md` for the
+  `corrected`. The line's other fields are kept. The first correction copies the model's reading
+  into the line's `original_text`, so the frontend can mark corrected lines; it is removed again if
+  the text is set back to the model's reading. No new column is needed. See `backend/README.md` for the
   request, response and status codes.
 
 `manuscript_files.status` is read and shown in the badges and filters. The backend sets it to
