@@ -133,13 +133,13 @@ One line of each type:
 
 **Charter (MLH):** neat, even writing.
 
-![A charter line from MLH](images/charter_line.png)
+![A charter line from MLH](../images/charter_line.png)
 
 *heredes domini de Blankeneym in feodum et homagium perpetuo tene-*
 
 **Register (e-NDP):** fast, crowded writing.
 
-![A register line from e-NDP](images/register_line.png)
+![A register line from e-NDP](../images/register_line.png)
 
 *Anno xl nono die mercurii post vocem Jocunditatis capitulantibus*
 
@@ -202,7 +202,7 @@ Kraken on the 20 e-NDP register pages:
 
 The worst page (LL123_0016_Right). Blue = true lines Kraken missed, red = Kraken lines that match no true line:
 
-![Kraken's line-finding mistakes on page LL123_0016_Right](images/line_finding_mistakes.jpg)
+![Kraken's line-finding mistakes on page LL123_0016_Right](../images/line_finding_mistakes.jpg)
 
 ## 9. Results: reading the lines
 
@@ -225,7 +225,7 @@ CER on the 102 MLH charter lines and the 200 e-NDP register lines (wrong letters
 
 The charter line (MLH):
 
-![A charter line from MLH](images/charter_line.png)
+![A charter line from MLH](../images/charter_line.png)
 
 | Reader | Text |
 | --- | --- |
@@ -239,7 +239,7 @@ All readers get most words right; they differ mainly on the place name *Blankene
 
 The register line (e-NDP):
 
-![A register line from e-NDP](images/register_line.png)
+![A register line from e-NDP](../images/register_line.png)
 
 | Reader | Text |
 | --- | --- |
@@ -281,11 +281,12 @@ Most mistakes come from reading; Kraken's line finding adds about 2 to 9 points.
 
 # Part 3: Further research
 
-Each topic has its own file in [research/](research/), using [research/TEMPLATE.md](research/TEMPLATE.md):
+Each topic has its own file in [research/](./), using [research/TEMPLATE.md](TEMPLATE.md):
 
-- [Translation models](research/translation-models.md) (#141, story #140)
-- [Summarization models](research/summarization-models.md) (story #142)
-- [Classifiers and the multiple classifier system](research/classifiers.md) (#114, #115, #147–#150, #128, story #145)
+- [Fine-tuning the transcription models (PyLaia and Kraken)](htr-finetuning.md) (#124, #146): the fine-tuned Kraken replaces PyLaia HOME-Alcar for reading the lines
+- [Translation models](translation-models.md) (#141, story #140)
+- [Summarization models](summarization-models.md) (story #142)
+- [Classifiers and the multiple classifier system](classifiers.md) (#114, #115, #147–#150, #128, story #145)
 
 # Sources
 
