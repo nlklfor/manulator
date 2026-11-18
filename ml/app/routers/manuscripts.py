@@ -1,4 +1,5 @@
 import base64
+import mimetypes
 from pathlib import Path
 from typing import Annotated
 
@@ -8,9 +9,29 @@ from pydantic import ValidationError
 from app.config import settings
 from app.schemas.manuscripts import ManuscriptProcessResponse, ManuscriptProcessPlan, ManuscriptTranslationResponse, \
     TranslationPlan
+from services.classification import Classification, classify_page
 from services.pipeline import Task, Pipeline
 
 router = APIRouter(prefix="/process-manuscripts", tags=["manuscripts"])
+
+
+@router.post("/classify", response_model=Classification)
+def classify_manuscript(file: Annotated[UploadFile, File()]):
+    # The model is set in ml/.env (CLASSIFIER_MODEL), see services/classification.py
+    # TIFF is accepted too (e.g. the CLaMM dataset); it is turned into JPEG before the model sees it
+    content_type = file.content_type
+    if content_type == "application/octet-stream":  # type not sent (e.g. curl with a .tif): use the file name
+        content_type = mimetypes.guess_type(file.filename or "")[0] or content_type
+    if content_type not in [*settings.allowed_content_types, "image/tiff"]:
+        raise HTTPException(status_code=415, detail="Invalid file format")
+    limit = settings.max_upload_mb * 1024 * 1024
+    image = file.file.read(limit + 1)
+    if len(image) > limit:
+        raise HTTPException(413, f"File exceeds the {settings.max_upload_mb} MB limit")
+    try:
+        return classify_page(image, content_type)
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Classification failed: {error}") from error
 
 
 @router.post("/", response_model=ManuscriptProcessResponse)

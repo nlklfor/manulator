@@ -12,6 +12,7 @@ const FOLDER_COLORS: Record<string, string> = {
   Letter: "#A34A6E",
   Cartulary: "#7A4E2D",
   Chronicle: "#3E7C5A",
+  Book: "#5B6B3A",
   Other: "#8A8478",
 };
 
@@ -25,7 +26,9 @@ export interface Folder {
 // or "Other" when it is a type the user typed themselves.
 export function folderOf(documentType: string): string {
   const typed = documentType.trim().toLowerCase();
-  return DOCUMENT_TYPES.find((type) => type.toLowerCase() === typed) ?? OTHER_FOLDER;
+  return (
+    DOCUMENT_TYPES.find((type) => type.toLowerCase() === typed) ?? OTHER_FOLDER
+  );
 }
 
 // Reads the folder from the address (?type=Charter). Returns null when there is none

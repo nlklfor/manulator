@@ -17,6 +17,7 @@ dependencies = [
     "pydantic-settings>=2.16.1",
     "sentencepiece>=0.2.3",
     "sacremoses>=0.2.0",
+    "anthropic>=2.8.0",
 ]
 
 [tool.uv]
