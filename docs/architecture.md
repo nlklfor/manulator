@@ -18,4 +18,4 @@ flowchart LR
     C --> D[Translate the text]
 ```
 
-Details and model candidates for each step are in [AI model research](ai-model-research.md).
+Details and model candidates for each step are in [AI model research](research/ai-model-research.md).
