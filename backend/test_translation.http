@@ -11,13 +11,13 @@ Content-Type: application/json
     {"index": 0, "text": "In nomine Domini nostri Iesu Christi, amen."},
     {"index": 1, "text": "Ego Carolus, rex Francorum, omnibus fidelibus salutem."},
     {"index": 3, "text": "Notum sit omnibus quod monasterium sancti Galli terram accepit."},
-    {"index": 4, "text": "Haec terra iuxta flumen Rhenum sita est."},
-    {"index": 5, "text": "Monachi ibi ecclesiam novam aedificare volunt."},
-    {"index": 6, "text": "Abbas fratres suos ad orationem vocavit."},
-    {"index": 7, "text": "Post orationem omnes in silentio laboraverunt."},
-    {"index": 8, "text": "Pauperes et peregrini in domo hospitum recipiuntur."},
+    {"index": 4, "text": "Haec terra iuxta flumen Rhenum sita est"},
+    {"index": 5, "text": "Monachi ibi ecclesiam novam aedificare volunt. Haec terra iuxta flumen Rhenum sita est"},
+    {"index": 6, "text": "Abbas fratres suos ad orationem vocavit"},
+    {"index": 7, "text": "Post orationem omnes in silentio laboraverunt"},
+    {"index": 8, "text": "Pauperes et peregrini in domo hospitum recipiuntur"},
     {"index": 9, "text": "Panem et vinum eis libenter dant."},
-    {"index": 10, "text": "Hieme frigus magnum erat et nix multa cecidit."},
+    {"index": 10, "text": "Hieme frigus magnum erat et nix multa cecidit"},
     {"index": 11, "text": "Tamen fratres opus suum non reliquerunt."},
     {"index": 12, "text": "Vere novo agri iterum virides facti sunt."},
     {"index": 13, "text": "Rex ipse monasterium visitavit et donum magnum dedit."},
@@ -25,13 +25,15 @@ Content-Type: application/json
     {"index": 15, "text": "Scriptores diligenter codices antiquos describebant."},
     {"index": 16, "text": "Pueri in schola linguam Latinam discebant."},
     {"index": 17, "text": "Magister eos cum patientia docebat."},
-    {"index": 18, "text": "Si quis hanc donationem violare temptaverit, iram Dei incurrat."},
+    {"index": 18, "text": "Si quis hanc donationem violare temptaverit, iram Dei incurrat"},
     {"index": 19, "text": "Testes huius rei sunt comes Udalricus et episcopus Salomon."},
     {"index": 20, "text": "Scriptum est anno ab incarnatione Domini octingentesimo."},
     {"index": 21, "text": "Datum in palatio regis, mense Maio."},
     {"index": 22, "text": "Feliciter in Dei nomine, amen."},
     {"index": 25, "text": "Finis."}
-  ]
+  ],
+  "target_language": "English",
+  "type": "sentences"
 }
 
 ### 2. Through the backend (start it too: cd backend, uv run uvicorn app.main:app --reload)
