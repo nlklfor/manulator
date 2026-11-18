@@ -26,7 +26,9 @@ export interface Folder {
 // or "Other" when it is a type the user typed themselves.
 export function folderOf(documentType: string): string {
   const typed = documentType.trim().toLowerCase();
-  return DOCUMENT_TYPES.find((type) => type.toLowerCase() === typed) ?? OTHER_FOLDER;
+  return (
+    DOCUMENT_TYPES.find((type) => type.toLowerCase() === typed) ?? OTHER_FOLDER
+  );
 }
 
 // Reads the folder from the address (?type=Charter). Returns null when there is none
