@@ -15,7 +15,7 @@ from app.schemas.manuscript import (
 )
 from app.services.bucket import delete_file, get_file_urls, upload_file
 from app.services.database import get_admin_client
-from app.services.pdf import PdfError, first_page_to_png
+from app.services.images import PageError, content_type_of, is_supported, to_page_image
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +59,9 @@ def save_upload(
         name: check_class(name, getattr(classes, name)) for name in CLASS_FIELDS
     }
 
-    if file.content_type not in settings.allowed_content_types:
-        raise HTTPException(415, f"Unsupported file type: {file.content_type}")
+    content_type = content_type_of(file.content_type, file.filename)
+    if not is_supported(content_type):
+        raise HTTPException(415, f"Unsupported file type: {content_type}")
 
     # Measure the bytes ourselves: file.size can be None.
     # Reading 1 byte past the limit is enough to know the file is too large.
@@ -71,20 +72,17 @@ def save_upload(
         raise HTTPException(413, f"File exceeds the {settings.max_upload_mb} MB limit")
 
     filename = Path(file.filename or "").name[:255] or "upload"
-    content_type = file.content_type
 
-    # Only the first page of a PDF is used. It is stored as an image, so the preview
-    # and the recognition models can work with it like with any other scan.
-    if content_type == "application/pdf":
-        try:
-            data = first_page_to_png(data)
-        except PdfError as error:
-            logger.warning("PDF conversion failed: %s", error)
-            raise HTTPException(
-                422, "Could not read the PDF. It may be damaged or password protected."
-            ) from error
-        content_type = "image/png"
-        size = len(data)
+    # Only the first page of a PDF is used, and images browsers cannot show (e.g. TIFF)
+    # are converted. Both are stored as PNG, so the preview and the recognition models
+    # can work with them like with any other scan.
+    try:
+        data, stored_type = to_page_image(data, content_type)
+    except PageError as error:
+        logger.warning("Converting %s failed: %s", content_type, error.__cause__)
+        raise HTTPException(422, str(error)) from error
+    if stored_type != content_type:
+        content_type, size = stored_type, len(data)
         filename = Path(filename).stem + ".png"
 
     # No compression: it can blur handwriting and hurt text recognition

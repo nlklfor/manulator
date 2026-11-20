@@ -4,13 +4,15 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from PIL import UnidentifiedImageError
 from pydantic import ValidationError
 
 from app.config import settings
 from app.schemas.manuscripts import ManuscriptProcessResponse, ManuscriptProcessPlan, ManuscriptTranslationResponse, \
-    TranslationPlan
+    TranslationPlan, SummaryRequest
 from services.classification import Classification, classify_page
 from services.pipeline import Task, Pipeline
+from services.summarization import Summary, summarize_text
 
 router = APIRouter(prefix="/process-manuscripts", tags=["manuscripts"])
 
@@ -18,11 +20,9 @@ router = APIRouter(prefix="/process-manuscripts", tags=["manuscripts"])
 @router.post("/classify", response_model=Classification)
 def classify_manuscript(file: Annotated[UploadFile, File()]):
     # The model is set in ml/.env (CLASSIFIER_MODEL), see services/classification.py
-    # TIFF is accepted too (e.g. the CLaMM dataset); it is turned into JPEG before the model sees it
-    content_type = file.content_type
-    if content_type == "application/octet-stream":  # type not sent (e.g. curl with a .tif): use the file name
-        content_type = mimetypes.guess_type(file.filename or "")[0] or content_type
-    if content_type not in [*settings.allowed_content_types, "image/tiff"]:
+    # Any image is accepted (e.g. TIFF from the CLaMM dataset): it is turned into JPEG if the model needs it
+    content_type = image_type(file)
+    if not content_type.startswith("image/"):
         raise HTTPException(status_code=415, detail="Invalid file format")
     limit = settings.max_upload_mb * 1024 * 1024
     image = file.file.read(limit + 1)
@@ -30,8 +30,28 @@ def classify_manuscript(file: Annotated[UploadFile, File()]):
         raise HTTPException(413, f"File exceeds the {settings.max_upload_mb} MB limit")
     try:
         return classify_page(image, content_type)
+    except UnidentifiedImageError as error:
+        raise HTTPException(status_code=422, detail="Could not read the image") from error
     except Exception as error:
         raise HTTPException(status_code=502, detail=f"Classification failed: {error}") from error
+
+
+def image_type(file: UploadFile) -> str:
+    """The file's type, or (if none was sent, e.g. curl with a .tif) guessed from the file name."""
+    if file.content_type and file.content_type != "application/octet-stream":
+        return file.content_type
+    return mimetypes.guess_type(file.filename or "")[0] or "application/octet-stream"
+
+
+@router.post("/summarize", response_model=Summary)
+def summarize_manuscript(request: SummaryRequest):
+    # Summarizes the translated text with the same model as /classify (CLASSIFIER_MODEL in ml/.env)
+    if not request.text.strip():
+        raise HTTPException(status_code=422, detail="The text is empty")
+    try:
+        return summarize_text(request.text)
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Summarization failed: {error}") from error
 
 
 @router.post("/", response_model=ManuscriptProcessResponse)
@@ -40,7 +60,7 @@ def process_manuscript(process_plan: Annotated[str, Form()], file: Annotated[Upl
     # PDFs are not supported yet: Kraken can only open images
     if file.content_type == "application/pdf":
         raise HTTPException(status_code=415, detail="PDFs are not supported yet")
-    if file.content_type not in settings.allowed_content_types:
+    if not image_type(file).startswith("image/"):  # Kraken reads any image Pillow can open
         raise HTTPException(status_code=415, detail="Invalid file format")
 
     limit = settings.max_upload_mb * 1024 * 1024

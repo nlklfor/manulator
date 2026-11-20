@@ -15,7 +15,8 @@ from pathlib import Path
 
 from eval.clamm_classification import centuries_in, century_of
 from app.config import settings
-from services.classification import QuotaUsedUp, get_classifier
+from services.classification import get_classifier
+from services.llm import QuotaUsedUp
 
 
 PAGES_FOLDER = Path(__file__).resolve().parent.parent / "test_pages" / "charters"

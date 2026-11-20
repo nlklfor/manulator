@@ -29,7 +29,8 @@ from pathlib import Path
 from PIL import Image
 
 from app.config import settings
-from services.classification import PROMPT, QuotaUsedUp, get_classifier
+from services.classification import PROMPT, get_classifier
+from services.llm import QuotaUsedUp
 
 # ---------- Settings ----------
 

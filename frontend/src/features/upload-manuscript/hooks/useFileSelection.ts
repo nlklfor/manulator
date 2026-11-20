@@ -168,9 +168,9 @@ export function useFileSelection() {
 
       uploadImage(file, details)
         .then((response) => {
-          // The backend stores only the first page of a PDF, as an image. Show that image
-          // instead of the local PDF, and drop the local preview link.
-          const converted = file.type === "application/pdf";
+          // The backend stores only the first page of a PDF, and images browsers cannot show
+          // (e.g. TIFF), as PNG. Show the stored image instead, and drop the local preview link.
+          const converted = response.content_type !== file.type;
           if (converted) {
             URL.revokeObjectURL(previewUrl);
             previewUrlsRef.current.delete(previewUrl);

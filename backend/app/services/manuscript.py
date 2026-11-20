@@ -19,7 +19,7 @@ from app.schemas.manuscript import (
 )
 from app.services.bucket import delete_file, download_file, upload_file
 from app.services.database import get_admin_client
-from app.services.pdf import PdfError, first_page_to_png
+from app.services.images import PageError, content_type_of, is_supported, to_page_image
 
 logger = logging.getLogger(__name__)
 
@@ -27,21 +27,19 @@ logger = logging.getLogger(__name__)
 # Asks the ML service what kind of page this is, before it is uploaded.
 # The user sees the suggestions in the upload form and can change them.
 async def classify_file(file: UploadFile) -> PageClasses:
-    if file.content_type not in settings.allowed_content_types:
-        raise HTTPException(415, f"Unsupported file type: {file.content_type}")
+    content_type = content_type_of(file.content_type, file.filename)
+    if not is_supported(content_type):
+        raise HTTPException(415, f"Unsupported file type: {content_type}")
     limit = settings.max_upload_mb * 1024 * 1024
     data = file.file.read(limit + 1)
     if len(data) > limit:
         raise HTTPException(413, f"File exceeds the {settings.max_upload_mb} MB limit")
 
-    content_type = file.content_type
-    if (
-        content_type == "application/pdf"
-    ):  # like the upload: only the first page is used
-        try:
-            data, content_type = first_page_to_png(data), "image/png"
-        except PdfError as error:
-            raise HTTPException(422, "Could not read the PDF.") from error
+    # Like the upload: the first page of a PDF, other images (e.g. TIFF) as PNG
+    try:
+        data, content_type = to_page_image(data, content_type)
+    except PageError as error:
+        raise HTTPException(422, str(error)) from error
 
     async with httpx.AsyncClient(timeout=120.0) as client:
         try:
