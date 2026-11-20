@@ -1,0 +1,12 @@
+# Lets the ML service use an NVIDIA GPU: transcription, translation and the local language model
+# (CLASSIFIER_MODEL=local:...) then run much faster. Without this file everything runs on the CPU.
+# Start with:  docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+services:
+  ml:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

@@ -53,6 +53,7 @@ Requirement: [Docker Desktop](https://www.docker.com/products/docker-desktop/) i
 docker compose up          # start frontend and backend (first run takes a few minutes)
 docker compose up --build  # use this after dependencies changed (package.json or pyproject.toml)
 docker compose down        # stop everything
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up   # optional: use an NVIDIA GPU for the models
 ```
 
 | URL | What |

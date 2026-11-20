@@ -1,28 +1,16 @@
 from functools import lru_cache
-from pathlib import Path
 
 import numpy as np
 import torch
-from huggingface_hub import snapshot_download
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer, AutoModelForTokenClassification
 
-from app.config import settings
+from services.hf_models import local_model
 
 DEFAULT_MODEL = "RomanoAISPEC/helsinki_mul_en_large_cosine_v1"
 QWEN_INSTRUCT = "Qwen/Qwen2.5-1.5B-Instruct"
 GOOGLE_GEMMA3 = "google/gemma-3-27b-it"
 DEFAULT_LANGUAGE = "English"
 SENTENCE_SEGMENTER = "RomanoAISPEC/xlmr-latin-sentence-segmenter-la-en_v2"
-MODELS_DIR = Path(__file__).resolve().parents[1] / "models"  # ml/models (git-ignored)
-
-
-def local_model(repo: str) -> Path:
-    """Download a Hugging Face model into ml/models/<name> the first time; after that, use the saved copy."""
-    folder = MODELS_DIR / repo.split("/")[-1]
-    if not (folder / "config.json").exists():
-        snapshot_download(repo, local_dir=folder, token=settings.hf_token)
-    return folder
-
 
 
 @lru_cache(maxsize=2)
