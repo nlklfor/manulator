@@ -17,6 +17,7 @@ import io
 import json
 import random
 import re
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -28,7 +29,7 @@ from pathlib import Path
 from PIL import Image
 
 from app.config import settings
-from services.classification import PROMPT, get_classifier
+from services.classification import PROMPT, QuotaUsedUp, get_classifier
 
 # ---------- Settings ----------
 
@@ -231,10 +232,17 @@ def main():
     with ThreadPoolExecutor(2) as pool:  # download 2 at a time: Zenodo blocks faster downloading
         list(pool.map(lambda image: download(image["file"]), to_ask))
 
+    quota_used_up = threading.Event()
+
     def ask_model(image):
+        if quota_used_up.is_set():  # the provider said no more for now: don't waste requests
+            return {**image, "error": "skipped: quota used up"}
         try:
             answer = classify(to_jpeg(download(image["file"])), "image/jpeg")
             return {**image, "run": run_name, "prediction": answer.model_dump()}
+        except QuotaUsedUp as error:
+            quota_used_up.set()
+            return {**image, "error": f"QuotaUsedUp: {error}"}
         except Exception as error:  # one failed image should not stop the whole test
             return {**image, "error": f"{type(error).__name__}: {error}"}
 
@@ -246,6 +254,7 @@ def main():
             else:
                 saved[result["file"]] = result
                 answers_file.write(json.dumps(result) + "\n")
+                answers_file.flush()  # saved at once, so a stopped run loses nothing
 
     # Step 4: print the scores
     answered = [saved[image["file"]] for image in sample if image["file"] in saved]

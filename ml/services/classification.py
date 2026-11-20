@@ -9,6 +9,7 @@ How well each model works: ml/eval/README.md.
 import base64
 import io
 import json
+import time
 import typing
 import urllib.error
 import urllib.request
@@ -57,6 +58,10 @@ Document type: "Book" is a codex page with a literary, religious, legal or schol
 Use "unknown" for anything you cannot tell."""
 
 
+class QuotaUsedUp(RuntimeError):
+    """The model's provider refuses more requests for now (e.g. Gemini's free tier: 20 per day)."""
+
+
 class Classification(BaseModel):
     century: str  # e.g. "13th century"
     script: Script
@@ -78,9 +83,10 @@ def answer_format() -> dict:
 
 # ---------- The models ----------
 #
-# Two kinds of model, chosen by name:
+# Three kinds of model, chosen by name:
 #   claude-haiku-5-5          Claude (Anthropic). Needs ANTHROPIC_API_KEY in ml/.env
 #   claude-sonnet-5-5         (Haiku is the default: cheap. Sonnet is better but ~10x the price)
+#   gemini:gemini-3.5-flash   Google Gemini (any model name from Google). Needs GEMINI_API_KEY in ml/.env
 #   local:gemma-4-12b-it      a free model on our own GPU, run by llama.cpp (the "llama-server"
 #   local:qwen3.5-9b          container, see ml/eval/README.md). The name after "local:" is only a label:
 #                             the app uses the model the container was started with.
@@ -118,8 +124,13 @@ def get_classifier(choice: str, effort: str | None = None):
             raise ValueError("Put ANTHROPIC_API_KEY=... in ml/.env to use Claude")
         effort = effort or "low"
         return (lambda image, media_type: ask_claude(image, media_type, choice, effort)), f"{choice}/{effort}"
-    raise ValueError(f"Unknown model '{choice}'. Use a Claude model (e.g. claude-haiku-5-5) "
-                     "or local:<name> for the model on our own GPU")
+    if choice.startswith("gemini:"):
+        if not settings.gemini_api_key:
+            raise ValueError("Put GEMINI_API_KEY=... in ml/.env to use Gemini")
+        model = choice.split(":", 1)[1]
+        return (lambda image, media_type: ask_gemini(image, media_type, model, effort)), f"{choice}/{effort or 'default'}"
+    raise ValueError(f"Unknown model '{choice}'. Use a Claude model (e.g. claude-haiku-5-5), "
+                     "gemini:<name> (e.g. gemini:gemini-3.5-flash) or local:<name> for the model on our own GPU")
 
 
 @lru_cache
@@ -168,3 +179,45 @@ def ask_llama_cpp(image: bytes, media_type: str) -> Classification:
         raise RuntimeError(f"Cannot reach llama.cpp at {settings.local_base_url} ({error.reason}). "
                            "Is the llama-server container running?") from None
     return Classification.model_validate_json(reply["choices"][0]["message"]["content"])
+
+
+def ask_gemini(image: bytes, media_type: str, model: str, effort: str | None = None) -> Classification:
+    """Ask a Google Gemini model. effort ("low", "high"...) sets how much it thinks; Gemini 3 and newer only."""
+    # Gemini's answer format: like answer_format(), but with its own type names and no additionalProperties
+    schema = answer_format()
+    schema = {"type": "OBJECT", "required": schema["required"], "propertyOrdering": schema["required"],
+              "properties": {name: {**field, "type": "STRING"} for name, field in schema["properties"].items()}}
+    config = {"responseMimeType": "application/json", "responseSchema": schema}
+    if effort:
+        config["thinkingConfig"] = {"thinkingLevel": effort}
+    body = {
+        "contents": [{"parts": [
+            {"inline_data": {"mime_type": media_type, "data": base64.b64encode(image).decode()}},
+            {"text": PROMPT},
+        ]}],
+        "generationConfig": config,
+    }
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    request = urllib.request.Request(url, json.dumps(body).encode(),
+                                     {"Content-Type": "application/json", "x-goog-api-key": settings.gemini_api_key})
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                reply = json.load(response)
+            break
+        except urllib.error.HTTPError as error:
+            message = error.read()[:300].decode(errors="replace")
+            # 429 = too many requests or quota used up, 500/503 = busy: wait a little and try again,
+            # but at most ~30 s in total, so the user is not kept waiting
+            if error.code in (429, 500, 503) and attempt < 2:
+                time.sleep(min(int(error.headers.get("Retry-After") or 0) or 5 * (attempt + 1), 15))
+                continue
+            if error.code == 429:
+                raise QuotaUsedUp("Gemini quota used up (too many requests). Try again later, "
+                                   f"or check the plan of GEMINI_API_KEY. Gemini said: {message}") from None
+            raise RuntimeError(f"Gemini answered HTTP {error.code}: {message}") from None
+    candidates = reply.get("candidates") or [{}]
+    if "content" not in candidates[0]:  # Gemini sometimes blocks an answer, e.g. for "safety"
+        raise RuntimeError(f"Gemini gave no answer: {candidates[0].get('finishReason') or reply.get('promptFeedback')}")
+    text = "".join(part.get("text", "") for part in candidates[0]["content"]["parts"] if not part.get("thought"))
+    return Classification.model_validate_json(text)  # fails if the answer has wrong values

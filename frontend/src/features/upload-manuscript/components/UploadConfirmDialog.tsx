@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useRef, type SubmitEvent } from "react";
+// UploadConfirmDialog — asks for the name of a new page and its classes before uploading.
+// As soon as it opens, the page is sent to the classifier: its suggestions fill the classes
+// (document type, century, script, language, region), which the user checks and can edit.
+// Fields the user already typed in are never overwritten, and the upload never has to wait.
+import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import TextField from "@/features/auth/components/TextField";
 import type { UploadDetails } from "../api/uploadImage";
-import { DOCUMENT_TYPES } from "../constants/documentTypes";
+import { classifyPage } from "../api/classifyPage";
+import { ClassFields, EMPTY_CLASSES, type ClassValues } from "./ClassFields";
 
 interface UploadConfirmDialogProps {
   file: File;
@@ -11,19 +16,54 @@ interface UploadConfirmDialogProps {
   onCancel: () => void;
 }
 
+type Detection = "detecting" | "done" | "failed";
+
+const DETECTION_MESSAGE: Record<Detection, string> = {
+  detecting: "Detecting the page's classes… You can already fill in the fields.",
+  done: "Suggested from the page. Please check them before uploading.",
+  failed: "Could not detect the classes. Please fill them in yourself.",
+};
+
 export function UploadConfirmDialog({ file, onConfirm, onCancel }: UploadConfirmDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const [classes, setClasses] = useState<ClassValues>(EMPTY_CLASSES);
+  const [detection, setDetection] = useState<Detection>("detecting");
 
   useEffect(() => {
     dialogRef.current?.showModal();
   }, []);
+
+  // Ask the classifier as soon as the dialog opens; stop asking when it closes
+  useEffect(() => {
+    const controller = new AbortController();
+    classifyPage(file, controller.signal)
+      .then((suggestion) => {
+        // Only fill fields that are still empty: never overwrite what the user typed
+        setClasses((current) => ({
+          documentType: current.documentType || suggestion.document_type || "",
+          century: current.century || suggestion.century || "",
+          script: current.script || suggestion.script || "",
+          language: current.language || suggestion.language || "",
+          region: current.region || suggestion.region || "",
+        }));
+        setDetection("done");
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setDetection("failed");
+      });
+    return () => controller.abort();
+  }, [file]);
 
   function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     onConfirm({
       title: String(form.get("title")).trim(),
-      documentType: String(form.get("documentType")).trim(),
+      documentType: classes.documentType.trim(),
+      century: classes.century.trim(),
+      script: classes.script.trim(),
+      language: classes.language.trim(),
+      region: classes.region.trim(),
     });
   }
 
@@ -49,21 +89,18 @@ export function UploadConfirmDialog({ file, onConfirm, onCancel }: UploadConfirm
           defaultValue={file.name.replace(/\.[^.]+$/, "")}
         />
 
-        <TextField
-          id="upload-document-type"
-          name="documentType"
-          label="Document type"
-          required
-          maxLength={50}
-          list="document-type-options"
-          placeholder="e.g. Charter"
-          hint="Pick a suggestion or type your own."
+        <p
+          role="status"
+          className={`text-sm ${detection === "failed" ? "text-mt-danger-fg" : "text-mt-text-muted"}`}
+        >
+          {DETECTION_MESSAGE[detection]}
+        </p>
+
+        <ClassFields
+          idPrefix="upload"
+          values={classes}
+          onChange={(name, value) => setClasses((current) => ({ ...current, [name]: value }))}
         />
-        <datalist id="document-type-options">
-          {DOCUMENT_TYPES.map((type) => (
-            <option key={type} value={type} />
-          ))}
-        </datalist>
 
         <div className="flex justify-end gap-2 pt-2">
           <button

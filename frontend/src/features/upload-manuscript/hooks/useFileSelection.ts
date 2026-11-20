@@ -28,6 +28,10 @@ export function useFileSelection() {
           id: manuscript.id,
           fileName: manuscript.title,
           documentType: manuscript.document_type,
+          century: manuscript.century,
+          script: manuscript.script,
+          language: manuscript.language,
+          region: manuscript.region,
           fileType: manuscript.content_type,
           previewUrl: manuscript.url,
           status: manuscript.status,
@@ -103,14 +107,22 @@ export function useFileSelection() {
     });
   }, []);
 
-  // Saves a new name and document type, then shows them everywhere in the app.
+  // Saves a new name, document type and classes, then shows them everywhere in the app.
   // Throws when the backend refuses, so the edit form can show an error.
   const editManuscript = useCallback(async (id: string, details: UploadDetails) => {
     const saved = await updateManuscript(id, details);
     setLibraryEntries((prev) =>
       prev.map((entry) =>
         entry.id === id
-          ? { ...entry, fileName: saved.title, documentType: saved.document_type }
+          ? {
+              ...entry,
+              fileName: saved.title,
+              documentType: saved.document_type,
+              century: saved.century,
+              script: saved.script,
+              language: saved.language,
+              region: saved.region,
+            }
           : entry,
       ),
     );
@@ -143,6 +155,10 @@ export function useFileSelection() {
         id,
         fileName: details.title,
         documentType: details.documentType,
+        century: details.century || null,
+        script: details.script || null,
+        language: details.language || null,
+        region: details.region || null,
         fileType: file.type,
         previewUrl,
         status: "uploading",

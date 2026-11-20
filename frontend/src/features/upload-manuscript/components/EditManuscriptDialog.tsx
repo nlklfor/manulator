@@ -1,28 +1,32 @@
 "use client";
 
-// EditManuscriptDialog — form to change the name and the document type of a manuscript.
-// Same fields as UploadConfirmDialog (suggestions + own text), prefilled with the current values.
+// EditManuscriptDialog — form to change the name and the classes of a manuscript
+// (document type, century, script, language, region). Same fields as UploadConfirmDialog,
+// prefilled with the current values.
 import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import TextField from "@/features/auth/components/TextField";
-import { DOCUMENT_TYPES } from "../constants/documentTypes";
 import type { UploadDetails } from "../api/uploadImage";
+import { ClassFields, type ClassName, type ClassValues } from "./ClassFields";
 
 interface EditManuscriptDialogProps {
   title: string;
-  documentType: string;
+  classes: ClassValues; // "" = unknown
   onSave: (details: UploadDetails) => Promise<void>; // throws when saving fails
   onCancel: () => void;
 }
 
+const CLASS_NAMES: ClassName[] = ["documentType", "century", "script", "language", "region"];
+
 export function EditManuscriptDialog({
   title,
-  documentType,
+  classes: savedClasses,
   onSave,
   onCancel,
 }: EditManuscriptDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [classes, setClasses] = useState<ClassValues>(savedClasses);
 
   useEffect(() => {
     dialogRef.current?.showModal();
@@ -33,13 +37,19 @@ export function EditManuscriptDialog({
     if (saving) return;
 
     const form = new FormData(event.currentTarget);
-    const details = {
+    const details: UploadDetails = {
       title: String(form.get("title")).trim(),
-      documentType: String(form.get("documentType")).trim(),
+      documentType: classes.documentType.trim(),
+      century: classes.century.trim(),
+      script: classes.script.trim(),
+      language: classes.language.trim(),
+      region: classes.region.trim(),
     };
 
     // Nothing changed, so there is nothing to save
-    if (details.title === title && details.documentType === documentType) {
+    const unchanged =
+      details.title === title && CLASS_NAMES.every((name) => details[name] === savedClasses[name]);
+    if (unchanged) {
       onCancel();
       return;
     }
@@ -75,22 +85,12 @@ export function EditManuscriptDialog({
           defaultValue={title}
         />
 
-        <TextField
-          id="edit-document-type"
-          name="documentType"
-          label="Document type"
-          required
-          maxLength={50}
-          list="edit-document-type-options"
-          placeholder="e.g. Charter"
-          defaultValue={documentType}
-          hint="Pick a suggestion or type your own."
+        <ClassFields
+          idPrefix="edit"
+          values={classes}
+          onChange={(name, value) => setClasses((current) => ({ ...current, [name]: value }))}
+          disabled={saving}
         />
-        <datalist id="edit-document-type-options">
-          {DOCUMENT_TYPES.map((type) => (
-            <option key={type} value={type} />
-          ))}
-        </datalist>
 
         {error && (
           <p role="alert" className="text-sm text-mt-danger-fg">
