@@ -1,5 +1,6 @@
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { getAuthToken } from "@/lib/auth/session";
+import type { SavedTranslation } from "@/features/upload-manuscript/types/upload";
 
 const TRANSLATE_ENDPOINT = "/api/translate-manuscripts";
 
@@ -50,6 +51,26 @@ export function toTranslationParts(response: ManuscriptTranslationResponse): Tra
     .sort((a, b) => a.index - b.index)
     .map((part) => ({ n: part.index + 1, text: part.text.trim() }))
     .filter((part) => part.text);
+}
+
+// A translation as the backend saved it -> as the page shows it, and back
+export function fromSavedTranslation(saved: SavedTranslation): Translation {
+  return {
+    type: saved.type,
+    parts: toTranslationParts({
+      manuscript_id: "",
+      translated_lines: saved.lines,
+      success: true,
+      message: null,
+    }),
+  };
+}
+
+export function toSavedTranslation(translation: Translation): SavedTranslation {
+  return {
+    type: translation.type,
+    lines: translation.parts.map((part) => ({ index: part.n - 1, text: part.text })),
+  };
 }
 
 // Translates the transcribed page. Resolves with the translation, throws an Error

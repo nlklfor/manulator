@@ -12,6 +12,7 @@ from app.config import settings
 from app.schemas.manuscript import (
     LineCorrectionResponse,
     ManuscriptProcessPlan,
+    ManuscriptSummaryResponse,
     ManuscriptTranscriptResponse,
     ManuscriptTranslationResponse,
     PageClasses,
@@ -191,6 +192,9 @@ def save_transcription(
                 "transcription": lines,
                 "overlay_path": overlay_path,
                 "status": "transcribed",
+                # A new transcription makes the old translation and summary wrong
+                "translation": None,
+                "summary": None,
             }
         ).eq("id", page.id).eq("owner_id", user_id).execute()
     except (APIError, StorageException) as error:
@@ -371,7 +375,82 @@ async def translate_manuscript(
 
     result = ManuscriptTranslationResponse.model_validate(response.json())
 
-    # save translation
-    # save_translation(text)
-
+    # Save the translation and mark the page "translated". The old summary was made
+    # from the old translation, so it is removed.
+    if result.success and result.translated_lines:
+        translation = {"type": translation_plan.type, "lines": result.translated_lines}
+        save_page(
+            manuscript_id,
+            user_id,
+            {"translation": translation, "summary": None, "status": "translated"},
+        )
     return result
+
+
+# Reads the first page (file row) of a manuscript that belongs to the user.
+def load_first_page(manuscript_id: str, user_id: str, columns: str) -> dict:
+    db = get_admin_client()
+    try:
+        # The admin client ignores RLS, so the owner is checked here
+        pages = (
+            db.table("manuscript_files")
+            .select(f"id, {columns}")
+            .eq("manuscript_id", manuscript_id)
+            .eq("owner_id", user_id)
+            .order("position")
+            .execute()
+        )
+    except APIError as error:
+        logger.warning("Supabase query failed: %s", error)
+        raise HTTPException(
+            502, "Could not read the manuscript. Please try again."
+        ) from error
+    if not pages.data:
+        raise HTTPException(404, "Manuscript not found")
+    return pages.data[0]
+
+
+# Saves changes (e.g. translation and status) on the first page of a manuscript.
+def save_page(manuscript_id: str, user_id: str, changes: dict) -> None:
+    page = load_first_page(manuscript_id, user_id, "status")
+    try:
+        get_admin_client().table("manuscript_files").update(changes).eq(
+            "id", page["id"]
+        ).eq("owner_id", user_id).execute()
+    except APIError as error:
+        logger.warning("Saving the page failed: %s", error)
+        raise HTTPException(
+            502, "Could not save the result. Please try again."
+        ) from error
+
+
+# Summarizes the saved translation with the ML service (same model as the classifier),
+# saves the summary and marks the page "summarized".
+async def summarize_manuscript(
+    manuscript_id: str, user_id: str
+) -> ManuscriptSummaryResponse:
+    page = load_first_page(manuscript_id, user_id, "translation")
+    translation = page.get("translation") or {}
+    lines = sorted(translation.get("lines") or [], key=lambda line: line["index"])
+    text = " ".join(line["text"].strip() for line in lines if line.get("text"))
+    if not text:
+        raise HTTPException(409, "The page has not been translated yet.")
+
+    async with httpx.AsyncClient(timeout=300.0) as client:
+        try:
+            response = await client.post(
+                f"{settings.ml_service_url}/api/process-manuscripts/summarize",
+                json={"text": text},
+            )
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            logger.warning("Summarizing the page failed: %s", exc)
+            raise HTTPException(502, "Could not summarize the page.") from exc
+
+    summary = str(response.json().get("summary") or "").strip()
+    if not summary:
+        raise HTTPException(502, "The model gave no summary. Please try again.")
+    save_page(manuscript_id, user_id, {"summary": summary, "status": "summarized"})
+    return ManuscriptSummaryResponse(
+        manuscript_id=manuscript_id, summary=summary, status="summarized"
+    )

@@ -8,6 +8,7 @@
 //   "transcribed"/"corrected" -> the editable list of lines
 import { useState } from "react";
 import { CircleAlert, ScanLine } from "lucide-react";
+import { hasTranscription } from "@/features/upload-manuscript/constants/status";
 import type { UploadStatus } from "@/features/upload-manuscript/types/upload";
 import type { TranscriptionLine } from "../types";
 import { NothingToReview, TranscriptionLines } from "./TranscriptionLines";
@@ -45,7 +46,7 @@ export function TranscriptionPanel({
 
   const isUploaded = status === "uploaded";
   const isTranscribing = status === "transcribing";
-  const isTranscribed = status === "transcribed" || status === "corrected";
+  const isTranscribed = hasTranscription(status);
 
   // Lines that still contain words the model was unsure about
   const reviewCount = lines.filter((l) => l.lowConfWords.length > 0).length;

@@ -386,6 +386,9 @@ def test_transcription_is_saved(client, fake_supabase, fake_ml_service):
     # The overlay image is kept in the bucket, the row only stores its path
     assert page["overlay_path"].startswith("user-1/overlays/")
     assert fake_supabase.files[page["overlay_path"]] == b"jpg"
+    # A new transcription makes an old translation and summary wrong
+    assert page["translation"] is None
+    assert page["summary"] is None
 
 
 def test_process_manuscript_ml_service_fails(client, fake_supabase, fake_ml_service):
@@ -562,3 +565,111 @@ def test_classify_requires_login():
     )
 
     assert response.status_code in (401, 403)
+
+
+# ---------- Translation and summary ----------
+
+TRANSLATE_URL = f"/api/translate-manuscripts/{MANUSCRIPT_ID}"
+SUMMARIZE_URL = f"/api/summarize-manuscripts/{MANUSCRIPT_ID}"
+TRANSLATED = {
+    "manuscript_id": MANUSCRIPT_ID,
+    "translated_lines": [{"index": 0, "text": "In the name of the Lord."}],
+    "success": True,
+    "message": "Translation completed successfully",
+}
+
+
+@pytest.fixture
+def transcribed_page(fake_supabase):
+    page = fake_supabase.tables["manuscript_files"][0]
+    page.update(
+        status="transcribed",
+        transcription=[{"index": 0, "text": "In nomine domini"}],
+        summary="An old summary",
+    )
+    return page
+
+
+def test_translation_is_saved_and_marks_page_translated(
+    client, transcribed_page, fake_ml_service
+):
+    fake_ml_service(lambda request: httpx.Response(200, json=TRANSLATED))
+
+    response = client.post(TRANSLATE_URL, json={"type": "sentences"})
+
+    assert response.status_code == 200
+    assert transcribed_page["status"] == "translated"
+    assert transcribed_page["translation"] == {
+        "type": "sentences",
+        "lines": [{"index": 0, "text": "In the name of the Lord."}],
+    }
+    assert transcribed_page["summary"] is None  # made from the old translation
+    [entry] = client.get(URL).json()
+    assert entry["translation"]["type"] == "sentences"
+
+
+def test_failed_translation_keeps_the_status(client, transcribed_page, fake_ml_service):
+    fake_ml_service(lambda request: httpx.Response(500, json={"detail": "boom"}))
+
+    response = client.post(TRANSLATE_URL, json={"type": "full"})
+
+    assert response.status_code == 502
+    assert transcribed_page["status"] == "transcribed"
+
+
+def test_summary_is_saved_and_marks_page_summarized(
+    client, transcribed_page, fake_ml_service
+):
+    transcribed_page.update(
+        status="translated",
+        translation={
+            "type": "lines",
+            "lines": [
+                {"index": 1, "text": "sell a field."},
+                {"index": 0, "text": "We, the abbess,"},
+            ],
+        },
+    )
+    requests = fake_ml_service(
+        lambda request: httpx.Response(200, json={"summary": " A sale of a field. "})
+    )
+
+    response = client.post(SUMMARIZE_URL)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "manuscript_id": MANUSCRIPT_ID,
+        "summary": "A sale of a field.",
+        "status": "summarized",
+    }
+    # The translated lines are sent in reading order, as one text
+    assert json.loads(requests[0].content) == {"text": "We, the abbess, sell a field."}
+    assert transcribed_page["status"] == "summarized"
+    [entry] = client.get(URL).json()
+    assert entry["summary"] == "A sale of a field."
+
+
+def test_summary_needs_a_translation(client, transcribed_page, fake_ml_service):
+    response = client.post(SUMMARIZE_URL)
+
+    assert response.status_code == 409
+    assert transcribed_page["status"] == "transcribed"
+
+
+def test_summary_ml_service_fails(client, transcribed_page, fake_ml_service):
+    transcribed_page.update(
+        status="translated",
+        translation={"type": "full", "lines": [{"index": 0, "text": "Some text"}]},
+    )
+    fake_ml_service(lambda request: httpx.Response(502, json={"detail": "quota"}))
+
+    response = client.post(SUMMARIZE_URL)
+
+    assert response.status_code == 502
+    assert transcribed_page["status"] == "translated"
+
+
+def test_summary_of_other_users_manuscript_is_not_found(client, fake_supabase):
+    response = client.post(f"/api/summarize-manuscripts/{OTHER_USERS_MANUSCRIPT_ID}")
+
+    assert response.status_code == 404

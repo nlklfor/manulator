@@ -36,6 +36,8 @@ export function useFileSelection() {
           previewUrl: manuscript.url,
           status: manuscript.status,
           transcription: manuscript.transcription,
+          translation: manuscript.translation,
+          summary: manuscript.summary,
         }));
         // Keep uploads started while the list was loading on top
         setLibraryEntries((prev) => [
@@ -95,6 +97,13 @@ export function useFileSelection() {
     },
     [],
   );
+
+  // Changes some fields of one page, e.g. its translation and summary
+  const updateEntry = useCallback((id: string, changes: Partial<LibraryEntry>) => {
+    setLibraryEntries((prev) =>
+      prev.map((entry) => (entry.id === id ? { ...entry, ...changes } : entry)),
+    );
+  }, []);
 
   const removeManuscript = useCallback((id: string) => {
     setLibraryEntries((prev) => {
@@ -210,5 +219,6 @@ export function useFileSelection() {
     editManuscript,
     updateEntryStatus,
     updateEntryTranscription,
+    updateEntry,
   };
 }

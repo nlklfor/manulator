@@ -32,4 +32,8 @@ class Summary(BaseModel):
 def summarize_text(text: str) -> Summary:
     """Ask the app's model (CLASSIFIER_MODEL in ml/.env) for a summary of a translated page."""
     ask, _ = get_model(settings.classifier_model)
-    return ask(PROMPT.format(text=text.strip()), Summary)
+    # Asked as plain text, not in a JSON format: inside JSON, Gemma 4 ended summaries mid-sentence
+    summary = ask(PROMPT.format(text=text.strip())).strip()
+    if not summary:
+        raise RuntimeError("The model gave an empty summary")
+    return Summary(summary=summary)

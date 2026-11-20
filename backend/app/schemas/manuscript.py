@@ -60,6 +60,12 @@ class ManuscriptTranslationResponse(BaseModel):
     message: str | None
 
 
+class ManuscriptSummaryResponse(BaseModel):
+    manuscript_id: str
+    summary: str
+    status: str  # "summarized"
+
+
 class LineCorrection(BaseModel):
     text: str
 
@@ -77,3 +83,6 @@ class ManuscriptResponse(UploadResponse):
     # Filled once the page is transcribed, otherwise None
     transcription: list[dict] | None = None  # lines: index, text, bbox, ...
     overlay_url: str | None = None  # page with the lines drawn on it, valid 1 day
+    # Filled once the page is translated: {"type": "full", "lines": [{"index", "text"}]}
+    translation: dict | None = None
+    summary: str | None = None  # filled once the translation is summarized

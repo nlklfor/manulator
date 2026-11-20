@@ -41,8 +41,9 @@ class PageImage(typing.NamedTuple):
     media_type: str  # "image/jpeg" or "image/png"
 
 
-# ask(prompt, answer_type, image=None) -> an answer_type object
-Ask = Callable[..., BaseModel]
+# ask(prompt, answer_type=None, image=None) -> an answer_type object,
+# or plain text when answer_type is None (e.g. a summary)
+Ask = Callable[..., typing.Any]
 
 
 def answer_format(answer_type: type[BaseModel]) -> dict:
@@ -57,7 +58,11 @@ def answer_format(answer_type: type[BaseModel]) -> dict:
 
 
 def get_model(choice: str, effort: str | None = None) -> tuple[Ask, str]:
-    """Turn a model name into a function ask(prompt, answer_type, image=None).
+    """Turn a model name into a function ask(prompt, answer_type=None, image=None).
+
+    With an answer_type the model must answer in that format; without one it answers in
+    plain text. Free text is better asked as plain text: inside a forced JSON format some
+    models end the text too early (Gemma 4 on llama.cpp stopped summaries mid-sentence).
 
     Also returns a short name for the model and its settings, used by the tests to save answers.
     """
@@ -67,13 +72,13 @@ def get_model(choice: str, effort: str | None = None) -> tuple[Ask, str]:
         if not settings.anthropic_api_key:
             raise ValueError("Put ANTHROPIC_API_KEY=... in ml/.env to use Claude")
         effort = effort or "low"
-        return (lambda prompt, answer_type, image=None:
+        return (lambda prompt, answer_type=None, image=None:
                 ask_claude(prompt, answer_type, image, choice, effort)), f"{choice}/{effort}"
     if choice.startswith("gemini:"):
         if not settings.gemini_api_key:
             raise ValueError("Put GEMINI_API_KEY=... in ml/.env to use Gemini")
         model = choice.split(":", 1)[1]
-        return (lambda prompt, answer_type, image=None:
+        return (lambda prompt, answer_type=None, image=None:
                 ask_gemini(prompt, answer_type, image, model, effort)), f"{choice}/{effort or 'default'}"
     raise ValueError(f"Unknown model '{choice}'. Use a Claude model (e.g. claude-haiku-5-5), "
                      "gemini:<name> (e.g. gemini:gemini-3.5-flash) or local:<name> for the model on our own GPU")
@@ -88,25 +93,26 @@ def claude_client() -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
 
-def ask_claude(prompt: str, answer_type: type[BaseModel], image: PageImage | None, model: str, effort: str):
+def ask_claude(prompt: str, answer_type: type[BaseModel] | None, image: PageImage | None, model: str, effort: str):
     """Ask a Claude model."""
     content = [{"type": "text", "text": prompt}]
     if image:
         content.insert(0, {"type": "image", "source": {
             "type": "base64", "media_type": image.media_type, "data": to_base64(image.data)}})
-    response = claude_client().messages.parse(
-        model=model,
-        max_tokens=4096,
-        output_config={"effort": effort},
-        messages=[{"role": "user", "content": content}],
-        output_format=answer_type,
-    )
+    settings_ = {"model": model, "max_tokens": 4096, "output_config": {"effort": effort},
+                 "messages": [{"role": "user", "content": content}]}
+    if answer_type is None:
+        response = claude_client().messages.create(**settings_)
+    else:
+        response = claude_client().messages.parse(**settings_, output_format=answer_type)
     if response.stop_reason == "refusal":
         raise RuntimeError("The model refused to answer")
+    if answer_type is None:
+        return "".join(block.text for block in response.content if block.type == "text")
     return response.parsed_output
 
 
-def ask_llama_cpp(prompt: str, answer_type: type[BaseModel], image: PageImage | None = None):
+def ask_llama_cpp(prompt: str, answer_type: type[BaseModel] | None = None, image: PageImage | None = None):
     """Ask the model on our own GPU. llama.cpp's server answers like OpenAI's chat API."""
     content = [{"type": "text", "text": prompt}]
     if image:
@@ -114,12 +120,12 @@ def ask_llama_cpp(prompt: str, answer_type: type[BaseModel], image: PageImage | 
                            "image_url": {"url": f"data:{image.media_type};base64,{to_base64(image.data)}"}})
     body = {
         "messages": [{"role": "user", "content": content}],
-        # Forces the answer into our format, with only allowed values
-        "response_format": {"type": "json_schema",
-                            "json_schema": {"name": "answer", "schema": answer_format(answer_type)}},
         # Always pick the most likely answer, so the same input gives the same result every time
         "temperature": 0,
     }
+    if answer_type:  # forces the answer into our format, with only allowed values
+        body["response_format"] = {"type": "json_schema",
+                                   "json_schema": {"name": "answer", "schema": answer_format(answer_type)}}
     url = f"{settings.local_base_url.rstrip('/')}/chat/completions"
     request = urllib.request.Request(url, json.dumps(body).encode(), {"Content-Type": "application/json"})
     try:
@@ -130,16 +136,20 @@ def ask_llama_cpp(prompt: str, answer_type: type[BaseModel], image: PageImage | 
     except urllib.error.URLError as error:
         raise RuntimeError(f"Cannot reach llama.cpp at {settings.local_base_url} ({error.reason}). "
                            "Is the llama-server container running?") from None
-    return answer_type.model_validate_json(reply["choices"][0]["message"]["content"])
+    text = reply["choices"][0]["message"]["content"]
+    return answer_type.model_validate_json(text) if answer_type else text
 
 
-def ask_gemini(prompt: str, answer_type: type[BaseModel], image: PageImage | None, model: str, effort: str | None = None):
+def ask_gemini(prompt: str, answer_type: type[BaseModel] | None, image: PageImage | None, model: str,
+               effort: str | None = None):
     """Ask a Google Gemini model. effort ("low", "high"...) sets how much it thinks; Gemini 3 and newer only."""
-    # Gemini's answer format: like answer_format(), but with its own type names and no additionalProperties
-    schema = answer_format(answer_type)
-    schema = {"type": "OBJECT", "required": schema["required"], "propertyOrdering": schema["required"],
-              "properties": {name: {**field, "type": "STRING"} for name, field in schema["properties"].items()}}
-    config = {"responseMimeType": "application/json", "responseSchema": schema}
+    config = {}
+    if answer_type:
+        # Gemini's answer format: like answer_format(), but with its own type names and no additionalProperties
+        schema = answer_format(answer_type)
+        schema = {"type": "OBJECT", "required": schema["required"], "propertyOrdering": schema["required"],
+                  "properties": {name: {**field, "type": "STRING"} for name, field in schema["properties"].items()}}
+        config = {"responseMimeType": "application/json", "responseSchema": schema}
     if effort:
         config["thinkingConfig"] = {"thinkingLevel": effort}
     parts = [{"text": prompt}]
@@ -169,4 +179,4 @@ def ask_gemini(prompt: str, answer_type: type[BaseModel], image: PageImage | Non
     if "content" not in candidates[0]:  # Gemini sometimes blocks an answer, e.g. for "safety"
         raise RuntimeError(f"Gemini gave no answer: {candidates[0].get('finishReason') or reply.get('promptFeedback')}")
     text = "".join(part.get("text", "") for part in candidates[0]["content"]["parts"] if not part.get("thought"))
-    return answer_type.model_validate_json(text)  # fails if the answer has wrong values
+    return answer_type.model_validate_json(text) if answer_type else text  # fails if the answer has wrong values

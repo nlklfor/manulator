@@ -4,7 +4,7 @@
 // Layout: top bar, the page image on the left (can be hidden), a drag bar to resize,
 // and on the right the text views as browser-like tabs: Transcription, Translation
 // (with "Compare": transcription and translation side by side) and Summary.
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import {
   ChevronRight,
@@ -25,11 +25,14 @@ import { tabId, tabPanelId, WorkspaceTabs, type WorkspaceTab } from "./Workspace
 import { processManuscript } from "@/features/workspace/api/process-manuscript";
 import { saveLineCorrection } from "@/features/workspace/api/correct-line";
 import {
+  fromSavedTranslation,
+  toSavedTranslation,
   translateManuscript,
   translationPlan,
-  type Translation,
   type TranslationType,
 } from "@/features/workspace/api/translate-manuscript";
+import { summarizeManuscript } from "@/features/workspace/api/summarize-manuscript";
+import { hasTranscription } from "@/features/upload-manuscript/constants/status";
 import { mergeProcessResult, toTranscriptionLines } from "../transcription";
 
 // The image takes this share of the width at first, and stays between MIN and MAX
@@ -43,11 +46,13 @@ interface WorkspacePageProps {
 
 export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   // The library lives in memory (LibraryContext), so we look the page up by id.
-  const { libraryEntries, isLoading, updateEntryStatus, updateEntryTranscription } = useLibrary();
+  const { libraryEntries, isLoading, updateEntryStatus, updateEntryTranscription, updateEntry } =
+    useLibrary();
   const entry = libraryEntries.find((e) => e.id === manuscriptId);
 
   const transcription = entry?.transcription;
-  const lines = useMemo(() => toTranscriptionLines(transcription), [transcription]);
+  // No useMemo needed: the React Compiler memoizes this
+  const lines = toTranscriptionLines(transcription);
   // The line selected in the list; its outline is highlighted on the scan
   const [selectedN, setSelectedN] = useState<number | null>(null);
   const [transcribeError, setTranscribeError] = useState<string | null>(null);
@@ -59,14 +64,19 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   // Width of the image as a share of the workspace; changed with the drag bar
   const [imageShare, setImageShare] = useState(DEFAULT_IMAGE_SHARE);
   const splitRef = useRef<HTMLDivElement>(null);
-  // The translation is not saved by the backend yet, so it lives only in this page
-  const [translation, setTranslation] = useState<Translation | null>(null);
+  // The backend saves the translation and the summary with the page
+  const savedTranslation = entry?.translation;
+  const translation = savedTranslation ? fromSavedTranslation(savedTranslation) : null;
+  const summary = entry?.summary ?? null;
   const [translationType, setTranslationType] = useState<TranslationType>("full");
   const [isTranslating, setIsTranslating] = useState(false);
   const [translateError, setTranslateError] = useState<string | null>(null);
   const [isTranslationOutdated, setIsTranslationOutdated] = useState(false);
   // Counts translation requests, so the result of an outdated request is ignored
   const translationRequestRef = useRef(0);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [summarizeError, setSummarizeError] = useState<string | null>(null);
+  const summaryRequestRef = useRef(0);
 
   // For now the plan is to just transcribe the page
   const processPlan = {
@@ -101,21 +111,31 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
       .catch((error: Error) => fail(error.message));
   }
 
-  // Translates the transcribed page. A failed translation keeps the old one (if any)
-  // and never changes the transcription.
+  // Translates the transcribed page: the status shows "Translating", then "Translated".
+  // A failed translation keeps the old one (if any) and the old status, and never
+  // changes the transcription.
   async function handleTranslate() {
     if (!entry || isTranslating) return;
+    const id = entry.id;
+    const statusBefore = entry.status;
     const request = ++translationRequestRef.current;
     setActiveTab("translation");
     setIsTranslating(true);
     setTranslateError(null);
+    updateEntryStatus(id, "translating");
     try {
-      const result = await translateManuscript(entry.id, translationPlan(translationType));
+      const result = await translateManuscript(id, translationPlan(translationType));
       if (request !== translationRequestRef.current) return;
-      setTranslation(result);
+      // The backend removed the old summary: it was made from the old translation
+      updateEntry(id, {
+        translation: toSavedTranslation(result),
+        summary: null,
+        status: "translated",
+      });
       setIsTranslationOutdated(false);
     } catch (error) {
       if (request !== translationRequestRef.current) return;
+      updateEntryStatus(id, statusBefore);
       setTranslateError(
         error instanceof Error ? error.message : "Could not translate the page. Please try again.",
       );
@@ -124,10 +144,38 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
     }
   }
 
-  // Forgets the translation, e.g. when the page is transcribed again
+  // Summarizes the saved translation: the status shows "Summarizing", then "Summarized".
+  // A failed summary keeps the old one (if any) and the old status.
+  async function handleSummarize() {
+    if (!entry || isSummarizing) return;
+    const id = entry.id;
+    const statusBefore = entry.status;
+    const request = ++summaryRequestRef.current;
+    setActiveTab("summary");
+    setIsSummarizing(true);
+    setSummarizeError(null);
+    updateEntryStatus(id, "summarizing");
+    try {
+      const text = await summarizeManuscript(id);
+      if (request !== summaryRequestRef.current) return;
+      updateEntry(id, { summary: text, status: "summarized" });
+    } catch (error) {
+      if (request !== summaryRequestRef.current) return;
+      updateEntryStatus(id, statusBefore);
+      setSummarizeError(
+        error instanceof Error ? error.message : "Could not summarize the page. Please try again.",
+      );
+    } finally {
+      if (request === summaryRequestRef.current) setIsSummarizing(false);
+    }
+  }
+
+  // Forgets the translation and the summary, e.g. when the page is transcribed again
   function resetTranslation() {
     translationRequestRef.current++;
-    setTranslation(null);
+    summaryRequestRef.current++;
+    setIsSummarizing(false);
+    setSummarizeError(null);
     setIsTranslating(false);
     setTranslateError(null);
     setIsTranslationOutdated(false);
@@ -151,14 +199,18 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   // Go back to the empty state, so the user can pick a model and run it again
   function handleReTranscribe() {
     if (!entry) return;
-    updateEntryTranscription(entry.id, null);
-    updateEntryStatus(entry.id, "uploaded");
+    updateEntry(entry.id, {
+      transcription: null,
+      translation: null,
+      summary: null,
+      status: "uploaded",
+    });
     setSelectedN(null);
     resetTranslation();
     setActiveTab("transcription");
   }
 
-  const isTranscribed = entry?.status === "transcribed" || entry?.status === "corrected";
+  const isTranscribed = entry ? hasTranscription(entry.status) : false;
 
   // The content of one text tab
   function renderTab(tab: WorkspaceTab) {
@@ -190,7 +242,15 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
           />
         );
       case "summary":
-        return <SummaryPanel />;
+        return (
+          <SummaryPanel
+            isTranslated={translation !== null}
+            summary={summary}
+            isSummarizing={isSummarizing}
+            error={summarizeError}
+            onSummarize={() => void handleSummarize()}
+          />
+        );
     }
   }
 

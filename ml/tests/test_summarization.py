@@ -3,7 +3,6 @@ from fastapi.testclient import TestClient
 from app.config import settings
 from app.main import app
 from services import summarization
-from services.summarization import Summary
 
 client = TestClient(app)
 
@@ -12,9 +11,10 @@ def test_summarize_sends_the_text_to_the_model(monkeypatch):
     # Fake the model call, so the test needs no model and no API key
     seen = {}
 
-    def fake_ask(prompt, answer_type, image=None):
+    def fake_ask(prompt, answer_type=None, image=None):
         seen["prompt"] = prompt
-        return Summary(summary="A charter of 1291 in which the abbess of Säckingen sells a field.")
+        seen["answer_type"] = answer_type
+        return " A charter of 1291 in which the abbess of Säckingen sells a field.\n"
     monkeypatch.setattr(summarization, "get_model", lambda choice: (fake_ask, "fake"))
 
     response = client.post("/api/process-manuscripts/summarize",
@@ -23,6 +23,7 @@ def test_summarize_sends_the_text_to_the_model(monkeypatch):
     assert response.status_code == 200
     assert response.json() == {"summary": "A charter of 1291 in which the abbess of Säckingen sells a field."}
     assert seen["prompt"].endswith("We, the abbess of Säckingen, sell a field...")
+    assert seen["answer_type"] is None  # asked as plain text
 
 
 def test_summarize_rejects_empty_text():
