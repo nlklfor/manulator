@@ -66,6 +66,16 @@ class ManuscriptSummaryResponse(BaseModel):
     status: str  # "summarized"
 
 
+# Status of the full pipeline (transcribe, translate, summarize) and its results so far
+class ManuscriptProgress(BaseModel):
+    manuscript_id: str
+    status: str  # e.g. "translating"; "…ing" while a step runs
+    transcription: list[dict] | None = None
+    translation: dict | None = None
+    summary: str | None = None
+    error: str | None = None  # why the last run stopped, if it did
+
+
 class LineCorrection(BaseModel):
     text: str
 

@@ -35,6 +35,7 @@ export interface LibraryEntry {
   transcription?: TranscribedLine[] | null;
   translation?: SavedTranslation | null; // filled once the page is translated
   summary?: string | null; // filled once the translation is summarized
+  pipelineError?: string | null; // why the automatic pipeline stopped, if it did
 }
 
 // A translation as the backend saves it: how it was made and the translated parts

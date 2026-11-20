@@ -92,6 +92,11 @@ export function ManuscriptCard({ entry, onDeleted, onEdit }: ManuscriptCardProps
       </Link>
       <div className="px-2.5 pb-2.5">
         <StatusBadge status={entry.status} className="mt-1.5" />
+        {entry.pipelineError && (
+          <p className="mt-1 line-clamp-2 text-xs text-mt-danger-fg" title={entry.pipelineError}>
+            Stopped: {entry.pipelineError}
+          </p>
+        )}
       </div>
 
       {/* Edit and delete buttons: top right, shown on hover or keyboard focus (always on touch

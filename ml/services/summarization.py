@@ -18,7 +18,7 @@ Summarise the page in English for a historian who wants to decide quickly whethe
 - Then give the essentials, as far as the text states them: who is involved, what is granted, sold, agreed, decided or described, where, and when.
 - Give names and places as they appear in the text. Use a modern place name only when you are sure (e.g. Basilee -> Basel).
 - Copy dates in the text's own words; do not convert them yourself. A medieval date such as "the ninth day before the Kalends of April" is NOT in April (it is 24 March): only add the modern date in brackets when you are sure, e.g. "the ninth day before the Kalends of April (24 March) 1291".
-- Use only what is in the text: do not add background knowledge and do not guess. If a key point (e.g. the date) is missing or unreadable, say so briefly.
+- Use only what is in the text: do not add background knowledge and do not guess. If the text gives no date, place or person, simply leave it out: never write that something is not mentioned, not provided or unknown.
 - If the text is too garbled to understand, say that in one sentence and summarise only the parts that are clear.
 
 Translated text:

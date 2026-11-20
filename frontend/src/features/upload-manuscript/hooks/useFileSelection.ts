@@ -4,8 +4,15 @@ import type { LibraryEntry, TranscribedLine, UploadError } from "../types/upload
 import { uploadImage, type UploadDetails } from "../api/uploadImage";
 import { getManuscripts } from "../api/getManuscripts";
 import { updateManuscript } from "../api/updateManuscript";
+import {
+  getPipelineProgress,
+  isStepRunning,
+  startPipeline,
+  type PipelineProgress,
+} from "../api/pipeline";
 
 const ERROR_DISPLAY_DURATION = 5000;
+const PIPELINE_POLL_MS = 3000; // how often the pipeline's progress is checked
 
 export function useFileSelection() {
   const [libraryEntries, setLibraryEntries] = useState<LibraryEntry[]>([]);
@@ -16,6 +23,8 @@ export function useFileSelection() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previewUrlsRef = useRef(new Set<string>());
+  // Pages whose pipeline (transcribe → translate → summarize) runs in the backend
+  const [followedIds, setFollowedIds] = useState<ReadonlySet<string>>(new Set());
 
   // Load the manuscripts the user has already uploaded
   useEffect(() => {
@@ -39,6 +48,11 @@ export function useFileSelection() {
           translation: manuscript.translation,
           summary: manuscript.summary,
         }));
+        // Pipelines still running in the backend (e.g. after a reload): keep following them
+        const running = loaded.filter((entry) => isStepRunning(entry.status));
+        if (running.length > 0) {
+          setFollowedIds((prev) => new Set([...prev, ...running.map((entry) => entry.id)]));
+        }
         // Keep uploads started while the list was loading on top
         setLibraryEntries((prev) => [
           ...prev,
@@ -60,6 +74,65 @@ export function useFileSelection() {
       cancelled = true;
     };
   }, []);
+
+  // Shows the pipeline's progress: its status and the results saved so far
+  const applyProgress = useCallback((progress: PipelineProgress) => {
+    setLibraryEntries((prev) =>
+      prev.map((entry) =>
+        entry.id === progress.manuscript_id
+          ? {
+              ...entry,
+              status: progress.status,
+              transcription: progress.transcription,
+              translation: progress.translation,
+              summary: progress.summary,
+              pipelineError: progress.error,
+            }
+          : entry,
+      ),
+    );
+    if (!isStepRunning(progress.status)) {
+      setFollowedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(progress.manuscript_id);
+        return next;
+      });
+    }
+  }, []);
+
+  // While pipelines run, check their progress every few seconds
+  useEffect(() => {
+    if (followedIds.size === 0) return;
+    const timer = setInterval(() => {
+      followedIds.forEach((id) => {
+        getPipelineProgress(id)
+          .then(applyProgress)
+          .catch(() => {}); // e.g. offline for a moment: try again at the next tick
+      });
+    }, PIPELINE_POLL_MS);
+    return () => clearInterval(timer);
+  }, [followedIds, applyProgress]);
+
+  // Runs transcription, sentence-by-sentence translation and summary one after another
+  const runPipeline = useCallback(
+    (id: string) => {
+      startPipeline(id)
+        .then((progress) => {
+          applyProgress(progress);
+          setFollowedIds((prev) => new Set(prev).add(id));
+        })
+        .catch((error: Error) =>
+          setLibraryEntries((prev) =>
+            prev.map((entry) =>
+              entry.id === id
+                ? { ...entry, pipelineError: error.message || "Could not start the pipeline." }
+                : entry,
+            ),
+          ),
+        );
+    },
+    [applyProgress],
+  );
 
   // Auto-dismiss the error message after a certain duration
   useEffect(() => {
@@ -151,8 +224,9 @@ export function useFileSelection() {
 
   const cancelUpload = useCallback(() => setPendingFile(null), []);
 
+  // process = true: after the upload, also transcribe, translate and summarize the page
   const confirmUpload = useCallback(
-    (details: UploadDetails) => {
+    (details: UploadDetails, process = false) => {
       const file = pendingFile;
       if (!file) return;
       setPendingFile(null);
@@ -200,10 +274,12 @@ export function useFileSelection() {
                 : entry,
             ),
           );
+          // If asked: transcribe, translate and summarize the page, one step after another
+          if (process) runPipeline(response.id);
         })
         .catch(() => updateEntryStatus(id, "upload-failed"));
     },
-    [pendingFile, updateEntryStatus],
+    [pendingFile, updateEntryStatus, runPipeline],
   );
 
   return {
@@ -220,5 +296,6 @@ export function useFileSelection() {
     updateEntryStatus,
     updateEntryTranscription,
     updateEntry,
+    runPipeline,
   };
 }

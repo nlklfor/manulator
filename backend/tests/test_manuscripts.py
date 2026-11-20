@@ -673,3 +673,84 @@ def test_summary_of_other_users_manuscript_is_not_found(client, fake_supabase):
     response = client.post(f"/api/summarize-manuscripts/{OTHER_USERS_MANUSCRIPT_ID}")
 
     assert response.status_code == 404
+
+
+# ---------- Full pipeline: transcribe, translate, summarize ----------
+
+PIPELINE_URL = f"{URL}/{MANUSCRIPT_ID}/pipeline"
+PROGRESS_URL = f"{URL}/{MANUSCRIPT_ID}/progress"
+TRANSCRIBED = {
+    **ML_RESULT,
+    "data": {
+        "Detect Lines": {"lines": [{"index": 0, "bbox": [0, 0, 10, 5]}]},
+        "Transcribe": {"lines": [{"index": 0, "text": "In nomine domini"}]},
+    },
+}
+
+
+def fake_ml_steps(request, translate_status=200):
+    path = request.url.path
+    if path.endswith("/translate"):
+        return httpx.Response(translate_status, json=TRANSLATED)
+    if path.endswith("/summarize"):
+        return httpx.Response(200, json={"summary": "A blessing."})
+    return httpx.Response(200, json=TRANSCRIBED)
+
+
+def test_pipeline_runs_all_steps(client, fake_supabase, fake_ml_service):
+    requests = fake_ml_service(fake_ml_steps)
+
+    response = client.post(PIPELINE_URL)
+
+    # Answers at once; the TestClient runs the background steps right after
+    assert response.status_code == 202
+    assert response.json()["status"] == "transcribing"
+    steps = [request.url.path.rsplit("/", 1)[-1] for request in requests]
+    assert steps == ["", "translate", "summarize"]
+    # Translated sentence by sentence
+    assert json.loads(requests[1].content)["type"] == "sentences"
+
+    progress = client.get(PROGRESS_URL).json()
+    assert progress["status"] == "summarized"
+    assert progress["transcription"][0]["text"] == "In nomine domini"
+    assert progress["translation"]["type"] == "sentences"
+    assert progress["summary"] == "A blessing."
+    assert progress["error"] is None
+
+
+def test_pipeline_stops_at_the_failed_step(client, fake_supabase, fake_ml_service):
+    fake_ml_service(lambda request: fake_ml_steps(request, translate_status=500))
+
+    client.post(PIPELINE_URL)
+
+    progress = client.get(PROGRESS_URL).json()
+    # Back to the last finished step, with the reason
+    assert progress["status"] == "transcribed"
+    assert progress["summary"] is None
+    assert progress["error"] == "ML service failed"
+
+
+def test_pipeline_refuses_a_second_run(client, fake_supabase, monkeypatch):
+    from app.services import pipeline
+
+    monkeypatch.setattr(pipeline, "running", {MANUSCRIPT_ID})
+
+    assert client.post(PIPELINE_URL).status_code == 409
+
+
+def test_progress_repairs_an_interrupted_run(client, fake_supabase):
+    # Marked running, but no pipeline runs (e.g. the backend was restarted)
+    page = fake_supabase.tables["manuscript_files"][0]
+    page.update(status="translating", transcription=[{"index": 0, "text": "In"}])
+
+    progress = client.get(PROGRESS_URL).json()
+
+    assert progress["status"] == "transcribed"
+    assert page["status"] == "transcribed"
+    assert progress["error"] == "The pipeline was interrupted."
+
+
+def test_pipeline_of_other_users_manuscript_is_not_found(client, fake_supabase):
+    response = client.post(f"{URL}/{OTHER_USERS_MANUSCRIPT_ID}/pipeline")
+
+    assert response.status_code == 404
