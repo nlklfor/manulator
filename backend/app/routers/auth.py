@@ -7,6 +7,7 @@ from fastapi.security import (
     HTTPBearer,
     OAuth2PasswordRequestForm,
 )
+from postgrest import APIError
 from supabase_auth.errors import AuthApiError, AuthError
 
 from app.schemas.auth import (
@@ -15,7 +16,12 @@ from app.schemas.auth import (
     RegistrationRequest,
     RegistrationResponse,
 )
-from app.services.auth import authenticate_user, register_user, sign_out_user
+from app.services.auth import (
+    authenticate_user,
+    is_username_taken,
+    register_user,
+    sign_out_user,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +31,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 bearer_scheme = HTTPBearer(auto_error=False)
 
 DUPLICATE_EMAIL_DETAIL = "An account with this email already exists."
+USERNAME_TAKEN_DETAIL = "This username is already taken."
 
 
 @router.post("/", response_model=LoginResponse)
@@ -92,8 +99,24 @@ def logout(
     status_code=status.HTTP_201_CREATED,
 )
 def register(request: RegistrationRequest) -> RegistrationResponse:
+    # request.username is already trimmed, lowercase and valid (see the schema)
     try:
-        response = register_user(request.display_name, request.email, request.password)
+        taken = is_username_taken(request.username)
+    except APIError as error:
+        logger.warning("Username lookup failed: %s", error)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Registration service is temporarily unavailable.",
+        ) from error
+    if taken:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=USERNAME_TAKEN_DETAIL
+        )
+
+    try:
+        response = register_user(
+            request.display_name, request.email, request.password, request.username
+        )
     except AuthApiError as error:
         logger.warning(
             "Supabase sign up failed: status=%s, code=%s, message=%s",

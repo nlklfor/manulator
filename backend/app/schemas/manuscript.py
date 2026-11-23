@@ -69,3 +69,5 @@ class ManuscriptResponse(UploadResponse):
     # Filled once the page is transcribed, otherwise None
     transcription: list[dict] | None = None  # lines: index, text, bbox, ...
     overlay_url: str | None = None  # page with the lines drawn on it, valid 1 day
+    # Set on copies received from another user, None on your own manuscripts
+    shared_by_username: str | None = None

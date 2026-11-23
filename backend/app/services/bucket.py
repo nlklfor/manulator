@@ -54,6 +54,13 @@ def delete_file(path: str) -> bool:
     return len(removed) > 0
 
 
+# Copies a file to a new path inside the private bucket (used for sharing).
+# The copy is independent: deleting one file never affects the other.
+def copy_file(from_path: str, to_path: str) -> None:
+    bucket = get_admin_client().storage.from_(settings.storage_bucket)
+    bucket.copy(from_path, to_path)
+
+
 # Reads a file from the private bucket.
 # Only pass paths that belong to the logged-in user.
 def download_file(path: str) -> bytes:

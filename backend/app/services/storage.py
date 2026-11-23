@@ -15,6 +15,7 @@ from app.schemas.manuscript import (
 from app.services.bucket import delete_file, get_file_urls, upload_file
 from app.services.database import get_admin_client
 from app.services.pdf import PdfError, first_page_to_png
+from app.services.sharing import get_usernames
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +132,7 @@ def list_manuscripts(user_id: str) -> list[ManuscriptResponse]:
         # The admin client ignores RLS, so the owner must be checked here
         manuscripts = (
             db.table("manuscripts")
-            .select("id, title, document_type, created_at")
+            .select("id, title, document_type, created_at, shared_by")
             .eq("owner_id", user_id)
             .order("created_at", desc=True)
             .execute()
@@ -153,6 +154,15 @@ def list_manuscripts(user_id: str) -> list[ManuscriptResponse]:
         raise HTTPException(
             502, "Could not load your manuscripts. Please try again."
         ) from error
+
+    # Usernames of the people who shared a copy with this user, in one request.
+    # Without them the library still works, so a failure only hides the badge.
+    sharers = list({m["shared_by"] for m in manuscripts if m.get("shared_by")})
+    try:
+        usernames = get_usernames(sharers)
+    except APIError as error:
+        logger.warning("Could not load the usernames of sharers: %s", error)
+        usernames = {}
 
     first_files: dict[str, dict] = {}
     for row in files:
@@ -182,6 +192,7 @@ def list_manuscripts(user_id: str) -> list[ManuscriptResponse]:
             url=urls.get(file["storage_path"], ""),
             transcription=file.get("transcription"),
             overlay_url=urls.get(file.get("overlay_path") or ""),
+            shared_by_username=usernames.get(manuscript.get("shared_by") or ""),
         )
         for manuscript in manuscripts
         if (file := first_files.get(manuscript["id"]))

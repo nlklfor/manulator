@@ -19,20 +19,38 @@ def authenticate_user(username: str, password: str) -> AuthResponse:
 
 
 # Create a new user account with Supabase using the provided
-# display name, email, and password
+# display name, username, email, and password.
+# The username goes into the sign-up metadata; the database trigger
+# handle_new_user() copies it into profiles.username.
 # Returns an AuthResponse object containing the registration result.
-def register_user(display_name: str, email: str, password: str) -> AuthResponse:
+def register_user(
+    display_name: str, email: str, password: str, username: str
+) -> AuthResponse:
     supabase = get_supabase_client()
     return supabase.auth.sign_up(
         {
             "email": email,
             "password": password,
             "options": {
-                "data": {"display_name": display_name},
+                "data": {"display_name": display_name, "username": username},
                 "email_redirect_to": f"{settings.frontend_url}/auth",
             },
         }
     )
+
+
+# True if another account already uses this username (exact match, lowercase).
+# Two sign-ups with the same name at the same moment can both pass this check;
+# then the unique index in the database rejects the second one.
+def is_username_taken(username: str) -> bool:
+    result = (
+        get_admin_client()
+        .table("profiles")
+        .select("id")
+        .eq("username", username)
+        .execute()
+    )
+    return bool(result.data)
 
 
 # Return the id of the logged-in user from the "Authorization: Bearer <token>" header.
