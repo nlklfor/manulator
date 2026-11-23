@@ -8,6 +8,7 @@ export interface LineCorrectionResponse {
   manuscript_id: string;
   index: number;
   text: string;
+  original_text: string | null; // null when the text is the model's reading again
   status: "corrected";
 }
 

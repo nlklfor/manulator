@@ -111,6 +111,9 @@ Supabase project settings; registration does not create an application session.
 Upload expects `multipart/form-data` with the file in a field named `file`. It returns
 `201` on success, `415` for an unsupported type and `413` if the file is too large.
 
+Line correction expects a JSON body `{"text": "..."}` and returns `manuscript_id`, `index`,
+`text`, `original_text` (the model's reading, or `null` if the text matches it) and `status`.
+
 ## Adding a new API
 
 Example: a new `greet` API.

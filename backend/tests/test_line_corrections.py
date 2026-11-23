@@ -33,15 +33,40 @@ def test_correction_is_saved_and_returned(client, transcribed):
         "manuscript_id": MANUSCRIPT_ID,
         "index": 1,
         "text": "domini nostri",
+        "original_text": "dornini nostri",
         "status": "corrected",
     }
-    # Same index and region, only the text changed; the model's reading is gone
+    # Same index and region, the new text, and the model's reading kept beside it
     [entry] = client.get(URL).json()
     assert entry["status"] == "corrected"
     assert entry["transcription"] == [
         {"index": 0, "text": "In nomine", "bbox": [0, 0, 10, 5]},
-        {"index": 1, "text": "domini nostri", "bbox": [0, 6, 10, 11]},
+        {
+            "index": 1,
+            "text": "domini nostri",
+            "bbox": [0, 6, 10, 11],
+            "original_text": "dornini nostri",
+        },
     ]
+
+
+def test_second_correction_keeps_the_models_reading(client, transcribed):
+    client.patch(line_url(), json={"text": "domini nostri"})
+    response = client.patch(line_url(), json={"text": "Domini nostri"})
+
+    assert response.json()["original_text"] == "dornini nostri"
+    line = transcribed.tables["manuscript_files"][0]["transcription"][1]
+    assert line["text"] == "Domini nostri"
+    assert line["original_text"] == "dornini nostri"
+
+
+def test_line_set_back_to_the_models_reading_is_not_corrected(client, transcribed):
+    client.patch(line_url(), json={"text": "domini nostri"})
+    response = client.patch(line_url(), json={"text": "dornini nostri"})
+
+    assert response.json()["original_text"] is None
+    line = transcribed.tables["manuscript_files"][0]["transcription"][1]
+    assert line == {"index": 1, "text": "dornini nostri", "bbox": [0, 6, 10, 11]}
 
 
 def test_rejects_empty_text(client, transcribed):
