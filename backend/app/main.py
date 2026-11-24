@@ -5,9 +5,10 @@ from app.config import settings
 from app.routers import (
     auth,
     manuscripts,
+    manuscripts_correction,
     manuscripts_transcription,
     manuscripts_translation,
-    password, manuscripts_correction,
+    password,
 )
 
 app = FastAPI(title="Manulator API")
