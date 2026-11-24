@@ -3,10 +3,11 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from storage3.utils import StorageException
 
 from app.config import settings
 from app.main import app
-from app.services import bucket, manuscript, storage
+from app.services import bucket, manuscript, sharing, storage
 from app.services.auth import get_current_user_id
 
 MANUSCRIPT_ID = "11111111-1111-4111-8111-111111111111"
@@ -49,10 +50,19 @@ def saved_files(monkeypatch):
 
 
 # Fake Supabase: database tables and Storage files held in memory.
-# Deleting a manuscript also deletes its file rows, like the real foreign key does.
+# Deleting a manuscript also deletes its file rows and share links,
+# like the real foreign keys do.
+# Set fake_supabase.fail_copy_number = n to make the n-th Storage copy fail.
 @pytest.fixture
 def fake_supabase(monkeypatch):
+    fake = SimpleNamespace(fail_copy_number=None, copy_count=0)
     tables: dict[str, list[dict]] = {
+        "profiles": [
+            {"id": "user-1", "username": "alice"},
+            {"id": "user-2", "username": "bob"},
+            {"id": "user-3", "username": None},  # an old account without a name
+        ],
+        "manuscript_share_links": [],
         "manuscripts": [
             {
                 "id": MANUSCRIPT_ID,
@@ -106,10 +116,19 @@ def fake_supabase(monkeypatch):
             self.new_row = None
             self.changes = None
             self.filters = {}
+            self.in_filters = {}
             self.sort = None
 
         def insert(self, row):
-            self.new_row = {"id": str(uuid4()), **row}
+            # id and created_at are filled in by the real database
+            self.new_row = {
+                "id": str(uuid4()),
+                "created_at": "2026-01-02T10:00:00+00:00",
+                **row,
+            }
+            if self.name == "manuscript_share_links":  # defaults of the real table
+                self.new_row.setdefault("use_count", 0)
+                self.new_row.setdefault("revoked_at", None)
             return self
 
         def select(self, *_):
@@ -127,6 +146,10 @@ def fake_supabase(monkeypatch):
             self.filters[column] = value
             return self
 
+        def in_(self, column, values):
+            self.in_filters[column] = values
+            return self
+
         def order(self, column, desc=False):
             self.sort = (column, desc)
             return self
@@ -137,18 +160,23 @@ def fake_supabase(monkeypatch):
                 rows.append(self.new_row)
                 return SimpleNamespace(data=[self.new_row])
             matching = [
-                row for row in rows if all(row[c] == v for c, v in self.filters.items())
+                row
+                for row in rows
+                if all(row.get(c) == v for c, v in self.filters.items())
+                and all(row.get(c) in v for c, v in self.in_filters.items())
             ]
             for row in matching:
                 row.update(self.changes or {})
             if self.is_delete:
                 rows[:] = [row for row in rows if row not in matching]
                 if self.name == "manuscripts":
-                    tables["manuscript_files"][:] = [
-                        f
-                        for f in tables["manuscript_files"]
-                        if f["manuscript_id"] not in [m["id"] for m in matching]
-                    ]
+                    deleted = [m["id"] for m in matching]
+                    for child in ("manuscript_files", "manuscript_share_links"):
+                        tables[child][:] = [
+                            row
+                            for row in tables[child]
+                            if row["manuscript_id"] not in deleted
+                        ]
             if self.sort:
                 column, desc = self.sort
                 matching.sort(key=lambda row: row[column], reverse=desc)
@@ -160,6 +188,16 @@ def fake_supabase(monkeypatch):
 
         def upload(self, path, data, options):
             stored_files[path] = data
+
+        def copy(self, from_path, to_path):
+            fake.copy_count += 1
+            if (
+                fake.copy_count == fake.fail_copy_number
+                or from_path not in stored_files
+            ):
+                raise StorageException({"message": "copy failed"})
+            stored_files[to_path] = stored_files[from_path]
+            return {"path": to_path}
 
         def create_signed_url(self, path, seconds):
             return {"signedUrl": f"https://temporary-link/{path}"}
@@ -187,4 +225,7 @@ def fake_supabase(monkeypatch):
     monkeypatch.setattr(bucket, "get_admin_client", FakeSupabase)
     monkeypatch.setattr(storage, "get_admin_client", FakeSupabase)
     monkeypatch.setattr(manuscript, "get_admin_client", FakeSupabase)
-    return SimpleNamespace(tables=tables, files=stored_files)
+    monkeypatch.setattr(sharing, "get_admin_client", FakeSupabase)
+    fake.tables = tables
+    fake.files = stored_files
+    return fake

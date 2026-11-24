@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
+from postgrest import APIError
 from supabase_auth import AuthResponse, Session, User, UserIdentity
 from supabase_auth.errors import AuthApiError, AuthRetryableError
 
@@ -16,23 +18,30 @@ ACCESS_TOKEN = "test-access-token"
 EMAIL = "user@example.com"
 PASSWORD = "Test-password1"
 DISPLAY_NAME = "Test User"
+USERNAME = "gui_m"
+TAKEN_USERNAME = "bob"
 
 DUPLICATE_EMAIL_RESPONSE = {"detail": "An account with this email already exists."}
 UNAVAILABLE_RESPONSE = {"detail": "Registration service is temporarily unavailable."}
 
 
 def registration_payload(**overrides):
-    payload = {"display_name": DISPLAY_NAME, "email": EMAIL, "password": PASSWORD}
+    payload = {
+        "display_name": DISPLAY_NAME,
+        "username": USERNAME,
+        "email": EMAIL,
+        "password": PASSWORD,
+    }
     payload.update(overrides)
     return payload
 
 
-def expected_sign_up_call(display_name: str = DISPLAY_NAME):
+def expected_sign_up_call(display_name: str = DISPLAY_NAME, username: str = USERNAME):
     return {
         "email": EMAIL,
         "password": PASSWORD,
         "options": {
-            "data": {"display_name": display_name},
+            "data": {"display_name": display_name, "username": username},
             "email_redirect_to": f"{settings.frontend_url}/auth",
         },
     }
@@ -44,7 +53,31 @@ def supabase_client(monkeypatch: MonkeyPatch):
     client.auth = Mock(spec=["sign_in_with_password", "sign_up", "admin"])
     client.auth.admin = Mock(spec=["sign_out"])
     monkeypatch.setattr(auth, "get_supabase_client", Mock(return_value=client))
+    monkeypatch.setattr(auth, "get_admin_client", lambda: FakeProfiles())
     return client
+
+
+# Fake profiles table for the username check: only TAKEN_USERNAME exists
+class FakeProfiles:
+    fail = False
+
+    def table(self, name):
+        assert name == "profiles"
+        return self
+
+    def select(self, *_):
+        return self
+
+    def eq(self, column, value):
+        self.value = value
+        return self
+
+    def execute(self):
+        if FakeProfiles.fail:
+            raise APIError({"message": "database down"})
+        return SimpleNamespace(
+            data=[{"id": "x"}] if self.value == TAKEN_USERNAME else []
+        )
 
 
 @pytest.fixture
@@ -251,17 +284,23 @@ def test_registration_reports_network_error(client, supabase_client):
     ("data", "invalid_field"),
     [
         # display name
-        ({"email": EMAIL, "password": PASSWORD}, "display_name"),
+        ({"username": USERNAME, "email": EMAIL, "password": PASSWORD}, "display_name"),
         (registration_payload(display_name=""), "display_name"),
         (registration_payload(display_name="   "), "display_name"),
         (registration_payload(display_name="a" * 51), "display_name"),
         # email
-        ({"display_name": DISPLAY_NAME, "password": PASSWORD}, "email"),
+        (
+            {"display_name": DISPLAY_NAME, "username": USERNAME, "password": PASSWORD},
+            "email",
+        ),
         (registration_payload(email=""), "email"),
         (registration_payload(email="abc"), "email"),
         (registration_payload(email="user@example"), "email"),
         # password
-        ({"display_name": DISPLAY_NAME, "email": EMAIL}, "password"),
+        (
+            {"display_name": DISPLAY_NAME, "username": USERNAME, "email": EMAIL},
+            "password",
+        ),
         (registration_payload(password=""), "password"),
         (registration_payload(password="Ab1!"), "password"),
         (registration_payload(password="Aa1!" + "a" * 69), "password"),
@@ -269,6 +308,16 @@ def test_registration_reports_network_error(client, supabase_client):
         (registration_payload(password="TEST-PASSWORD1"), "password"),
         (registration_payload(password="Test-password"), "password"),
         (registration_payload(password="Testpassword1"), "password"),
+        # username: 3-30 characters, a-z, 0-9 and _
+        (
+            {"display_name": DISPLAY_NAME, "email": EMAIL, "password": PASSWORD},
+            "username",
+        ),
+        (registration_payload(username="ab"), "username"),
+        (registration_payload(username="a" * 31), "username"),
+        (registration_payload(username="bad-name"), "username"),
+        (registration_payload(username="two words"), "username"),
+        (registration_payload(username="jürg"), "username"),
     ],
 )
 def test_registration_validates_input(client, supabase_client, data, invalid_field):
@@ -276,6 +325,39 @@ def test_registration_validates_input(client, supabase_client, data, invalid_fie
 
     assert response.status_code == 422
     assert {error["loc"][-1] for error in response.json()["detail"]} == {invalid_field}
+    supabase_client.auth.sign_up.assert_not_called()
+
+
+def test_registration_trims_and_lowercases_username(client, supabase_client, new_user):
+    supabase_client.auth.sign_up.return_value = AuthResponse(
+        user=new_user, session=None
+    )
+
+    response = client.post(REGISTER_URL, json=registration_payload(username="  Gui_M "))
+
+    assert response.status_code == 201
+    supabase_client.auth.sign_up.assert_called_once_with(
+        expected_sign_up_call(username="gui_m")
+    )
+
+
+def test_registration_rejects_taken_username(client, supabase_client):
+    response = client.post(REGISTER_URL, json=registration_payload(username="Bob"))
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "This username is already taken."}
+    supabase_client.auth.sign_up.assert_not_called()
+
+
+def test_registration_reports_username_lookup_error(
+    client, supabase_client, monkeypatch
+):
+    monkeypatch.setattr(FakeProfiles, "fail", True)
+
+    response = client.post(REGISTER_URL, json=registration_payload())
+
+    assert response.status_code == 502
+    assert response.json() == UNAVAILABLE_RESPONSE
     supabase_client.auth.sign_up.assert_not_called()
 
 

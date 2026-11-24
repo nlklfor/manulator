@@ -9,6 +9,7 @@ from app.routers import (
     manuscripts_transcription,
     manuscripts_translation,
     password,
+    sharing,
 )
 
 app = FastAPI(title="Manulator API")
@@ -23,6 +24,7 @@ app.add_middleware(
 app.include_router(manuscripts.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(password.router, prefix="/api")
+app.include_router(sharing.router, prefix="/api")
 
 app.include_router(manuscripts_transcription.router, prefix="/api")
 
