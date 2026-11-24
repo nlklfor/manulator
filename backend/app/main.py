@@ -7,7 +7,7 @@ from app.routers import (
     manuscripts,
     manuscripts_transcription,
     manuscripts_translation,
-    password,
+    password, manuscripts_correction,
 )
 
 app = FastAPI(title="Manulator API")
@@ -26,6 +26,9 @@ app.include_router(password.router, prefix="/api")
 app.include_router(manuscripts_transcription.router, prefix="/api")
 
 app.include_router(manuscripts_translation.router, prefix="/api")
+
+app.include_router(manuscripts_correction.router, prefix="/api")
+
 
 
 @app.get("/")

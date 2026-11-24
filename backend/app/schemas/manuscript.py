@@ -41,7 +41,7 @@ class ManuscriptTranscriptResponse(BaseModel):
 
 class ManuscriptCorrectionResponse(BaseModel):
     manuscript_id: str
-    corrected_lines: list[dict]  # list of dicts with "index" and "text"
+    corrected_lines: dict
     success: bool
     message: str | None
 
