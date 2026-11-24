@@ -23,6 +23,8 @@ Kraken's line finder comes with Kraken itself; nothing to download.
 
 The translation model is private on Hugging Face. Copy `.env.example` to `.env` or `.env` (`.env` wins if both set it) and set `HF_TOKEN` to an access token with read access to it. The model is downloaded on the first translation request.
 
+The correction model ([RomanoAISPEC/byt5-small-latin-correction_v3](https://huggingface.co/RomanoAISPEC/byt5-small-latin-correction_v3), a fine-tuned ByT5) is private too and uses the same `HF_TOKEN`. It is downloaded on the first correction request. To use another model, set `CORRECTION_MODEL` in `.env`.
+
 ## Run the ML service
 
 It runs on port 8001, so it doesn't clash with the main backend on port 8000. Start it from `ml/`:
@@ -50,6 +52,44 @@ To only find the lines, use `"Detect Lines"` instead of `"Transcribe"`. The resu
 
 The model file is set in `MODEL_FILE` at the top of `transcription.py`.
 
+## Correct the text
+
+The correction step (`services/correction.py`) fixes reading errors in the transcribed lines, for example `Domlni` → `Domini` or `fita eft` → `sita est`. Each line is sent through the correction model on its own. Afterwards the original and the corrected line are compared with the string edit distance, so you can see exactly which characters were changed.
+
+The lines are sent as JSON, so no image is needed and the earlier steps are skipped. To try it, open http://127.0.0.1:8001/docs, then `POST /api/process-manuscripts/correct` → "Try it out", with this body:
+
+    {
+      "manuscript_id": "page1",
+      "plan": "Correct",
+      "type": "lines",
+      "lines": [{"index": 0, "text": "In nomine Domlni nostri Iesu Chrifti, amen."}]
+    }
+
+`plan` must be `"Correct"` and `type` must be `"lines"`; both are the defaults and can be left out. More example requests are in [backend/test_correction.http](../backend/test_correction.http).
+
+The answer has one entry per line, keyed by the line `index`. Empty lines are skipped:
+
+    {
+      "manuscript_id": "page1",
+      "corrected_lines": {
+        "0": {
+          "original": "In nomine Domlni nostri Iesu Chrifti, amen.",
+          "corrected": "In nomine Domini nostri Iesu Christi, amen.",
+          "corrections": [
+            {"type": "substitution", "original": "l", "corrected": "i", "start": 13, "end": 14},
+            {"type": "substitution", "original": "f", "corrected": "s", "start": 33, "end": 34}
+          ],
+          "confidence": 0.0
+        }
+      },
+      "success": true,
+      "message": "Correction completed successfully"
+    }
+
+Each correction is one change to a single character. `type` is `substitution`, `deletion` or `insertion`. `start` and `end` are positions in the original line, so the frontend can highlight them. An insertion has `start == end`; the new character goes in at that position.
+
+`confidence` is always `0.0` for now. The plan is to fill it in later from the transcription's confidence values.
+
 ## Run the tests
 
 From `ml/`:
@@ -60,9 +100,10 @@ From `ml/`:
 
 - `app/`: the ML service (FastAPI)
 - `services/`: the ML steps, one file each
-  - `pipeline.py`: runs the steps in the right order (Detect Lines → Transcribe)
+  - `pipeline.py`: runs the steps in the right order (Detect Lines → Transcribe → Correct)
   - `segmentation.py`: step 1, find the lines (Kraken)
   - `transcription.py`: step 2, read the lines (Kraken)
+  - `correction.py`: step 3, fix reading errors in the lines (ByT5) and list the changes
 - `tests/`: tests
 - `pylaia/`: the PyLaia environment (no longer used by the pipeline, to be removed)
 - `data/`, `models/`: downloaded pages and models (not in Git, everyone downloads their own)

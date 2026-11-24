@@ -13,6 +13,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ScanLine,
+  SpellCheck,
 } from "lucide-react";
 import { useLibrary } from "@/features/upload-manuscript/context/LibraryContext";
 import { StatusBadge } from "@/features/upload-manuscript/components/StatusBadge";
@@ -24,6 +25,10 @@ import { ResizeHandle } from "./ResizeHandle";
 import { tabId, tabPanelId, WorkspaceTabs, type WorkspaceTab } from "./WorkspaceTabs";
 import { processManuscript } from "@/features/workspace/api/process-manuscript";
 import { saveLineCorrection } from "@/features/workspace/api/correct-line";
+import {
+  correctTranscription,
+  type CorrectionSuggestion,
+} from "@/features/workspace/api/correct-transcription";
 import {
   translateManuscript,
   translationPlan,
@@ -47,6 +52,7 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   const entry = libraryEntries.find((e) => e.id === manuscriptId);
 
   const transcription = entry?.transcription;
+  const isTranscribed = entry?.status === "transcribed" || entry?.status === "corrected";
   const lines = useMemo(() => toTranscriptionLines(transcription), [transcription]);
   // The line selected in the list; its outline is highlighted on the scan
   const [selectedN, setSelectedN] = useState<number | null>(null);
@@ -67,6 +73,13 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   const [isTranslationOutdated, setIsTranslationOutdated] = useState(false);
   // Counts translation requests, so the result of an outdated request is ignored
   const translationRequestRef = useRef(0);
+  // Suggestions of the correction model the user has not accepted or rejected yet.
+  const [suggestions, setSuggestions] = useState<CorrectionSuggestion[]>([]);
+  const [isCorrecting, setIsCorrecting] = useState(false);
+  const [correctError, setCorrectError] = useState<string | null>(null);
+  const [noCorrectionsFound, setNoCorrectionsFound] = useState(false);
+  const correctionRequestRef = useRef(0);
+  const isCorrectingRef = useRef(false);
 
   // For now the plan is to just transcribe the page
   const processPlan = {
@@ -124,19 +137,7 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
     }
   }
 
-  // Forgets the translation, e.g. when the page is transcribed again
-  function resetTranslation() {
-    translationRequestRef.current++;
-    setTranslation(null);
-    setIsTranslating(false);
-    setTranslateError(null);
-    setIsTranslationOutdated(false);
-  }
-
-  // Saves a corrected line through the backend. The workspace and the library show the
-  // text only after the backend has stored it. Throws on failure, so the editor keeps
-  // the entered text and shows the error.
-  async function handleSaveLine(n: number, text: string) {
+  async function saveLine(n: number, text: string) {
     if (!entry?.transcription) return;
     const id = entry.id;
     const saved = await saveLineCorrection(id, n - 1, text);
@@ -152,6 +153,79 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
     if (translation) setIsTranslationOutdated(true);
   }
 
+  // Runs the correction model on the transcription and shows its suggestions
+  async function handleRunCorrection() {
+    if (!entry || !isTranscribed || isCorrectingRef.current) return;
+    const request = ++correctionRequestRef.current;
+    isCorrectingRef.current = true;
+    setIsCorrecting(true);
+    setCorrectError(null);
+    setNoCorrectionsFound(false);
+    setActiveTab("transcription");
+    try {
+      const result = await correctTranscription(entry.id, lines);
+      if (request !== correctionRequestRef.current) return;
+      setSuggestions(result);
+      setNoCorrectionsFound(result.length === 0);
+    } catch (error) {
+      if (request !== correctionRequestRef.current) return;
+      setCorrectError(error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      if (request === correctionRequestRef.current) {
+        isCorrectingRef.current = false;
+        setIsCorrecting(false);
+      }
+    }
+  }
+
+  function resetCorrection() {
+    correctionRequestRef.current++;
+    isCorrectingRef.current = false;
+    setSuggestions([]);
+    setIsCorrecting(false);
+    setCorrectError(null);
+    setNoCorrectionsFound(false);
+  }
+
+  async function handleAcceptSuggestion(suggestion: CorrectionSuggestion) {
+    const line = entry?.transcription?.find((l) => l.index === suggestion.lineN - 1);
+    if (!line) return;
+    if (line.text.slice(suggestion.start, suggestion.end) !== suggestion.original) {
+      setSuggestions((all) => all.filter((s) => s.id !== suggestion.id));
+      throw new Error("This line has changed since the check. Run the correction model again.");
+    }
+    const text =
+      line.text.slice(0, suggestion.start) + suggestion.suggested + line.text.slice(suggestion.end);
+    await saveLine(suggestion.lineN, text);
+    const shift = suggestion.suggested.length - suggestion.original.length;
+    setSuggestions((all) =>
+      all
+        .filter((s) => s.id !== suggestion.id)
+        .map((s) =>
+          s.lineN === suggestion.lineN && s.start >= suggestion.end
+            ? { ...s, start: s.start + shift, end: s.end + shift }
+            : s,
+        ),
+    );
+  }
+
+  function handleRejectSuggestion(suggestion: CorrectionSuggestion) {
+    setSuggestions((all) => all.filter((s) => s.id !== suggestion.id));
+  }
+
+  function resetTranslation() {
+    translationRequestRef.current++;
+    setTranslation(null);
+    setIsTranslating(false);
+    setTranslateError(null);
+    setIsTranslationOutdated(false);
+  }
+
+  async function handleSaveLine(n: number, text: string) {
+    await saveLine(n, text);
+    setSuggestions((all) => all.filter((s) => s.lineN !== n));
+  }
+
   // Go back to the empty state, so the user can pick a model and run it again
   function handleReTranscribe() {
     if (!entry) return;
@@ -159,10 +233,9 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
     updateEntryStatus(entry.id, "uploaded");
     setSelectedN(null);
     resetTranslation();
+    resetCorrection();
     setActiveTab("transcription");
   }
-
-  const isTranscribed = entry?.status === "transcribed" || entry?.status === "corrected";
 
   // The content of one text tab
   function renderTab(tab: WorkspaceTab) {
@@ -178,6 +251,14 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
             onSaveLine={handleSaveLine}
             onTranscribe={handleTranscribe}
             error={transcribeError}
+            suggestions={suggestions}
+            isCorrecting={isCorrecting}
+            correctError={correctError}
+            noCorrectionsFound={noCorrectionsFound}
+            onRetryCorrection={() => void handleRunCorrection()}
+            onDismissNoCorrections={() => setNoCorrectionsFound(false)}
+            onAcceptSuggestion={handleAcceptSuggestion}
+            onRejectSuggestion={handleRejectSuggestion}
           />
         );
       case "translation":
@@ -260,6 +341,36 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
           </button>
         )}
 
+        <button
+          type="button"
+          onClick={() => void handleRunCorrection()}
+          aria-disabled={!isTranscribed || isCorrecting}
+          aria-describedby={!isTranscribed ? "correct-hint" : undefined}
+          title={isTranscribed ? undefined : "Transcribe the manuscript first"}
+          className={`${isTranscribed ? "" : "ml-auto "}inline-flex h-9 items-center gap-1.5 rounded-mt-md border border-mt-border-strong bg-mt-raised px-3.5 text-sm font-medium text-mt-text hover:bg-mt-hover aria-disabled:hover:bg-mt-raised ${
+            isCorrecting
+              ? "cursor-wait opacity-60"
+              : !isTranscribed
+                ? "cursor-not-allowed opacity-40"
+                : ""
+          }`}
+        >
+          {isCorrecting ? (
+            <span
+              className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent"
+              aria-hidden="true"
+            />
+          ) : (
+            <SpellCheck className="h-4 w-4" aria-hidden="true" />
+          )}
+          {isCorrecting ? "Checking transcription…" : "Run correction model"}
+        </button>
+        {!isTranscribed && (
+          <span id="correct-hint" className="sr-only">
+            Transcribe the manuscript first
+          </span>
+        )}
+
         {isTranscribed && (
           <button
             type="button"
@@ -284,7 +395,7 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
           type="button"
           disabled
           title="Available once the page is transcribed"
-          className={`${isTranscribed ? "" : "ml-auto "}inline-flex h-9 items-center gap-1.5 rounded-mt-md bg-mt-accent px-3.5 text-sm font-medium text-mt-accent-fg disabled:cursor-not-allowed disabled:opacity-40`}
+          className="inline-flex h-9 items-center gap-1.5 rounded-mt-md bg-mt-accent px-3.5 text-sm font-medium text-mt-accent-fg disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Download className="h-4 w-4" aria-hidden="true" />
           Export

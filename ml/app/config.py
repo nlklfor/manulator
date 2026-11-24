@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # a Claude model, or "local:gemma-4-12b-it" / "local:qwen3.5-9b" for a free model on our GPU (see services/classification.py)
     classifier_model: str = "claude-haiku-5-5"
 
+    # The correction model that fixes OCR errors in the transcribed text (CORRECTION_MODEL in ml/.env)
+    correction_model: str = "RomanoAISPEC/byt5-small-latin-correction_v3"
+
     # Claude API key, needed for Claude models
     anthropic_api_key: str | None = None
 

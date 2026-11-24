@@ -1,3 +1,4 @@
+from services.correction import run_correction
 from services.segmentation import run_segmentation
 from services.transcription import run_transcription
 from services.translation import run_translation
@@ -25,6 +26,7 @@ class Task:
         self.dependencies = {
             "Detect Lines": [],
             "Transcribe": ["Detect Lines"],
+            "Correct": ["Detect Lines", "Transcribe"],
             "Translate": ["Detect Lines", "Transcribe"],
             "Summarize": ["Detect Lines", "Transcribe", "Translate"]
         }
@@ -38,6 +40,7 @@ class Pipeline:
         self.actions = {
             "Detect Lines": run_segmentation,
             "Transcribe": run_transcription,
+            "Correct": run_correction,
             "Translate": run_translation,
             "Summarize": None
         }

@@ -57,7 +57,7 @@ def combine_lines(lines: list[dict]) -> str:
 # A LLM splits the full text into sentences
 # The model is fine tuned on Latin and English,
 # so it can handle medieval Latin and the English translation.
-def split_into_sentences(text: str, model, tokenizer, window = 250, stride = 150, threshold = 0.6) -> list[str]:
+def split_into_sentences(text: str, model, tokenizer, window = 250, stride = 150, threshold = 0.5) -> list[str]:
     words = text.split()
 
     if not words:

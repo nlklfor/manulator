@@ -39,6 +39,20 @@ class ManuscriptTranscriptResponse(BaseModel):
     message: str | None
 
 
+class ManuscriptCorrectionResponse(BaseModel):
+    manuscript_id: str
+    corrected_lines: dict
+    success: bool
+    message: str | None
+
+
+class ManuscriptCorrectionPlan(BaseModel):
+    lines: list[dict]
+    manuscript_id: str
+    plan: str = "Correct"
+    type: str = "lines"
+
+
 class TranslationPlan(BaseModel):
     plan: str = "Translate"
     target_language: str = "English"

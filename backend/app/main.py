@@ -5,6 +5,7 @@ from app.config import settings
 from app.routers import (
     auth,
     manuscripts,
+    manuscripts_correction,
     manuscripts_transcription,
     manuscripts_translation,
     password,
@@ -26,6 +27,8 @@ app.include_router(password.router, prefix="/api")
 app.include_router(manuscripts_transcription.router, prefix="/api")
 
 app.include_router(manuscripts_translation.router, prefix="/api")
+
+app.include_router(manuscripts_correction.router, prefix="/api")
 
 
 @app.get("/")
