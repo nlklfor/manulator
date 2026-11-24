@@ -14,6 +14,11 @@ export interface LibraryEntry {
   id: string;
   fileName: string; // the title of the manuscript
   documentType: string; // e.g. "Charter", "Letter"
+  // Classes of the page, checked by the user at upload; null = unknown
+  century?: string | null; // e.g. "13th century"
+  script?: string | null; // e.g. "Textualis"
+  language?: string | null; // e.g. "Latin"
+  region?: string | null; // e.g. "Upper Rhine"
   fileType: string;
   previewUrl: string;
   status: UploadStatus;

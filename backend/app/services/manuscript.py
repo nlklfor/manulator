@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 
 import httpx
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from postgrest import APIError
 from storage3.utils import StorageException
 
@@ -16,12 +16,50 @@ from app.schemas.manuscript import (
     ManuscriptProcessPlan,
     ManuscriptTranscriptResponse,
     ManuscriptTranslationResponse,
+    PageClasses,
     TranslationPlan,
 )
 from app.services.bucket import delete_file, download_file, upload_file
 from app.services.database import get_admin_client
+from app.services.images import PageError, content_type_of, is_supported, to_page_image
 
 logger = logging.getLogger(__name__)
+
+
+# Asks the ML service what kind of page this is, before it is uploaded.
+# The user sees the suggestions in the upload form and can change them.
+async def classify_file(file: UploadFile) -> PageClasses:
+    content_type = content_type_of(file.content_type, file.filename)
+    if not is_supported(content_type):
+        raise HTTPException(415, f"Unsupported file type: {content_type}")
+    limit = settings.max_upload_mb * 1024 * 1024
+    data = file.file.read(limit + 1)
+    if len(data) > limit:
+        raise HTTPException(413, f"File exceeds the {settings.max_upload_mb} MB limit")
+
+    # Like the upload: the first page of a PDF, other images (e.g. TIFF) as PNG
+    try:
+        data, content_type = to_page_image(data, content_type)
+    except PageError as error:
+        raise HTTPException(422, str(error)) from error
+
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        try:
+            response = await client.post(
+                f"{settings.ml_service_url}/api/process-manuscripts/classify",
+                files={"file": (file.filename or "page", data, content_type)},
+            )
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            logger.warning("Classifying the page failed: %s", exc)
+            raise HTTPException(502, "Could not detect the classes.") from exc
+
+    # "unknown" becomes None, so the form shows an empty field for the user to fill in
+    answer = {
+        name: None if str(value).strip().lower() == "unknown" else value
+        for name, value in response.json().items()
+    }
+    return PageClasses.model_validate(answer)
 
 
 @dataclass

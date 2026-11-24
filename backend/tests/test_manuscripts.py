@@ -73,6 +73,51 @@ def test_upload_pdf_stores_first_page_as_png(client, fake_supabase):
     assert body["filename"] == "book.png"
 
 
+# A 16-bit greyscale TIFF, like many archive scans: browsers cannot show it
+def make_tiff() -> bytes:
+    buffer = io.BytesIO()
+    Image.new("I;16", (40, 30), 40000).save(buffer, format="TIFF")
+    return buffer.getvalue()
+
+
+def test_upload_tiff_is_stored_as_png(client, fake_supabase):
+    response = upload(client, "scan.tif", make_tiff(), "image/tiff")
+
+    assert response.status_code == 201
+    page = fake_supabase.tables["manuscript_files"][-1]
+    assert page["content_type"] == "image/png"
+    assert page["file_name"] == "scan.png"
+    image = Image.open(io.BytesIO(fake_supabase.files[page["storage_path"]]))
+    assert image.format == "PNG"
+    assert image.size == (40, 30)
+    assert image.convert("L").tobytes()[0] == 40000 // 256  # grey kept, not white
+
+
+def test_upload_image_without_type_is_recognised_by_name(client, fake_supabase):
+    # Some browsers send no type for TIFF: the file name tells it
+    response = upload(client, "scan.tiff", make_tiff(), "application/octet-stream")
+
+    assert response.status_code == 201
+    assert fake_supabase.tables["manuscript_files"][-1]["content_type"] == "image/png"
+
+
+def test_upload_webp_is_kept(client, fake_supabase):
+    buffer = io.BytesIO()
+    Image.new("RGB", (10, 10), "white").save(buffer, format="WEBP")
+
+    response = upload(client, "page.webp", buffer.getvalue(), "image/webp")
+
+    assert response.status_code == 201
+    assert fake_supabase.tables["manuscript_files"][-1]["content_type"] == "image/webp"
+
+
+def test_upload_broken_image_is_rejected(client, saved_files):
+    response = upload(client, "scan.tif", b"not an image", "image/tiff")
+
+    assert response.status_code == 422
+    assert saved_files == {}
+
+
 def test_upload_broken_pdf_is_rejected(client, saved_files):
     response = upload(client, "broken.pdf", b"this is not a pdf", "application/pdf")
 
@@ -153,6 +198,10 @@ def test_update_title_and_document_type(client, fake_supabase):
         "id": MANUSCRIPT_ID,
         "title": "New name",  # trimmed
         "document_type": "Legal",
+        "century": None,
+        "script": None,
+        "language": None,
+        "region": None,
     }
     saved = fake_supabase.tables["manuscripts"][0]
     assert saved["title"] == "New name"
@@ -371,3 +420,145 @@ def test_process_other_users_manuscript_is_not_found(
 
     assert response.status_code == 404
     assert requests == []  # the file is never sent to the ML service
+
+
+# ---------- Classes of a page (century, script, language, region) ----------
+
+
+def test_upload_saves_classes(client, fake_supabase):
+    response = client.post(
+        URL,
+        files={"file": ("page.png", b"png bytes", "image/png")},
+        data={
+            "title": "Letter",
+            "document_type": "Charter",
+            "century": " 14th century ",
+            "script": "Cursiva",
+            "language": "Latin",
+            "region": "",  # left empty by the user
+        },
+    )
+
+    assert response.status_code == 201
+    saved = fake_supabase.tables["manuscripts"][-1]
+    assert saved["century"] == "14th century"  # trimmed
+    assert saved["script"] == "Cursiva"
+    assert saved["language"] == "Latin"
+    assert saved["region"] is None  # empty is saved as unknown
+    assert response.json()["century"] == "14th century"
+
+
+def test_upload_without_classes_still_works(client, fake_supabase):
+    response = upload(client, "page.png", b"png bytes", "image/png")
+
+    assert response.status_code == 201
+    assert fake_supabase.tables["manuscripts"][-1]["century"] is None
+
+
+def test_list_includes_classes(client, fake_supabase):
+    fake_supabase.tables["manuscripts"][0]["script"] = "Textualis"
+
+    [manuscript] = client.get(URL).json()
+
+    assert manuscript["script"] == "Textualis"
+    assert manuscript["century"] is None  # never set
+
+
+def test_update_classes(client, fake_supabase):
+    fake_supabase.tables["manuscripts"][0]["region"] = "France"
+
+    response = client.patch(
+        f"{URL}/{MANUSCRIPT_ID}", json={"century": "13th century", "region": ""}
+    )
+
+    assert response.status_code == 200
+    saved = fake_supabase.tables["manuscripts"][0]
+    assert saved["century"] == "13th century"
+    assert saved["region"] is None  # "" clears it
+    assert saved["title"] == "Letter"  # unchanged
+
+
+def test_update_rejects_too_long_class(client, fake_supabase):
+    response = client.patch(f"{URL}/{MANUSCRIPT_ID}", json={"script": "x" * 101})
+
+    assert response.status_code == 422
+
+
+CLASSIFIER_ANSWER = {
+    "century": "14th century",
+    "script": "Cursiva",
+    "language": "Latin",
+    "region": "unknown",
+    "document_type": "Charter",
+}
+
+
+def test_classify_returns_suggestions(client, fake_ml_service):
+    requests = fake_ml_service(
+        lambda request: httpx.Response(200, json=CLASSIFIER_ANSWER)
+    )
+
+    response = client.post(
+        f"{URL}/classify", files={"file": ("page.png", b"png bytes", "image/png")}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {**CLASSIFIER_ANSWER, "region": None}  # unknown -> empty
+    assert str(requests[0].url).endswith("/api/process-manuscripts/classify")
+
+
+def test_classify_sends_first_page_of_pdf_as_png(client, fake_ml_service):
+    requests = fake_ml_service(
+        lambda request: httpx.Response(200, json=CLASSIFIER_ANSWER)
+    )
+
+    response = client.post(
+        f"{URL}/classify", files={"file": ("doc.pdf", make_pdf(), "application/pdf")}
+    )
+
+    assert response.status_code == 200
+    assert b"image/png" in requests[0].content
+
+
+def test_classify_sends_tiff_as_png(client, fake_ml_service):
+    requests = fake_ml_service(
+        lambda request: httpx.Response(200, json=CLASSIFIER_ANSWER)
+    )
+
+    response = client.post(
+        f"{URL}/classify", files={"file": ("scan.tif", make_tiff(), "image/tiff")}
+    )
+
+    assert response.status_code == 200
+    assert b"image/png" in requests[0].content
+
+
+def test_classify_ml_service_fails(client, fake_ml_service):
+    fake_ml_service(lambda request: httpx.Response(502, json={"detail": "model down"}))
+
+    response = client.post(
+        f"{URL}/classify", files={"file": ("page.png", b"png bytes", "image/png")}
+    )
+
+    assert response.status_code == 502
+
+
+def test_classify_rejects_unsupported_type(client, fake_ml_service):
+    requests = fake_ml_service(
+        lambda request: httpx.Response(200, json=CLASSIFIER_ANSWER)
+    )
+
+    response = client.post(
+        f"{URL}/classify", files={"file": ("a.txt", b"x", "text/plain")}
+    )
+
+    assert response.status_code == 415
+    assert requests == []
+
+
+def test_classify_requires_login():
+    response = TestClient(app).post(
+        f"{URL}/classify", files={"file": ("page.png", b"png bytes", "image/png")}
+    )
+
+    assert response.status_code in (401, 403)

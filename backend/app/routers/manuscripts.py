@@ -8,6 +8,7 @@ from app.schemas.manuscript import (
     ManuscriptResponse,
     ManuscriptUpdate,
     ManuscriptUpdateResponse,
+    PageClasses,
     UploadResponse,
 )
 from app.services import manuscript, storage
@@ -26,9 +27,30 @@ def upload_manuscript(
     file: UploadFile,
     title: str = Form(),
     document_type: str = Form(),  # e.g. "Charter", "Register", "Letter"
+    # Optional classes of the page, checked by the user in the upload form
+    century: str | None = Form(None),
+    script: str | None = Form(None),
+    language: str | None = Form(None),
+    region: str | None = Form(None),
     user_id: str = Depends(get_current_user_id),
 ):
-    return storage.save_upload(file, user_id, title, document_type)
+    classes = PageClasses(
+        document_type=document_type,
+        century=century,
+        script=script,
+        language=language,
+        region=region,
+    )
+    return storage.save_upload(file, user_id, title, classes)
+
+
+# Suggests the classes of a page (century, script, language, region, document type)
+# before it is uploaded. The upload form shows them so the user can check and edit them.
+@router.post("/classify", response_model=PageClasses)
+async def classify_manuscript(
+    file: UploadFile, user_id: str = Depends(get_current_user_id)
+):
+    return await manuscript.classify_file(file)
 
 
 @router.patch("/{manuscript_id}", response_model=ManuscriptUpdateResponse)

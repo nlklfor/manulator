@@ -3,26 +3,34 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
-class UploadResponse(BaseModel):
+# Classes of a page: suggested by the classifier, then checked and edited by the user.
+# None = unknown (the classifier could not tell, or the user left it empty).
+class PageClasses(BaseModel):
+    document_type: str | None = None  # e.g. "Charter"
+    century: str | None = None  # e.g. "13th century"
+    script: str | None = None  # e.g. "Textualis"
+    language: str | None = None  # e.g. "Latin"
+    region: str | None = None  # e.g. "Upper Rhine"
+
+
+# document_type (from PageClasses) is always filled for a saved manuscript
+class UploadResponse(PageClasses):
     id: str  # manuscript id, used to delete the manuscript
     title: str
-    document_type: str
     filename: str
     content_type: str
     size: int
     url: str
 
 
-# Body of PATCH: send only the fields that should change
-class ManuscriptUpdate(BaseModel):
+# Body of PATCH: send only the fields that should change ("" clears a class)
+class ManuscriptUpdate(PageClasses):
     title: str | None = None
-    document_type: str | None = None
 
 
-class ManuscriptUpdateResponse(BaseModel):
+class ManuscriptUpdateResponse(PageClasses):
     id: str
     title: str
-    document_type: str
 
 
 class ManuscriptProcessPlan(BaseModel):

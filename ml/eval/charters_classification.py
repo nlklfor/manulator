@@ -16,6 +16,7 @@ from pathlib import Path
 from eval.clamm_classification import centuries_in, century_of
 from app.config import settings
 from services.classification import get_classifier
+from services.llm import QuotaUsedUp
 
 
 PAGES_FOLDER = Path(__file__).resolve().parent.parent / "test_pages" / "charters"
@@ -44,8 +45,11 @@ def main():
         image = (PAGES_FOLDER / f"{file}.jpg").read_bytes()  # sent unchanged, like a user upload
         try:
             answer = classify(image, "image/jpeg")
+        except QuotaUsedUp as error:  # no point asking about the other pages
+            print(start, f"STOPPED: {error}"[:150], flush=True)
+            break
         except Exception as error:
-            print(start, f"FAILED: {error}"[:150])
+            print(start, f"FAILED: {error}"[:150], flush=True)
             continue
 
         century_right = centuries_in(answer.century) == {century_of(int(year))}
@@ -54,7 +58,7 @@ def main():
         score["document_type"] += answer.document_type == "Charter"
         mark = "✓" if century_right else "✗"
         print(start, f"{answer.century[:15]:<15}{mark} {answer.script:<14}{answer.language[:9]:<10}"
-                     f"{answer.document_type:<10}{answer.region[:45]}")
+                     f"{answer.document_type:<10}{answer.region[:45]}", flush=True)  # show it at once, even in a log file
 
     totals = ", ".join(f"{field} {points}/{len(pages)}" for field, points in score.items())
     print(f"\n{model_name}: {totals}")

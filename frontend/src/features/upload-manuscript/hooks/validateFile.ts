@@ -1,16 +1,26 @@
 import type { UploadError } from "../types/upload";
 
-export const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/png", "application/pdf"];
-export const ACCEPTED_FILE_HINT = "JPG, PNG or PDF · up to 20 MB per file";
+// Any image (JPG, PNG, TIFF, WebP, BMP, JPEG 2000...) or a PDF. Images that browsers cannot
+// show, such as TIFF, are converted to PNG by the backend; of a PDF only the first page is kept.
+export const ACCEPTED_FILE_TYPES = ["image/*", "application/pdf", ".tif", ".tiff", ".jp2"];
+export const ACCEPTED_FILE_HINT = "Images (JPG, PNG, TIFF…) or PDF · up to 20 MB per file";
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+// Some browsers send no type for these, so they are recognised by their extension
+const IMAGE_EXTENSIONS = ["tif", "tiff", "jp2", "j2k", "jpf", "jpx", "bmp", "webp", "avif"];
+
+export function isAcceptedFile(file: File): boolean {
+  if (file.type.startsWith("image/") || file.type === "application/pdf") return true;
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return file.type === "" && IMAGE_EXTENSIONS.includes(ext);
+}
 
 export function validateFile(file: File): UploadError | null {
-  if (!ACCEPTED_FILE_TYPES.includes(file.type)) {
+  if (!isAcceptedFile(file)) {
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "unknown";
     return {
       fileName: file.name,
       reason: "invalid-type",
-      message: `${ext} files are not supported. Please upload a JPG, PNG or PDF file.`,
+      message: `${ext} files are not supported. Please upload an image (JPG, PNG, TIFF…) or a PDF.`,
     };
   }
 
