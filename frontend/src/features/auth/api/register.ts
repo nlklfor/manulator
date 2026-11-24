@@ -4,6 +4,7 @@ const REGISTER_ENDPOINT = "/api/auth/register";
 
 export interface RegistrationFormData {
   display_name: string;
+  username: string;
   email: string;
   password: string;
 }

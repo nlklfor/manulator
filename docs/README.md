@@ -7,3 +7,4 @@
 - [AI model research](research/ai-model-research.md)
 - [Database](database.md)
 - [Workspace page (frontend)](frontend-workspace.md)
+- [Sharing (frontend)](frontend-sharing.md)

@@ -31,7 +31,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       } catch {
         // If the profile cannot be loaded, fall back to the email in the token
         const user = getTokenClaims();
-        loaded = user ? { ...user, display_name: null, avatar_url: null } : null;
+        loaded = user ? { ...user, display_name: null, avatar_url: null, username: null } : null;
       }
       if (cancelled) return;
 

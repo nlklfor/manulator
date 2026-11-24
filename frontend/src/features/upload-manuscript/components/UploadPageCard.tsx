@@ -9,7 +9,7 @@ import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Toast } from "@/components/ui/Toast";
-import { Search, Upload, X } from "lucide-react";
+import { Search, Upload, Users, X } from "lucide-react";
 import { Segmented } from "@/components/ui/Segmented";
 import { useStatusFilter } from "../hooks/useStatusFilter";
 import { folderOf, parseFolder } from "../constants/folders";
@@ -54,6 +54,9 @@ export function UploadPageCard() {
   // Name search — filters by filename, stacked on top of sort + status filter
   const [nameQuery, setNameQuery] = useState("");
 
+  // "Shared with me": only copies received from other users, on top of the other filters
+  const [sharedOnly, setSharedOnly] = useState(false);
+
   // Hidden file input for the "Upload page" button in the header
   const headerInputRef = useRef<HTMLInputElement>(null);
 
@@ -64,6 +67,10 @@ export function UploadPageCard() {
   const folderEntries = openFolder
     ? libraryEntries.filter((entry) => folderOf(entry.documentType) === openFolder)
     : libraryEntries;
+  const scopedEntries = sharedOnly
+    ? folderEntries.filter((entry) => entry.sharedByUsername)
+    : folderEntries;
+  const sharedCount = folderEntries.filter((entry) => entry.sharedByUsername).length;
 
   function handleDeleted(id: string, success: boolean, message: string) {
     if (success) {
@@ -85,9 +92,9 @@ export function UploadPageCard() {
   // ── Sort ──────────────────────────────────────────────────────────────────
   const sortedEntries = (() => {
     if (sort === "name")
-      return [...folderEntries].sort((a, b) => a.fileName.localeCompare(b.fileName));
-    if (sort === "oldest") return [...folderEntries].reverse();
-    return [...folderEntries]; // "newest" = list order
+      return [...scopedEntries].sort((a, b) => a.fileName.localeCompare(b.fileName));
+    if (sort === "oldest") return [...scopedEntries].reverse();
+    return [...scopedEntries]; // "newest" = list order
   })();
 
   // ── Status filter ─────────────────────────────────────────────────────────
@@ -235,13 +242,33 @@ export function UploadPageCard() {
               )}
             </div>
 
-            {/* Status filter chips */}
-            <Segmented
-              ariaLabel="Filter pages by status"
-              options={filterOptions}
-              value={statusFilter}
-              onChange={setStatusFilter}
-            />
+            {/* Status filter chips + "Shared with me" */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Segmented
+                ariaLabel="Filter pages by status"
+                options={filterOptions}
+                value={statusFilter}
+                onChange={setStatusFilter}
+              />
+              <button
+                type="button"
+                aria-pressed={sharedOnly}
+                onClick={() => setSharedOnly((current) => !current)}
+                className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-accent ${
+                  sharedOnly
+                    ? "border-mt-text bg-mt-text text-mt-bg"
+                    : "border-mt-border-strong bg-mt-surface text-mt-text hover:bg-mt-hover"
+                }`}
+              >
+                <Users className="h-3.5 w-3.5" aria-hidden="true" />
+                Shared with me
+                <span
+                  className={`font-mono text-xs ${sharedOnly ? "text-mt-bg/80" : "text-mt-text-subtle"}`}
+                >
+                  {sharedCount}
+                </span>
+              </button>
+            </div>
 
             {displayedEntries.length > 0 ? (
               <ManuscriptLibrary
@@ -254,11 +281,13 @@ export function UploadPageCard() {
                 <p className="text-sm text-mt-text-muted">
                   {folderEntries.length === 0
                     ? `No manuscripts in "${openFolder}" yet`
-                    : nameQuery && statusFilter !== "all"
-                      ? `No "${activeFilterLabel}" pages match "${nameQuery}"`
-                      : nameQuery
-                        ? `No pages match "${nameQuery}"`
-                        : `No pages with status "${activeFilterLabel}"`}
+                    : sharedOnly && scopedEntries.length === 0
+                      ? "Nobody has shared a manuscript with you yet"
+                      : nameQuery && statusFilter !== "all"
+                        ? `No "${activeFilterLabel}" pages match "${nameQuery}"`
+                        : nameQuery
+                          ? `No pages match "${nameQuery}"`
+                          : `No pages with status "${activeFilterLabel}"`}
                 </p>
                 {folderEntries.length === 0 && (
                   <Link
@@ -268,18 +297,20 @@ export function UploadPageCard() {
                     Show all pages
                   </Link>
                 )}
-                {folderEntries.length > 0 && (nameQuery || statusFilter !== "all") && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNameQuery("");
-                      setStatusFilter("all");
-                    }}
-                    className="mt-3 text-sm font-medium text-mt-accent-text underline underline-offset-2 hover:text-mt-accent-hover"
-                  >
-                    Clear filters
-                  </button>
-                )}
+                {folderEntries.length > 0 &&
+                  (nameQuery || statusFilter !== "all" || sharedOnly) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNameQuery("");
+                        setStatusFilter("all");
+                        setSharedOnly(false);
+                      }}
+                      className="mt-3 text-sm font-medium text-mt-accent-text underline underline-offset-2 hover:text-mt-accent-hover"
+                    >
+                      Clear filters
+                    </button>
+                  )}
               </div>
             )}
           </div>

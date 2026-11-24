@@ -5,6 +5,7 @@ import { CircleAlert } from "lucide-react";
 import PasswordField from "@/features/auth/components/PasswordField";
 import PasswordRequirements from "@/features/auth/components/PasswordRequirements";
 import TextField from "@/features/auth/components/TextField";
+import UsernameRequirements from "@/features/auth/components/UsernameRequirements";
 import { DUPLICATE_EMAIL_MESSAGE } from "@/features/auth/constants/registration";
 import { useRegistrationForm } from "@/features/auth/hooks/useRegistrationForm";
 
@@ -47,6 +48,21 @@ export default function RegistrationForm() {
         value={values.displayName}
         error={errors.displayName}
       />
+
+      <TextField
+        {...fieldProps}
+        id="register-username"
+        name="username"
+        label="Username"
+        autoComplete="username"
+        autoCapitalize="none"
+        spellCheck={false}
+        value={values.username}
+        error={errors.username}
+        describedById="register-username-rules"
+      >
+        <UsernameRequirements id="register-username-rules" username={values.username} />
+      </TextField>
 
       <TextField
         {...fieldProps}

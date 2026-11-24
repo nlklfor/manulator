@@ -1,6 +1,8 @@
 import { AccountCard } from "@/features/profile/components/AccountCard";
 import { AvatarCard } from "@/features/profile/components/AvatarCard";
 import { DisplayNameCard } from "@/features/profile/components/DisplayNameCard";
+import { MissingUsernameBanner } from "@/features/profile/components/MissingUsernameBanner";
+import { UsernameCard } from "@/features/profile/components/UsernameCard";
 
 export default function ProfilePage() {
   return (
@@ -12,8 +14,10 @@ export default function ProfilePage() {
         </p>
       </header>
       <div className="flex max-w-[800px] flex-col gap-5 px-10 pb-10">
+        <MissingUsernameBanner />
         <AvatarCard />
         <DisplayNameCard />
+        <UsernameCard />
         <AccountCard />
       </div>
     </main>
