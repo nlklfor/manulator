@@ -39,6 +39,8 @@ def run_transcription(data: dict, options: dict | None = None, out_dir=None) -> 
     model = models.load_any(str(download_model()), device="cpu")
     lines = []
     for path in sorted(lines_dir.glob("*.png")):
+        #TODO: Read the confidence values from the kraken model
+        # compute the confidence word wise
         text = read_line(model, Image.open(path))
         lines.append(TranscribedLine(index=int(path.stem), text=text))
 

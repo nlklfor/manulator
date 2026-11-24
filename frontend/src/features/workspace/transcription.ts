@@ -12,6 +12,7 @@ export function toTranscriptionLines(
     .map((line) => ({
       n: line.index + 1,
       text: line.text,
+      originalText: line.original_text ?? null,
       // PyLaia does not report a confidence yet
       confidence: null,
       lowConfWords: [],

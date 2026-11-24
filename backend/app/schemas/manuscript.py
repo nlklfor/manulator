@@ -39,6 +39,20 @@ class ManuscriptTranscriptResponse(BaseModel):
     message: str | None
 
 
+class ManuscriptCorrectionResponse(BaseModel):
+    manuscript_id: str
+    corrected_lines: dict
+    success: bool
+    message: str | None
+
+
+class ManuscriptCorrectionPlan(BaseModel):
+    lines: list[dict]
+    manuscript_id: str
+    plan: str = "Correct"
+    type: str = "lines"
+
+
 class TranslationPlan(BaseModel):
     plan: str = "Translate"
     target_language: str = "English"
@@ -60,6 +74,8 @@ class LineCorrectionResponse(BaseModel):
     manuscript_id: str
     index: int  # same line index as in the transcription (reading order)
     text: str
+    # The model's reading of the line, None if the text is the model's reading
+    original_text: str | None = None
     status: str
 
 

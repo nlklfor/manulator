@@ -14,6 +14,18 @@ class ManuscriptProcessResponse(BaseModel):
     success: bool = False
     message: str|None = None
 
+class ManuscriptCorrectionResponse(BaseModel):
+    manuscript_id: str
+    corrected_lines: dict
+    success: bool = False
+    message: str|None = None
+
+class ManuscriptCorrectionPlan(BaseModel):
+    lines: list[dict]
+    manuscript_id: str
+    plan: str = "Correct"
+    type: str = "lines"
+
 class ManuscriptTranslationResponse(BaseModel):
     manuscript_id: str
     translated_lines: list[dict]  # list of dicts with "index" and "text"
