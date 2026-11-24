@@ -6,3 +6,9 @@ output
 sandbox
 uploads
 .env
+# Downloaded models, datasets and test results: large, and not needed in the image,
+# because docker compose mounts ./ml over /app (the models are downloaded into ml/models when needed)
+models
+data
+results
+test_pages
