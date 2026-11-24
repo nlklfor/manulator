@@ -11,6 +11,11 @@ import {
   PASSWORD_SPECIAL_CHARACTERS,
   RATE_LIMIT_MESSAGE,
 } from "@/features/auth/constants/registration";
+import {
+  USERNAME_TAKEN_MESSAGE,
+  normalizeUsername,
+  validateUsername,
+} from "@/features/auth/username";
 import type {
   PasswordRule,
   RegistrationApiErrors,
@@ -67,6 +72,11 @@ export function validateRegistration(values: RegistrationValues): RegistrationEr
     errors.displayName = `Use at most ${DISPLAY_NAME_MAX_LENGTH} characters.`;
   }
 
+  const usernameError = validateUsername(normalizeUsername(values.username));
+  if (usernameError) {
+    errors.username = usernameError;
+  }
+
   if (!email) {
     errors.email = "Enter your email address.";
   } else if (!EMAIL_PATTERN.test(email)) {
@@ -96,6 +106,7 @@ export function validateRegistration(values: RegistrationValues): RegistrationEr
 
 const API_FIELD_NAMES: Record<string, RegistrationField> = {
   display_name: "displayName",
+  username: "username",
   email: "email",
   password: "password",
 };
@@ -127,8 +138,11 @@ export function getRegistrationApiErrors(error: unknown): RegistrationApiErrors 
   }
 
   switch (error.status) {
+    // 409 is a taken email or a taken username; the backend's message says which
     case 409:
-      return { fieldErrors: { email: DUPLICATE_EMAIL_MESSAGE }, formError: null };
+      return String(error.detail).toLowerCase().includes("username")
+        ? { fieldErrors: { username: USERNAME_TAKEN_MESSAGE }, formError: null }
+        : { fieldErrors: { email: DUPLICATE_EMAIL_MESSAGE }, formError: null };
     case 422: {
       const fieldErrors = getValidationFieldErrors(error.detail);
       return hasErrors(fieldErrors)

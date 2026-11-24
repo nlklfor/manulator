@@ -9,6 +9,7 @@ import { folderColor, folderOf } from "@/features/upload-manuscript/constants/fo
 import { deleteManuscript } from "@/features/upload-manuscript/api/deleteManuscripts";
 import type { UploadDetails } from "@/features/upload-manuscript/api/uploadImage";
 import { EditManuscriptDialog } from "./EditManuscriptDialog";
+import { SharedByBadge } from "@/features/sharing/components/SharedByBadge";
 
 interface ManuscriptCardProps {
   entry: LibraryEntry;
@@ -90,8 +91,9 @@ export function ManuscriptCard({ entry, onDeleted, onEdit }: ManuscriptCardProps
           </p>
         )}
       </Link>
-      <div className="px-2.5 pb-2.5">
+      <div className="flex flex-col items-start gap-1 px-2.5 pb-2.5">
         <StatusBadge status={entry.status} className="mt-1.5" />
+        <SharedByBadge username={entry.sharedByUsername} />
       </div>
 
       {/* Edit and delete buttons: top right, shown on hover or keyboard focus (always on touch

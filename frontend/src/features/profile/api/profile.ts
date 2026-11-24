@@ -5,7 +5,7 @@ import { clearAuthToken, getAuthToken, getTokenClaims } from "@/lib/auth/session
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-const COLUMNS = "id,email,display_name,avatar_url";
+const COLUMNS = "id,email,display_name,avatar_url,username";
 const AVATAR_BUCKET = "avatars";
 
 export interface Profile {
@@ -13,6 +13,15 @@ export interface Profile {
   email: string;
   display_name: string | null;
   avatar_url: string | null;
+  username: string | null; // null for accounts created before sharing existed
+}
+
+// Thrown when a profile request fails; status tells why (409 = username taken)
+export class ProfileRequestError extends Error {
+  constructor(public status: number) {
+    super(`Profile request failed with status ${status}`);
+    this.name = "ProfileRequestError";
+  }
 }
 
 function getSession() {
@@ -53,7 +62,7 @@ async function profileRequest(init?: RequestInit): Promise<Profile> {
 
   handleExpiredToken(response);
   if (!response.ok) {
-    throw new Error(`Profile request failed with status ${response.status}`);
+    throw new ProfileRequestError(response.status);
   }
   return (await response.json()) as Profile;
 }
@@ -62,13 +71,21 @@ export function fetchProfile(): Promise<Profile> {
   return profileRequest();
 }
 
-// Saves only the given columns (the database allows display_name and avatar_url)
-function updateProfile(changes: Partial<Pick<Profile, "display_name" | "avatar_url">>) {
+// Saves only the given columns (the database allows display_name, avatar_url and username)
+function updateProfile(
+  changes: Partial<Pick<Profile, "display_name" | "avatar_url" | "username">>,
+) {
   return profileRequest({ method: "PATCH", body: JSON.stringify(changes) });
 }
 
 export function updateDisplayName(displayName: string): Promise<Profile> {
   return updateProfile({ display_name: displayName });
+}
+
+// Saves a new username. A name someone else already has fails with
+// ProfileRequestError status 409 (the database's unique index).
+export function updateUsername(username: string): Promise<Profile> {
+  return updateProfile({ username });
 }
 
 /**

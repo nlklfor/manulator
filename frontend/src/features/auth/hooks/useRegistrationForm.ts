@@ -1,6 +1,7 @@
 import { useState, type ChangeEvent, type FocusEvent, type SubmitEvent } from "react";
 import { useRouter } from "next/navigation";
 import { registerUser } from "@/features/auth/api/register";
+import { normalizeUsername } from "@/features/auth/username";
 import {
   getRegistrationApiErrors,
   hasErrors,
@@ -16,6 +17,7 @@ type TouchedFields = Partial<Record<RegistrationField, boolean>>;
 
 const EMPTY_VALUES: RegistrationValues = {
   displayName: "",
+  username: "",
   email: "",
   password: "",
   confirmPassword: "",
@@ -62,6 +64,7 @@ export function useRegistrationForm() {
     try {
       await registerUser({
         display_name: values.displayName.trim(),
+        username: normalizeUsername(values.username),
         email: values.email.trim(),
         password: values.password,
       });

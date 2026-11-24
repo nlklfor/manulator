@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { loginUrlFor } from "@/lib/auth/redirect";
 import { PUBLIC_ROUTES, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 
 /**
@@ -56,9 +57,10 @@ export default async function proxy(req: NextRequest) {
   const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
   const isAuthenticated = isValidSession(token);
 
-  // 3. Redirect to /auth if the user is not authenticated on a protected route
+  // 3. Redirect to /auth if the user is not authenticated on a protected route.
+  // ?next= remembers the page, so login can bring the user back (e.g. a share link).
   if (!isPublicRoute && !isAuthenticated) {
-    return NextResponse.redirect(new URL("/auth", req.nextUrl));
+    return NextResponse.redirect(new URL(loginUrlFor(path + req.nextUrl.search), req.nextUrl));
   }
 
   // 4. Redirect to / if the user is already authenticated on a public route.

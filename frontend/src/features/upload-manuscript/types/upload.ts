@@ -23,6 +23,7 @@ export interface LibraryEntry {
   previewUrl: string;
   status: UploadStatus;
   transcription?: TranscribedLine[] | null;
+  sharedByUsername?: string | null; // set on copies received from another user
 }
 
 // One line of a saved transcription, as the backend sends it.

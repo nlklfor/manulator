@@ -32,9 +32,15 @@ export function ProfileMenu({ onProfileMenu }: { onProfileMenu: boolean }) {
             <span className="truncate text-[13px] font-medium text-mt-text">
               {profile ? userName : "Loading…"}
             </span>
-            {/* Show the email below the name, unless the email already is the name */}
-            {profile && userName !== profile.email && (
-              <span className="truncate text-xs text-mt-text-subtle">{profile.email}</span>
+            {/* Below the name: the @username, or the email for accounts without one
+                (unless the email already is the name) */}
+            {profile?.username ? (
+              <span className="truncate text-xs text-mt-text-subtle">@{profile.username}</span>
+            ) : (
+              profile &&
+              userName !== profile.email && (
+                <span className="truncate text-xs text-mt-text-subtle">{profile.email}</span>
+              )
             )}
           </span>
         </MenuButton>
