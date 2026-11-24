@@ -14,7 +14,14 @@ Content-Type: application/json
     {"index": 1, "text": "Ego Carolus, rex Francorum, omnibus fidelibus salutem."},
     {"index": 2, "text": "Notum sit omnibus quod monafterium sancti Galli terram accepit."},
     {"index": 3, "text": "Haec terra iuxta flumen Rhenum fita eft"},
-    {"index": 4, "text": "Abbas fratres suos ad oratlonem vocavlt"}
+    {"index": 4, "text": "Abbas fratres suos ad oratlonem vocavlt"},
+    {"index": 5, "text": "Et dixit eis: Fratres carifsimi, audite verba mea."},
+    {"index": 6, "text": "Quicumque hanc donationem infringere voluerit, anathema fit."},
+    {"index": 7, "text": "Data in menfe Maio, anno regni noftri decimo."},
+    {"index": 8, "text": "Signum Caroli gloriofiffimi regis."},
+    {"index": 9, "text": "Ego Hildebaldus cancellarius recognovi et fubfcripfi."},
+    {"index": 10, "text": "Actum in palatio publico, in Dei nornine feliciter."},
+    {"index": 11, "text": "Teftes: Odo cornes, Rotbertus et Wido."}
   ]
 }
 
