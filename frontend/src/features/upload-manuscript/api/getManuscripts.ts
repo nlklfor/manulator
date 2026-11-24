@@ -1,6 +1,6 @@
 import { apiFetch } from "@/lib/api/client";
 import { getAuthToken } from "@/lib/auth/session";
-import type { PageStatus, TranscribedLine } from "../types/upload";
+import type { PageStatus, SavedTranslation, TranscribedLine } from "../types/upload";
 import type { UploadResponse } from "./uploadImage";
 
 const MANUSCRIPTS_ENDPOINT = "/api/upload-manuscripts";
@@ -11,6 +11,8 @@ export interface ManuscriptResponse extends UploadResponse {
   // Filled once the page is transcribed, otherwise null
   transcription: TranscribedLine[] | null;
   overlay_url: string | null; // page with the lines drawn on it, valid 1 day
+  translation: SavedTranslation | null; // filled once the page is translated
+  summary: string | null; // filled once the translation is summarized
 }
 
 export async function getManuscripts(): Promise<ManuscriptResponse[]> {

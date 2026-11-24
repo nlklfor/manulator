@@ -1,4 +1,4 @@
-import { AlertCircle, Check, Circle, Loader2 } from "lucide-react";
+import { AlertCircle, Check, Circle, Languages, Loader2, ScrollText } from "lucide-react";
 import type { ReactNode } from "react";
 import { STATUS_LABELS } from "../constants/status";
 import type { UploadStatus } from "../types/upload";
@@ -27,6 +27,22 @@ const STATUS_STYLES: Record<UploadStatus, { badgeClass: string; icon: ReactNode 
   corrected: {
     badgeClass: "bg-mt-success-bg text-mt-success-fg",
     icon: <Check className="h-3 w-3" aria-hidden="true" />,
+  },
+  translating: {
+    badgeClass: "bg-mt-warning-bg text-mt-warning-fg",
+    icon: <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />,
+  },
+  translated: {
+    badgeClass: "bg-mt-accent-soft text-mt-accent-text",
+    icon: <Languages className="h-3 w-3" aria-hidden="true" />,
+  },
+  summarizing: {
+    badgeClass: "bg-mt-warning-bg text-mt-warning-fg",
+    icon: <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />,
+  },
+  summarized: {
+    badgeClass: "bg-mt-success-bg text-mt-success-fg",
+    icon: <ScrollText className="h-3 w-3" aria-hidden="true" />,
   },
 };
 

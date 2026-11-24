@@ -74,6 +74,22 @@ class ManuscriptTranslationResponse(BaseModel):
     message: str | None
 
 
+class ManuscriptSummaryResponse(BaseModel):
+    manuscript_id: str
+    summary: str
+    status: str  # "summarized"
+
+
+# Status of the full pipeline (transcribe, translate, summarize) and its results so far
+class ManuscriptProgress(BaseModel):
+    manuscript_id: str
+    status: str  # e.g. "translating"; "…ing" while a step runs
+    transcription: list[dict] | None = None
+    translation: dict | None = None
+    summary: str | None = None
+    error: str | None = None  # why the last run stopped, if it did
+
+
 class LineCorrection(BaseModel):
     text: str
 
@@ -93,5 +109,8 @@ class ManuscriptResponse(UploadResponse):
     # Filled once the page is transcribed, otherwise None
     transcription: list[dict] | None = None  # lines: index, text, bbox, ...
     overlay_url: str | None = None  # page with the lines drawn on it, valid 1 day
+    # Filled once the page is translated: {"type": "full", "lines": [{"index", "text"}]}
+    translation: dict | None = None
+    summary: str | None = None  # filled once the translation is summarized
     # Set on copies received from another user, None on your own manuscripts
     shared_by_username: str | None = None

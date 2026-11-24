@@ -6,6 +6,7 @@ from app.routers import (
     auth,
     manuscripts,
     manuscripts_correction,
+    manuscripts_summary,
     manuscripts_transcription,
     manuscripts_translation,
     password,
@@ -29,6 +30,7 @@ app.include_router(sharing.router, prefix="/api")
 app.include_router(manuscripts_transcription.router, prefix="/api")
 
 app.include_router(manuscripts_translation.router, prefix="/api")
+app.include_router(manuscripts_summary.router, prefix="/api")
 
 app.include_router(manuscripts_correction.router, prefix="/api")
 

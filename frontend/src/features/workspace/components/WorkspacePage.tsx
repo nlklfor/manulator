@@ -4,16 +4,18 @@
 // Layout: top bar, the page image on the left (can be hidden), a drag bar to resize,
 // and on the right the text views as browser-like tabs: Transcription, Translation
 // (with "Compare": transcription and translation side by side) and Summary.
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import {
   ChevronRight,
+  CircleAlert,
   Download,
   Languages,
   PanelLeftClose,
   PanelLeftOpen,
   ScanLine,
   SpellCheck,
+  Workflow,
 } from "lucide-react";
 import { useLibrary } from "@/features/upload-manuscript/context/LibraryContext";
 import { StatusBadge } from "@/features/upload-manuscript/components/StatusBadge";
@@ -30,11 +32,15 @@ import {
   type CorrectionSuggestion,
 } from "@/features/workspace/api/correct-transcription";
 import {
+  fromSavedTranslation,
+  toSavedTranslation,
   translateManuscript,
   translationPlan,
-  type Translation,
   type TranslationType,
 } from "@/features/workspace/api/translate-manuscript";
+import { summarizeManuscript } from "@/features/workspace/api/summarize-manuscript";
+import { hasTranscription } from "@/features/upload-manuscript/constants/status";
+import { isStepRunning } from "@/features/upload-manuscript/api/pipeline";
 import { mergeProcessResult, toTranscriptionLines } from "../transcription";
 
 // The image takes this share of the width at first, and stays between MIN and MAX
@@ -48,12 +54,19 @@ interface WorkspacePageProps {
 
 export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   // The library lives in memory (LibraryContext), so we look the page up by id.
-  const { libraryEntries, isLoading, updateEntryStatus, updateEntryTranscription } = useLibrary();
+  const {
+    libraryEntries,
+    isLoading,
+    updateEntryStatus,
+    updateEntryTranscription,
+    updateEntry,
+    runPipeline,
+  } = useLibrary();
   const entry = libraryEntries.find((e) => e.id === manuscriptId);
 
   const transcription = entry?.transcription;
-  const isTranscribed = entry?.status === "transcribed" || entry?.status === "corrected";
-  const lines = useMemo(() => toTranscriptionLines(transcription), [transcription]);
+  // No useMemo needed: the React Compiler memoizes this
+  const lines = toTranscriptionLines(transcription);
   // The line selected in the list; its outline is highlighted on the scan
   const [selectedN, setSelectedN] = useState<number | null>(null);
   const [transcribeError, setTranscribeError] = useState<string | null>(null);
@@ -65,14 +78,19 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   // Width of the image as a share of the workspace; changed with the drag bar
   const [imageShare, setImageShare] = useState(DEFAULT_IMAGE_SHARE);
   const splitRef = useRef<HTMLDivElement>(null);
-  // The translation is not saved by the backend yet, so it lives only in this page
-  const [translation, setTranslation] = useState<Translation | null>(null);
+  // The backend saves the translation and the summary with the page
+  const savedTranslation = entry?.translation;
+  const translation = savedTranslation ? fromSavedTranslation(savedTranslation) : null;
+  const summary = entry?.summary ?? null;
   const [translationType, setTranslationType] = useState<TranslationType>("full");
   const [isTranslating, setIsTranslating] = useState(false);
   const [translateError, setTranslateError] = useState<string | null>(null);
   const [isTranslationOutdated, setIsTranslationOutdated] = useState(false);
   // Counts translation requests, so the result of an outdated request is ignored
   const translationRequestRef = useRef(0);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [summarizeError, setSummarizeError] = useState<string | null>(null);
+  const summaryRequestRef = useRef(0);
   // Suggestions of the correction model the user has not accepted or rejected yet.
   const [suggestions, setSuggestions] = useState<CorrectionSuggestion[]>([]);
   const [isCorrecting, setIsCorrecting] = useState(false);
@@ -114,21 +132,31 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
       .catch((error: Error) => fail(error.message));
   }
 
-  // Translates the transcribed page. A failed translation keeps the old one (if any)
-  // and never changes the transcription.
+  // Translates the transcribed page: the status shows "Translating", then "Translated".
+  // A failed translation keeps the old one (if any) and the old status, and never
+  // changes the transcription.
   async function handleTranslate() {
-    if (!entry || isTranslating) return;
+    if (!entry || isTranslating || isBusy) return;
+    const id = entry.id;
+    const statusBefore = entry.status;
     const request = ++translationRequestRef.current;
     setActiveTab("translation");
     setIsTranslating(true);
     setTranslateError(null);
+    updateEntryStatus(id, "translating");
     try {
-      const result = await translateManuscript(entry.id, translationPlan(translationType));
+      const result = await translateManuscript(id, translationPlan(translationType));
       if (request !== translationRequestRef.current) return;
-      setTranslation(result);
+      // The backend removed the old summary: it was made from the old translation
+      updateEntry(id, {
+        translation: toSavedTranslation(result),
+        summary: null,
+        status: "translated",
+      });
       setIsTranslationOutdated(false);
     } catch (error) {
       if (request !== translationRequestRef.current) return;
+      updateEntryStatus(id, statusBefore);
       setTranslateError(
         error instanceof Error ? error.message : "Could not translate the page. Please try again.",
       );
@@ -137,6 +165,46 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
     }
   }
 
+  // Summarizes the saved translation: the status shows "Summarizing", then "Summarized".
+  // A failed summary keeps the old one (if any) and the old status.
+  async function handleSummarize() {
+    if (!entry || isSummarizing || isBusy) return;
+    const id = entry.id;
+    const statusBefore = entry.status;
+    const request = ++summaryRequestRef.current;
+    setActiveTab("summary");
+    setIsSummarizing(true);
+    setSummarizeError(null);
+    updateEntryStatus(id, "summarizing");
+    try {
+      const text = await summarizeManuscript(id);
+      if (request !== summaryRequestRef.current) return;
+      updateEntry(id, { summary: text, status: "summarized" });
+    } catch (error) {
+      if (request !== summaryRequestRef.current) return;
+      updateEntryStatus(id, statusBefore);
+      setSummarizeError(
+        error instanceof Error ? error.message : "Could not summarize the page. Please try again.",
+      );
+    } finally {
+      if (request === summaryRequestRef.current) setIsSummarizing(false);
+    }
+  }
+
+  // Forgets the translation and the summary, e.g. when the page is transcribed again
+  function resetTranslation() {
+    translationRequestRef.current++;
+    summaryRequestRef.current++;
+    setIsSummarizing(false);
+    setSummarizeError(null);
+    setIsTranslating(false);
+    setTranslateError(null);
+    setIsTranslationOutdated(false);
+  }
+
+  // Saves a corrected line through the backend. The workspace and the library show the
+  // text only after the backend has stored it. Throws on failure, so the editor keeps
+  // the entered text and shows the error.
   async function saveLine(n: number, text: string) {
     if (!entry?.transcription) return;
     const id = entry.id;
@@ -153,9 +221,21 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
     if (translation) setIsTranslationOutdated(true);
   }
 
+  // Runs the full pipeline in the backend: transcribe, translate sentence by sentence,
+  // summarize. The library follows its progress and updates this page after each step.
+  function handleRunAll() {
+    if (!entry || isBusy) return;
+    resetTranslation();
+    resetCorrection();
+    setTranscribeError(null);
+    setSelectedN(null);
+    setActiveTab("transcription");
+    runPipeline(entry.id);
+  }
+
   // Runs the correction model on the transcription and shows its suggestions
   async function handleRunCorrection() {
-    if (!entry || !isTranscribed || isCorrectingRef.current) return;
+    if (!entry || !isTranscribed || isBusy || isCorrectingRef.current) return;
     const request = ++correctionRequestRef.current;
     isCorrectingRef.current = true;
     setIsCorrecting(true);
@@ -213,14 +293,7 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
     setSuggestions((all) => all.filter((s) => s.id !== suggestion.id));
   }
 
-  function resetTranslation() {
-    translationRequestRef.current++;
-    setTranslation(null);
-    setIsTranslating(false);
-    setTranslateError(null);
-    setIsTranslationOutdated(false);
-  }
-
+  // Saves the line and drops the correction suggestions for it
   async function handleSaveLine(n: number, text: string) {
     await saveLine(n, text);
     setSuggestions((all) => all.filter((s) => s.lineN !== n));
@@ -229,13 +302,23 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   // Go back to the empty state, so the user can pick a model and run it again
   function handleReTranscribe() {
     if (!entry) return;
-    updateEntryTranscription(entry.id, null);
-    updateEntryStatus(entry.id, "uploaded");
+    updateEntry(entry.id, {
+      transcription: null,
+      translation: null,
+      summary: null,
+      status: "uploaded",
+    });
     setSelectedN(null);
     resetTranslation();
     resetCorrection();
     setActiveTab("transcription");
   }
+
+  const isTranscribed = entry ? hasTranscription(entry.status) : false;
+  // A step runs (started here, or by the pipeline after the upload): wait for it
+  const isBusy = entry ? isStepRunning(entry.status) : false;
+  const showTranslating = isTranslating || entry?.status === "translating";
+  const showSummarizing = isSummarizing || entry?.status === "summarizing";
 
   // The content of one text tab
   function renderTab(tab: WorkspaceTab) {
@@ -268,14 +351,22 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
             translationType={translationType}
             onTranslationTypeChange={setTranslationType}
             translation={translation}
-            isTranslating={isTranslating}
+            isTranslating={showTranslating}
             error={translateError}
             isOutdated={isTranslationOutdated}
             onTranslate={() => void handleTranslate()}
           />
         );
       case "summary":
-        return <SummaryPanel />;
+        return (
+          <SummaryPanel
+            isTranslated={translation !== null}
+            summary={summary}
+            isSummarizing={showSummarizing}
+            error={summarizeError}
+            onSummarize={() => void handleSummarize()}
+          />
+        );
     }
   }
 
@@ -330,11 +421,24 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
         </nav>
         <StatusBadge status={entry.status} />
 
+        {/* Runs transcription, sentence-by-sentence translation and summary one after another */}
+        <button
+          type="button"
+          onClick={handleRunAll}
+          disabled={isBusy}
+          title="Transcribe, translate sentence by sentence and summarize the page"
+          className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-mt-md border border-mt-border-strong bg-mt-raised px-3.5 text-sm font-medium text-mt-text hover:bg-mt-hover disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Workflow className="h-4 w-4" aria-hidden="true" />
+          {isTranscribed ? "Run all steps again" : "Run all steps"}
+        </button>
+
         {isTranscribed && (
           <button
             type="button"
             onClick={handleReTranscribe}
-            className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-mt-md border border-mt-border-strong bg-mt-raised px-3.5 text-sm font-medium text-mt-text hover:bg-mt-hover"
+            disabled={isBusy}
+            className="inline-flex h-9 items-center gap-1.5 rounded-mt-md border border-mt-border-strong bg-mt-raised px-3.5 text-sm font-medium text-mt-text hover:bg-mt-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
             <ScanLine className="h-4 w-4" aria-hidden="true" />
             Re-transcribe
@@ -347,7 +451,7 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
           aria-disabled={!isTranscribed || isCorrecting}
           aria-describedby={!isTranscribed ? "correct-hint" : undefined}
           title={isTranscribed ? undefined : "Transcribe the manuscript first"}
-          className={`${isTranscribed ? "" : "ml-auto "}inline-flex h-9 items-center gap-1.5 rounded-mt-md border border-mt-border-strong bg-mt-raised px-3.5 text-sm font-medium text-mt-text hover:bg-mt-hover aria-disabled:hover:bg-mt-raised ${
+          className={`inline-flex h-9 items-center gap-1.5 rounded-mt-md border border-mt-border-strong bg-mt-raised px-3.5 text-sm font-medium text-mt-text hover:bg-mt-hover aria-disabled:hover:bg-mt-raised ${
             isCorrecting
               ? "cursor-wait opacity-60"
               : !isTranscribed
@@ -375,10 +479,10 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
           <button
             type="button"
             onClick={() => void handleTranslate()}
-            disabled={isTranslating}
+            disabled={isTranslating || isBusy}
             className="inline-flex h-9 items-center gap-1.5 rounded-mt-md border border-mt-border-strong bg-mt-raised px-3.5 text-sm font-medium text-mt-text hover:bg-mt-hover disabled:cursor-wait disabled:opacity-60"
           >
-            {isTranslating ? (
+            {showTranslating ? (
               <span
                 className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent"
                 aria-hidden="true"
@@ -386,7 +490,7 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
             ) : (
               <Languages className="h-4 w-4" aria-hidden="true" />
             )}
-            {isTranslating ? "Translating…" : "Translate"}
+            {showTranslating ? "Translating…" : "Translate"}
           </button>
         )}
 
@@ -401,6 +505,19 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
           Export
         </button>
       </header>
+
+      {entry.pipelineError && !isBusy && (
+        <div
+          role="alert"
+          className="flex shrink-0 items-center gap-2 border-b border-mt-border bg-mt-danger-bg px-4 py-2 text-sm text-mt-danger-fg"
+        >
+          <CircleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>
+            <strong className="font-semibold">The automatic pipeline stopped.</strong>{" "}
+            {entry.pipelineError} The finished steps are saved; you can run the next one by hand.
+          </span>
+        </div>
+      )}
 
       <div ref={splitRef} className="flex min-h-0 flex-1">
         {/* Left: the page image, or a narrow bar to show it again */}

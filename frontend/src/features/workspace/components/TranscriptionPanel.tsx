@@ -8,6 +8,7 @@
 //   "transcribed"/"corrected" -> the editable list of lines
 import { useState } from "react";
 import { CircleAlert, CircleCheck, RotateCw, ScanLine, SpellCheck, X } from "lucide-react";
+import { hasTranscription } from "@/features/upload-manuscript/constants/status";
 import type { UploadStatus } from "@/features/upload-manuscript/types/upload";
 import type { CorrectionSuggestion } from "../api/correct-transcription";
 import type { TranscriptionLine } from "../types";
@@ -64,7 +65,7 @@ export function TranscriptionPanel({
 
   const isUploaded = status === "uploaded";
   const isTranscribing = status === "transcribing";
-  const isTranscribed = status === "transcribed" || status === "corrected";
+  const isTranscribed = hasTranscription(status);
 
   const needsReview = (l: TranscriptionLine) =>
     l.lowConfWords.length > 0 || suggestions.some((s) => s.lineN === l.n);

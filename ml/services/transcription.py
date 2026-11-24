@@ -15,6 +15,8 @@ from kraken.containers import BaselineLine, Segmentation
 from kraken.lib import models
 from PIL import Image
 
+from services.hf_models import best_device
+
 ML_DIR = Path(__file__).resolve().parents[1]  # ml/, one level above services/
 SEGMENTATION_DIR = ML_DIR / "output" / "segmentation"  # where step 1 saved the lines
 OUTPUT_DIR = ML_DIR / "output" / "transcription"  # where this step saves its result
@@ -36,7 +38,8 @@ def run_transcription(data: dict, options: dict | None = None, out_dir=None) -> 
     lines_dir = SEGMENTATION_DIR / image_id / "lines"
     out_dir = Path(out_dir) if out_dir else OUTPUT_DIR
 
-    model = models.load_any(str(download_model()), device="cpu")
+    # the GPU if there is one with room (the model is small), else the CPU
+    model = models.load_any(str(download_model()), device=best_device(needed_gb=1))
     lines = []
     for path in sorted(lines_dir.glob("*.png")):
         #TODO: Read the confidence values from the kraken model

@@ -166,7 +166,8 @@ def list_manuscripts(user_id: str) -> list[ManuscriptResponse]:
             db.table("manuscript_files")
             .select(
                 "manuscript_id, file_name, storage_path, content_type, "
-                "size_bytes, position, status, transcription, overlay_path"
+                "size_bytes, position, status, transcription, overlay_path, "
+                "translation, summary"
             )
             .eq("owner_id", user_id)
             .order("position")
@@ -217,6 +218,8 @@ def list_manuscripts(user_id: str) -> list[ManuscriptResponse]:
             url=urls.get(file["storage_path"], ""),
             transcription=file.get("transcription"),
             overlay_url=urls.get(file.get("overlay_path") or ""),
+            translation=file.get("translation"),
+            summary=file.get("summary"),
             shared_by_username=usernames.get(manuscript.get("shared_by") or ""),
         )
         for manuscript in manuscripts

@@ -9,9 +9,10 @@ from pydantic import ValidationError
 
 from app.config import settings
 from app.schemas.manuscripts import ManuscriptProcessResponse, ManuscriptProcessPlan, ManuscriptTranslationResponse, \
-    TranslationPlan, ManuscriptCorrectionResponse, ManuscriptCorrectionPlan
+    TranslationPlan, SummaryRequest, ManuscriptCorrectionResponse, ManuscriptCorrectionPlan
 from services.classification import Classification, classify_page
 from services.pipeline import Task, Pipeline
+from services.summarization import Summary, summarize_text
 
 router = APIRouter(prefix="/process-manuscripts", tags=["manuscripts"])
 
@@ -40,6 +41,17 @@ def image_type(file: UploadFile) -> str:
     if file.content_type and file.content_type != "application/octet-stream":
         return file.content_type
     return mimetypes.guess_type(file.filename or "")[0] or "application/octet-stream"
+
+
+@router.post("/summarize", response_model=Summary)
+def summarize_manuscript(request: SummaryRequest):
+    # Summarizes the translated text with the same model as /classify (CLASSIFIER_MODEL in ml/.env)
+    if not request.text.strip():
+        raise HTTPException(status_code=422, detail="The text is empty")
+    try:
+        return summarize_text(request.text)
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Summarization failed: {error}") from error
 
 
 @router.post("/", response_model=ManuscriptProcessResponse)

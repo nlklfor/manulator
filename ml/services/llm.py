@@ -1,7 +1,7 @@
 """Ask a language model a question and get the answer in a fixed format.
 
-Used by the classifier (services/classification.py: question + page image). Without an
-answer format it answers in plain text, e.g. for a summary of a translated text.
+Used by the classifier (services/classification.py: question + page image) and the
+summarizer (services/summarization.py: question + translated text).
 The answer must fit a pydantic model, e.g. Classification: every field is a string,
 and a Literal field may only take one of its allowed values.
 
@@ -9,9 +9,9 @@ The models, chosen by name:
   claude-haiku-5-5          Claude (Anthropic). Needs ANTHROPIC_API_KEY in ml/.env
   claude-sonnet-5-5         (Haiku is the default: cheap. Sonnet is better but ~10x the price)
   gemini:gemini-3.5-flash   Google Gemini (any model name from Google). Needs GEMINI_API_KEY in ml/.env
-  local:gemma-4-12b-it      a free model on our own GPU, run by llama.cpp (the "llama-server"
-  local:qwen3.5-9b          container, see ml/eval/README.md). The name after "local:" is only a label:
-                            the app uses the model the container was started with.
+  local:Qwen/Qwen3.5-4B     a free model that runs inside the ML service, like the translation models
+                            (any vision-language model on Hugging Face). Downloaded into ml/models the
+                            first time; uses the GPU if there is room, else the CPU. See services/local_llm.py
 
 The app uses the model set in ml/.env (CLASSIFIER_MODEL, default claude-haiku-5-5).
 The tests in ml/eval/ can try any of them with --model.
@@ -99,7 +99,12 @@ def get_model(choice: str, effort: str | None = None) -> tuple[Ask, str]:
     Also returns a short name for the model and its settings, used by the tests to save answers.
     """
     if choice.startswith("local:"):
-        return ask_llama_cpp, f"{choice}/temperature0"
+        repo = choice.split(":", 1)[1]
+        if "/" not in repo:
+            raise ValueError(f"Use local:<Hugging Face model>, e.g. local:Qwen/Qwen3.5-4B (not '{choice}')")
+        from services.local_llm import ask_local  # loads transformers only when a local model is used
+        return (lambda prompt, answer_type=None, image=None:
+                ask_local(prompt, answer_type, image, repo)), f"{choice}/greedy"
     if choice.startswith("claude-"):
         if not settings.anthropic_api_key:
             raise ValueError("Put ANTHROPIC_API_KEY=... in ml/.env to use Claude")
@@ -114,7 +119,7 @@ def get_model(choice: str, effort: str | None = None) -> tuple[Ask, str]:
         return (lambda prompt, answer_type=None, image=None:
                 ask_gemini(prompt, answer_type, image, model, effort)), f"{choice}/{effort or 'default'}"
     raise ValueError(f"Unknown model '{choice}'. Use a Claude model (e.g. claude-haiku-5-5), "
-                     "gemini:<name> (e.g. gemini:gemini-3.5-flash) or local:<name> for the model on our own GPU")
+                     "gemini:<name> (e.g. gemini:gemini-3.5-flash) or local:<Hugging Face model> (e.g. local:Qwen/Qwen3.5-4B)")
 
 
 def to_base64(data: bytes) -> str:
@@ -143,34 +148,6 @@ def ask_claude(prompt: str, answer_type: type[BaseModel] | None, image: PageImag
     if answer_type is None:
         return "".join(block.text for block in response.content if block.type == "text")
     return response.parsed_output
-
-
-def ask_llama_cpp(prompt: str, answer_type: type[BaseModel] | None = None, image: PageImage | None = None):
-    """Ask the model on our own GPU. llama.cpp's server answers like OpenAI's chat API."""
-    content = [{"type": "text", "text": prompt}]
-    if image:
-        content.insert(0, {"type": "image_url",
-                           "image_url": {"url": f"data:{image.media_type};base64,{to_base64(image.data)}"}})
-    body = {
-        "messages": [{"role": "user", "content": content}],
-        # Always pick the most likely answer, so the same input gives the same result every time
-        "temperature": 0,
-    }
-    if answer_type:  # forces the answer into our format, with only allowed values
-        body["response_format"] = {"type": "json_schema",
-                                   "json_schema": {"name": "answer", "schema": answer_format(answer_type)}}
-    url = f"{settings.local_base_url.rstrip('/')}/chat/completions"
-    request = urllib.request.Request(url, json.dumps(body).encode(), {"Content-Type": "application/json"})
-    try:
-        with urllib.request.urlopen(request, timeout=300) as response:
-            reply = json.load(response)
-    except urllib.error.HTTPError as error:
-        raise RuntimeError(f"llama.cpp answered HTTP {error.code}: {error.read()[:300].decode(errors='replace')}") from None
-    except urllib.error.URLError as error:
-        raise RuntimeError(f"Cannot reach llama.cpp at {settings.local_base_url} ({error.reason}). "
-                           "Is the llama-server container running?") from None
-    text = reply["choices"][0]["message"]["content"]
-    return answer_type.model_validate_json(text) if answer_type else text
 
 
 def ask_gemini(prompt: str, answer_type: type[BaseModel] | None, image: PageImage | None, model: str,

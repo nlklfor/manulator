@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer, AutoModelForTokenClassification
 
-from app.config import settings
+from services.hf_models import local_model
 
 DEFAULT_MODEL = "RomanoAISPEC/helsinki_mul_en_large_cosine_v1"
 QWEN_INSTRUCT = "Qwen/Qwen2.5-1.5B-Instruct"
@@ -15,8 +15,8 @@ SENTENCE_SEGMENTER = "RomanoAISPEC/xlmr-latin-sentence-segmenter-la-en_v2"
 
 @lru_cache(maxsize=2)
 def load_sentence_segmenter(model_path: str = SENTENCE_SEGMENTER):
-    tokenizer = AutoTokenizer.from_pretrained(model_path, token=settings.hf_token)
-    model = AutoModelForTokenClassification.from_pretrained(model_path, token=settings.hf_token)
+    tokenizer = AutoTokenizer.from_pretrained(local_model(model_path))
+    model = AutoModelForTokenClassification.from_pretrained(local_model(model_path))
     model.to("cuda" if torch.cuda.is_available() else "cpu")
     return model, tokenizer
 
@@ -26,8 +26,8 @@ def load_model(model_path: str):
     Loads a translation model and tokenizer from the given path.
     """
     # The model is private, so Hugging Face needs the token (HF_TOKEN in ml/.env)
-    tokenizer = AutoTokenizer.from_pretrained(model_path, token=settings.hf_token)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_path, token=settings.hf_token)
+    tokenizer = AutoTokenizer.from_pretrained(local_model(model_path))
+    model = AutoModelForSeq2SeqLM.from_pretrained(local_model(model_path))
     model.to("cuda" if torch.cuda.is_available() else "cpu")
     return model, tokenizer
 
@@ -37,10 +37,9 @@ def load_causal_lm(model_path: str = QWEN_INSTRUCT):
     """
     Loads an instruction-tuned LLM (e.g. Qwen Instruct) and its tokenizer.
     """
-    tokenizer = AutoTokenizer.from_pretrained(model_path, token=settings.hf_token)
+    tokenizer = AutoTokenizer.from_pretrained(local_model(model_path))
     model = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        token=settings.hf_token,
+        local_model(model_path),
         torch_dtype="auto",  # bf16/fp16 as stored in the checkpoint
     )
     model.to("cuda" if torch.cuda.is_available() else "cpu")

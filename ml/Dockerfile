@@ -21,9 +21,10 @@ RUN uv sync --locked --no-dev
 COPY pylaia/pyproject.toml pylaia/uv.lock ./pylaia/
 RUN uv sync --locked --no-dev --project pylaia
 
-# PyLaia needs two things the slim image does not include:
-# libgomp (for torchaudio) and git (PyLaia crashes on import without it)
-RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 git \
+# Things the slim image does not include: libgomp (for torchaudio), git (PyLaia crashes on
+# import without it), and a C compiler (gcc, libc6-dev), which Triton needs to build the GPU
+# code of the local language model (e.g. Qwen3.5) the first time it runs on the GPU
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 git gcc libc6-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY . .

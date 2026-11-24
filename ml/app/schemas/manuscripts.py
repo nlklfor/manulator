@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class ManuscriptProcessPlan(BaseModel):
     manuscript_id: str
@@ -39,3 +39,8 @@ class TranslationPlan(BaseModel):
     plan: str = "Translate"
     target_language: str = "English"
     type: str = "full"
+
+
+class SummaryRequest(BaseModel):
+    # The translated page as one text, e.g. the translated lines joined in order
+    text: str = Field(min_length=1, max_length=50_000)

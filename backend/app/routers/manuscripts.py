@@ -1,17 +1,18 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Form, Path, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, Path, UploadFile
 
 from app.schemas.manuscript import (
     LineCorrection,
     LineCorrectionResponse,
+    ManuscriptProgress,
     ManuscriptResponse,
     ManuscriptUpdate,
     ManuscriptUpdateResponse,
     PageClasses,
     UploadResponse,
 )
-from app.services import manuscript, storage
+from app.services import manuscript, pipeline, storage
 from app.services.auth import get_current_user_id
 
 router = APIRouter(prefix="/upload-manuscripts", tags=["manuscripts"])
@@ -51,6 +52,26 @@ async def classify_manuscript(
     file: UploadFile, user_id: str = Depends(get_current_user_id)
 ):
     return await manuscript.classify_file(file)
+
+
+# Runs the full pipeline in the background: transcribe, translate sentence by sentence,
+# summarize. Answers at once; poll /progress to follow the steps.
+@router.post(
+    "/{manuscript_id}/pipeline", response_model=ManuscriptProgress, status_code=202
+)
+def start_pipeline(
+    manuscript_id: UUID,
+    background_tasks: BackgroundTasks,
+    user_id: str = Depends(get_current_user_id),
+):
+    progress = pipeline.start_pipeline(str(manuscript_id), user_id)
+    background_tasks.add_task(pipeline.run_pipeline, str(manuscript_id), user_id)
+    return progress
+
+
+@router.get("/{manuscript_id}/progress", response_model=ManuscriptProgress)
+def get_progress(manuscript_id: UUID, user_id: str = Depends(get_current_user_id)):
+    return pipeline.get_progress(str(manuscript_id), user_id)
 
 
 @router.patch("/{manuscript_id}", response_model=ManuscriptUpdateResponse)

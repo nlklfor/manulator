@@ -1,6 +1,16 @@
 export type UploadErrorReason = "invalid-type" | "file-too-large";
 // Pages move through uploading → uploaded → transcribing → transcribed → corrected
-export type PageStatus = "uploaded" | "transcribing" | "transcribed" | "corrected";
+// → translating → translated → summarizing → summarized. The backend saves the finished
+// steps; the "…ing" steps are shown while a step runs.
+export type PageStatus =
+  | "uploaded"
+  | "transcribing"
+  | "transcribed"
+  | "corrected"
+  | "translating"
+  | "translated"
+  | "summarizing"
+  | "summarized";
 export type UploadStatus = "uploading" | "upload-failed" | PageStatus;
 export type StatusFilter = "all" | PageStatus;
 
@@ -23,6 +33,15 @@ export interface LibraryEntry {
   previewUrl: string;
   status: UploadStatus;
   transcription?: TranscribedLine[] | null;
+  translation?: SavedTranslation | null; // filled once the page is translated
+  summary?: string | null; // filled once the translation is summarized
+  pipelineError?: string | null; // why the automatic pipeline stopped, if it did
+}
+
+// A translation as the backend saves it: how it was made and the translated parts
+export interface SavedTranslation {
+  type: "full" | "sentences" | "lines";
+  lines: { index: number; text: string }[];
 }
 
 // One line of a saved transcription, as the backend sends it.

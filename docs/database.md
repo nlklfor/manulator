@@ -115,12 +115,14 @@ an array column is not needed in the database.
 | `owner_id` | `uuid` | Defaults to `auth.uid()`. Must match the manuscript's owner through the composite foreign key. |
 | `file_name` | `text` | Original uploaded name. Required; must contain 1 to 255 characters after trimming. Can be renamed later. |
 | `storage_path` | `text` | Unique object path inside `uploads`, not a full URL. For example, `<owner_id>/<manuscript_id>/<file>.jpg`. The SQL does not enforce this folder layout. |
-| `content_type` | `text` | Must be `image/jpeg`, `image/png` or `application/pdf`. |
+| `content_type` | `text` | Must be `image/jpeg`, `image/png`, `image/webp` or `application/pdf`. Other images (e.g. TIFF) and PDFs are stored as PNG. |
 | `size_bytes` | `bigint` | File size in bytes. Must be greater than zero. The current backend's 20 MB limit is separate from this database check. |
 | `position` | `integer` | File order inside the manuscript, starting at 1. Can be changed later. Positions are not required to be unique. |
 | `status` | `text` | Processing step of the page: `uploading`, `uploaded`, `transcribing`, `transcribed` or `corrected`. Defaults to `uploaded`. |
 | `transcription` | `jsonb` | Transcribed lines, saved by the backend after the ML service has read the page. Empty (`NULL`) until then. Each line: `{"index", "text", "bbox", "baseline", "boundary"}`. A line the user has corrected also has `"original_text"` (the model's reading). |
 | `overlay_path` | `text` | Path inside `uploads` of the overlay image (the page with the detected lines drawn on it), e.g. `<owner_id>/overlays/<file>.jpg`. Saved with the transcription; the old image is deleted when the page is transcribed again. Empty until then. |
+| `translation` | `jsonb` | Saved translation: `{"type": "full" \| "sentences" \| "lines", "lines": [{"index", "text"}]}`. Empty until the page is translated; cleared when it is transcribed again. |
+| `summary` | `text` | Short English summary of the translation. Empty until summarized; cleared when the page is translated or transcribed again. |
 | `created_at` | `timestamptz` | When the file row was created. Defaults to `now()`. |
 
 The foreign key `(manuscript_id, owner_id)` references `manuscripts(id, owner_id)`.
@@ -163,11 +165,15 @@ capitalised labels in the application.
 | `transcribing` | Transcribing | Recognition is processing the file. |
 | `transcribed` | Transcribed | The generated transcription has been saved. |
 | `corrected` | Corrected | The user's corrections have been saved. |
+| `translating` | Translating | The page is being translated (shown by the frontend only). |
+| `translated` | Translated | The translation has been saved in `translation`. |
+| `summarizing` | Summarizing | The translation is being summarized (shown by the frontend only). |
+| `summarized` | Summarized | The summary has been saved in `summary`. |
 
 The intended progression is:
 
 ```text
-Uploading → Uploaded → Transcribing → Transcribed → Corrected
+Uploading → Uploaded → Transcribing → Transcribed → Corrected → Translating → Translated → Summarizing → Summarized
 ```
 
 Status is required and defaults to `uploaded`. Existing file records receive that default when
@@ -176,7 +182,7 @@ explicitly set `uploading`, then change it to `uploaded` after success.
 
 The database validates the allowed values; the application controls when they change. When a
 "Transcribe" run finishes, the backend saves the lines in `transcription`, the overlay image in
-the bucket (its path in `overlay_path`) and sets the status to `transcribed`. The frontend's `upload-failed` error state is not one of the five stored statuses.
+the bucket (its path in `overlay_path`) and sets the status to `transcribed`. The frontend's `upload-failed` error state is not a stored status. To add the translation and summary columns and the new statuses, run `backend/sql/2026-11-20_translation_summary.sql`.
 
 To add the transcription columns to an existing project, run:
 

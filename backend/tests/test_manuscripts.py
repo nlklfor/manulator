@@ -386,6 +386,9 @@ def test_transcription_is_saved(client, fake_supabase, fake_ml_service):
     # The overlay image is kept in the bucket, the row only stores its path
     assert page["overlay_path"].startswith("user-1/overlays/")
     assert fake_supabase.files[page["overlay_path"]] == b"jpg"
+    # A new transcription makes an old translation and summary wrong
+    assert page["translation"] is None
+    assert page["summary"] is None
 
 
 def test_process_manuscript_ml_service_fails(client, fake_supabase, fake_ml_service):
@@ -562,3 +565,192 @@ def test_classify_requires_login():
     )
 
     assert response.status_code in (401, 403)
+
+
+# ---------- Translation and summary ----------
+
+TRANSLATE_URL = f"/api/translate-manuscripts/{MANUSCRIPT_ID}"
+SUMMARIZE_URL = f"/api/summarize-manuscripts/{MANUSCRIPT_ID}"
+TRANSLATED = {
+    "manuscript_id": MANUSCRIPT_ID,
+    "translated_lines": [{"index": 0, "text": "In the name of the Lord."}],
+    "success": True,
+    "message": "Translation completed successfully",
+}
+
+
+@pytest.fixture
+def transcribed_page(fake_supabase):
+    page = fake_supabase.tables["manuscript_files"][0]
+    page.update(
+        status="transcribed",
+        transcription=[{"index": 0, "text": "In nomine domini"}],
+        summary="An old summary",
+    )
+    return page
+
+
+def test_translation_is_saved_and_marks_page_translated(
+    client, transcribed_page, fake_ml_service
+):
+    fake_ml_service(lambda request: httpx.Response(200, json=TRANSLATED))
+
+    response = client.post(TRANSLATE_URL, json={"type": "sentences"})
+
+    assert response.status_code == 200
+    assert transcribed_page["status"] == "translated"
+    assert transcribed_page["translation"] == {
+        "type": "sentences",
+        "lines": [{"index": 0, "text": "In the name of the Lord."}],
+    }
+    assert transcribed_page["summary"] is None  # made from the old translation
+    [entry] = client.get(URL).json()
+    assert entry["translation"]["type"] == "sentences"
+
+
+def test_failed_translation_keeps_the_status(client, transcribed_page, fake_ml_service):
+    fake_ml_service(lambda request: httpx.Response(500, json={"detail": "boom"}))
+
+    response = client.post(TRANSLATE_URL, json={"type": "full"})
+
+    assert response.status_code == 502
+    assert transcribed_page["status"] == "transcribed"
+
+
+def test_summary_is_saved_and_marks_page_summarized(
+    client, transcribed_page, fake_ml_service
+):
+    transcribed_page.update(
+        status="translated",
+        translation={
+            "type": "lines",
+            "lines": [
+                {"index": 1, "text": "sell a field."},
+                {"index": 0, "text": "We, the abbess,"},
+            ],
+        },
+    )
+    requests = fake_ml_service(
+        lambda request: httpx.Response(200, json={"summary": " A sale of a field. "})
+    )
+
+    response = client.post(SUMMARIZE_URL)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "manuscript_id": MANUSCRIPT_ID,
+        "summary": "A sale of a field.",
+        "status": "summarized",
+    }
+    # The translated lines are sent in reading order, as one text
+    assert json.loads(requests[0].content) == {"text": "We, the abbess, sell a field."}
+    assert transcribed_page["status"] == "summarized"
+    [entry] = client.get(URL).json()
+    assert entry["summary"] == "A sale of a field."
+
+
+def test_summary_needs_a_translation(client, transcribed_page, fake_ml_service):
+    response = client.post(SUMMARIZE_URL)
+
+    assert response.status_code == 409
+    assert transcribed_page["status"] == "transcribed"
+
+
+def test_summary_ml_service_fails(client, transcribed_page, fake_ml_service):
+    transcribed_page.update(
+        status="translated",
+        translation={"type": "full", "lines": [{"index": 0, "text": "Some text"}]},
+    )
+    fake_ml_service(lambda request: httpx.Response(502, json={"detail": "quota"}))
+
+    response = client.post(SUMMARIZE_URL)
+
+    assert response.status_code == 502
+    assert transcribed_page["status"] == "translated"
+
+
+def test_summary_of_other_users_manuscript_is_not_found(client, fake_supabase):
+    response = client.post(f"/api/summarize-manuscripts/{OTHER_USERS_MANUSCRIPT_ID}")
+
+    assert response.status_code == 404
+
+
+# ---------- Full pipeline: transcribe, translate, summarize ----------
+
+PIPELINE_URL = f"{URL}/{MANUSCRIPT_ID}/pipeline"
+PROGRESS_URL = f"{URL}/{MANUSCRIPT_ID}/progress"
+TRANSCRIBED = {
+    **ML_RESULT,
+    "data": {
+        "Detect Lines": {"lines": [{"index": 0, "bbox": [0, 0, 10, 5]}]},
+        "Transcribe": {"lines": [{"index": 0, "text": "In nomine domini"}]},
+    },
+}
+
+
+def fake_ml_steps(request, translate_status=200):
+    path = request.url.path
+    if path.endswith("/translate"):
+        return httpx.Response(translate_status, json=TRANSLATED)
+    if path.endswith("/summarize"):
+        return httpx.Response(200, json={"summary": "A blessing."})
+    return httpx.Response(200, json=TRANSCRIBED)
+
+
+def test_pipeline_runs_all_steps(client, fake_supabase, fake_ml_service):
+    requests = fake_ml_service(fake_ml_steps)
+
+    response = client.post(PIPELINE_URL)
+
+    # Answers at once; the TestClient runs the background steps right after
+    assert response.status_code == 202
+    assert response.json()["status"] == "transcribing"
+    steps = [request.url.path.rsplit("/", 1)[-1] for request in requests]
+    assert steps == ["", "translate", "summarize"]
+    # Translated sentence by sentence
+    assert json.loads(requests[1].content)["type"] == "sentences"
+
+    progress = client.get(PROGRESS_URL).json()
+    assert progress["status"] == "summarized"
+    assert progress["transcription"][0]["text"] == "In nomine domini"
+    assert progress["translation"]["type"] == "sentences"
+    assert progress["summary"] == "A blessing."
+    assert progress["error"] is None
+
+
+def test_pipeline_stops_at_the_failed_step(client, fake_supabase, fake_ml_service):
+    fake_ml_service(lambda request: fake_ml_steps(request, translate_status=500))
+
+    client.post(PIPELINE_URL)
+
+    progress = client.get(PROGRESS_URL).json()
+    # Back to the last finished step, with the reason
+    assert progress["status"] == "transcribed"
+    assert progress["summary"] is None
+    assert progress["error"] == "ML service failed"
+
+
+def test_pipeline_refuses_a_second_run(client, fake_supabase, monkeypatch):
+    from app.services import pipeline
+
+    monkeypatch.setattr(pipeline, "running", {MANUSCRIPT_ID})
+
+    assert client.post(PIPELINE_URL).status_code == 409
+
+
+def test_progress_repairs_an_interrupted_run(client, fake_supabase):
+    # Marked running, but no pipeline runs (e.g. the backend was restarted)
+    page = fake_supabase.tables["manuscript_files"][0]
+    page.update(status="translating", transcription=[{"index": 0, "text": "In"}])
+
+    progress = client.get(PROGRESS_URL).json()
+
+    assert progress["status"] == "transcribed"
+    assert page["status"] == "transcribed"
+    assert progress["error"] == "The pipeline was interrupted."
+
+
+def test_pipeline_of_other_users_manuscript_is_not_found(client, fake_supabase):
+    response = client.post(f"{URL}/{OTHER_USERS_MANUSCRIPT_ID}/pipeline")
+
+    assert response.status_code == 404
