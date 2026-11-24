@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { validateFile } from "./validateFile";
 import type { LibraryEntry, TranscribedLine, UploadError } from "../types/upload";
 import { uploadImage, type UploadDetails } from "../api/uploadImage";
-import { getManuscripts } from "../api/getManuscripts";
+import { getManuscripts, type ManuscriptResponse } from "../api/getManuscripts";
 import { updateManuscript } from "../api/updateManuscript";
 import {
   getPipelineProgress,
@@ -13,6 +13,26 @@ import {
 
 const ERROR_DISPLAY_DURATION = 5000;
 const PIPELINE_POLL_MS = 3000; // how often the pipeline's progress is checked
+
+// A manuscript from the backend, as the library shows it
+function toEntry(manuscript: ManuscriptResponse): LibraryEntry {
+  return {
+    id: manuscript.id,
+    fileName: manuscript.title,
+    documentType: manuscript.document_type,
+    century: manuscript.century,
+    script: manuscript.script,
+    language: manuscript.language,
+    region: manuscript.region,
+    fileType: manuscript.content_type,
+    previewUrl: manuscript.url,
+    status: manuscript.status,
+    transcription: manuscript.transcription,
+    translation: manuscript.translation,
+    summary: manuscript.summary,
+    sharedByUsername: manuscript.shared_by_username,
+  };
+}
 
 export function useFileSelection() {
   const [libraryEntries, setLibraryEntries] = useState<LibraryEntry[]>([]);
@@ -33,21 +53,7 @@ export function useFileSelection() {
     getManuscripts()
       .then((manuscripts) => {
         if (cancelled) return;
-        const loaded: LibraryEntry[] = manuscripts.map((manuscript) => ({
-          id: manuscript.id,
-          fileName: manuscript.title,
-          documentType: manuscript.document_type,
-          century: manuscript.century,
-          script: manuscript.script,
-          language: manuscript.language,
-          region: manuscript.region,
-          fileType: manuscript.content_type,
-          previewUrl: manuscript.url,
-          status: manuscript.status,
-          transcription: manuscript.transcription,
-          translation: manuscript.translation,
-          summary: manuscript.summary,
-        }));
+        const loaded = manuscripts.map(toEntry);
         // Pipelines still running in the backend (e.g. after a reload): keep following them
         const running = loaded.filter((entry) => isStepRunning(entry.status));
         if (running.length > 0) {
@@ -154,6 +160,16 @@ export function useFileSelection() {
       previewUrls.forEach((previewUrl) => URL.revokeObjectURL(previewUrl));
       previewUrls.clear();
     };
+  }, []);
+
+  // Loads the list again from the backend, e.g. after a shared copy was added.
+  // Uploads that are still running (or failed) stay in the list.
+  const reloadLibrary = useCallback(async () => {
+    const manuscripts = await getManuscripts();
+    setLibraryEntries((prev) => [
+      ...prev.filter((entry) => entry.status === "uploading" || entry.status === "upload-failed"),
+      ...manuscripts.map(toEntry),
+    ]);
   }, []);
 
   const updateEntryStatus = useCallback((id: string, status: LibraryEntry["status"]) => {
@@ -293,6 +309,7 @@ export function useFileSelection() {
     cancelUpload,
     removeManuscript,
     editManuscript,
+    reloadLibrary,
     updateEntryStatus,
     updateEntryTranscription,
     updateEntry,

@@ -2,13 +2,22 @@
 
 // EditManuscriptDialog — form to change the name and the classes of a manuscript
 // (document type, century, script, language, region). Same fields as UploadConfirmDialog,
-// prefilled with the current values.
+// prefilled with the current values. "Classify again" lets the classifier read the stored
+// page once more; its suggestions fill the fields, and are saved only with "Save".
 import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import TextField from "@/features/auth/components/TextField";
 import type { UploadDetails } from "../api/uploadImage";
+import { classifyUploadedPage } from "../api/classifyPage";
 import { ClassFields, type ClassName, type ClassValues } from "./ClassFields";
+import {
+  ClassifyStatus,
+  replaceWithAnswers,
+  toClassValues,
+  type Detection,
+} from "./ClassifyStatus";
 
 interface EditManuscriptDialogProps {
+  manuscriptId: string;
   title: string;
   classes: ClassValues; // "" = unknown
   onSave: (details: UploadDetails) => Promise<void>; // throws when saving fails
@@ -18,6 +27,7 @@ interface EditManuscriptDialogProps {
 const CLASS_NAMES: ClassName[] = ["documentType", "century", "script", "language", "region"];
 
 export function EditManuscriptDialog({
+  manuscriptId,
   title,
   classes: savedClasses,
   onSave,
@@ -27,10 +37,30 @@ export function EditManuscriptDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [classes, setClasses] = useState<ClassValues>(savedClasses);
+  const [detection, setDetection] = useState<Detection>("idle");
+  // Stops a running classification when the dialog closes or the user asks again
+  const classifyRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     dialogRef.current?.showModal();
+    return () => classifyRef.current?.abort();
   }, []);
+
+  function classifyAgain() {
+    classifyRef.current?.abort();
+    const controller = new AbortController();
+    classifyRef.current = controller;
+    setDetection("detecting");
+    classifyUploadedPage(manuscriptId, controller.signal)
+      .then((suggestion) => {
+        // The user asked for new answers, so they replace the fields
+        setClasses((current) => replaceWithAnswers(current, toClassValues(suggestion)));
+        setDetection("done");
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setDetection("failed");
+      });
+  }
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -85,9 +115,12 @@ export function EditManuscriptDialog({
           defaultValue={title}
         />
 
+        <ClassifyStatus detection={detection} onClassifyAgain={classifyAgain} disabled={saving} />
+
         <ClassFields
           idPrefix="edit"
           values={classes}
+          detecting={detection === "detecting"}
           onChange={(name, value) => setClasses((current) => ({ ...current, [name]: value }))}
           disabled={saving}
         />

@@ -33,6 +33,7 @@ export interface LibraryEntry {
   previewUrl: string;
   status: UploadStatus;
   transcription?: TranscribedLine[] | null;
+  sharedByUsername?: string | null; // set on copies received from another user
   translation?: SavedTranslation | null; // filled once the page is translated
   summary?: string | null; // filled once the translation is summarized
   pipelineError?: string | null; // why the automatic pipeline stopped, if it did

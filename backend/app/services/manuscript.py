@@ -44,11 +44,23 @@ async def classify_file(file: UploadFile) -> PageClasses:
     except PageError as error:
         raise HTTPException(422, str(error)) from error
 
+    return await ask_classifier(data, file.filename or "page", content_type)
+
+
+# Classifies a page that is already uploaded, e.g. "Classify again" in the edit form.
+# The stored page is already an image the models can read (see save_upload).
+async def classify_manuscript(manuscript_id: str, user_id: str) -> PageClasses:
+    page = load_manuscript_pages(manuscript_id, user_id)
+    return await ask_classifier(page.image_bytes, page.file_name, page.content_type)
+
+
+# Sends one page image to the ML service and returns its suggested classes
+async def ask_classifier(data: bytes, filename: str, content_type: str) -> PageClasses:
     async with httpx.AsyncClient(timeout=120.0) as client:
         try:
             response = await client.post(
                 f"{settings.ml_service_url}/api/process-manuscripts/classify",
-                files={"file": (file.filename or "page", data, content_type)},
+                files={"file": (filename, data, content_type)},
             )
             response.raise_for_status()
         except httpx.HTTPError as exc:

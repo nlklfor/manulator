@@ -51,15 +51,18 @@ interface StatusBadgeProps {
   className?: string;
 }
 
+// A status this version does not know (e.g. saved by a newer version of the app)
+const UNKNOWN_STYLE = STATUS_STYLES.uploaded;
+
 export function StatusBadge({ status, className = "" }: StatusBadgeProps) {
-  const { badgeClass, icon } = STATUS_STYLES[status];
+  const { badgeClass, icon } = STATUS_STYLES[status] ?? UNKNOWN_STYLE;
 
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass} ${className}`}
     >
       {icon}
-      {STATUS_LABELS[status]}
+      {STATUS_LABELS[status] ?? status}
     </span>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, type ChangeEvent, type FocusEvent, type SubmitEvent } from "react";
 import { useRouter } from "next/navigation";
 import { login } from "@/features/auth/api/login";
+import { safeNextPath } from "@/lib/auth/redirect";
 import { EMAIL_PATTERN } from "@/features/auth/constants/registration";
 
 interface LoginValues {
@@ -68,7 +69,9 @@ export function useLoginForm() {
     try {
       const result = await login({ username: values.email.trim(), password: values.password });
       if (result.isAuthenticated) {
-        router.replace("/");
+        // Back to the page the user wanted to open before logging in, if any
+        const next = new URLSearchParams(window.location.search).get("next");
+        router.replace(safeNextPath(next));
         return;
       }
       setFormError(result.message);

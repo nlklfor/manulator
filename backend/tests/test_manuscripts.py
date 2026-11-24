@@ -559,6 +559,47 @@ def test_classify_rejects_unsupported_type(client, fake_ml_service):
     assert requests == []
 
 
+def test_classify_uploaded_page_sends_stored_image(
+    client, fake_supabase, fake_ml_service
+):
+    requests = fake_ml_service(
+        lambda request: httpx.Response(200, json=CLASSIFIER_ANSWER)
+    )
+
+    response = client.post(f"{URL}/{MANUSCRIPT_ID}/classify")
+
+    assert response.status_code == 200
+    assert response.json() == {**CLASSIFIER_ANSWER, "region": None}
+    [sent] = requests
+    assert str(sent.url).endswith("/api/process-manuscripts/classify")
+    body = sent.read()
+    assert b"png bytes" in body  # the page stored in the bucket
+    assert b"Content-Type: image/png" in body
+    # Only a suggestion: nothing is saved until the user saves the form
+    assert fake_supabase.tables["manuscripts"][0].get("century") is None
+
+
+def test_classify_other_users_page_is_not_found(client, fake_supabase, fake_ml_service):
+    requests = fake_ml_service(
+        lambda request: httpx.Response(200, json=CLASSIFIER_ANSWER)
+    )
+
+    response = client.post(f"{URL}/{OTHER_USERS_MANUSCRIPT_ID}/classify")
+
+    assert response.status_code == 404
+    assert requests == []
+
+
+def test_classify_uploaded_page_ml_service_fails(
+    client, fake_supabase, fake_ml_service
+):
+    fake_ml_service(lambda request: httpx.Response(502, json={"detail": "model down"}))
+
+    response = client.post(f"{URL}/{MANUSCRIPT_ID}/classify")
+
+    assert response.status_code == 502
+
+
 def test_classify_requires_login():
     response = TestClient(app).post(
         f"{URL}/classify", files={"file": ("page.png", b"png bytes", "image/png")}
