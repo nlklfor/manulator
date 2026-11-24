@@ -11,6 +11,8 @@ from storage3.utils import StorageException
 from app.config import settings
 from app.schemas.manuscript import (
     LineCorrectionResponse,
+    ManuscriptCorrectionPlan,
+    ManuscriptCorrectionResponse,
     ManuscriptProcessPlan,
     ManuscriptTranscriptResponse,
     ManuscriptTranslationResponse,
@@ -180,8 +182,9 @@ def check_line_text(text: str) -> str:
 
 
 # Replaces the text of one transcribed line with the researcher's correction and
-# marks the page "corrected". Only the latest text is kept: the model's original
-# reading is overwritten.
+# marks the page "corrected". The model's reading is kept in "original_text" the
+# first time a line is corrected, so the frontend can show which lines were changed.
+# A line set back to the model's reading is no longer marked as corrected.
 def save_line_correction(
     manuscript_id: str, line_index: int, text: str, user_id: str
 ) -> LineCorrectionResponse:
@@ -209,12 +212,13 @@ def save_line_correction(
     lines = page.get("transcription")
     if not lines:
         raise HTTPException(409, "The manuscript has not been transcribed yet.")
-    if not any(line.get("index") == line_index for line in lines):
+    line = next((line for line in lines if line.get("index") == line_index), None)
+    if line is None:
         raise HTTPException(404, "Line not found")
 
+    corrected_line = correct_line(line, text)
     corrected = [
-        {**line, "text": text} if line.get("index") == line_index else line
-        for line in lines
+        corrected_line if item.get("index") == line_index else item for item in lines
     ]
     try:
         result = (
@@ -235,8 +239,23 @@ def save_line_correction(
         raise HTTPException(404, "Manuscript not found")
 
     return LineCorrectionResponse(
-        manuscript_id=manuscript_id, index=line_index, text=text, status="corrected"
+        manuscript_id=manuscript_id,
+        index=line_index,
+        text=text,
+        original_text=corrected_line.get("original_text"),
+        status="corrected",
     )
+
+
+# Returns the line with the new text. "original_text" holds the model's reading
+# while the line differs from it, and is removed once the text matches it again.
+def correct_line(line: dict, text: str) -> dict:
+    original = line.get("original_text", line.get("text"))
+    updated = {key: value for key, value in line.items() if key != "original_text"}
+    updated["text"] = text
+    if text != original:
+        updated["original_text"] = original
+    return updated
 
 
 # This method loads the transcribed lines from the database.
@@ -292,6 +311,50 @@ def load_transcription(manuscript_id: str, user_id: str) -> Transcription:
 
     transcription = Transcription(manuscript_id=manuscript_id, lines=lines)
     return transcription
+
+
+# This function corrects the transcribed lines of a manuscript using the ML service.
+# The ML service returns the corrected lines, which are saved in the database.
+async def correct_manuscript(
+    manuscript_id: str, correction_plan: ManuscriptCorrectionPlan, user_id: str
+):
+    # load the manuscript from the database
+    transcription = load_transcription(manuscript_id, user_id)
+
+    # Todo: read the confidence values from the
+    #  database and add them to the request to the ML service
+
+    if not transcription.lines or len(transcription.lines) == 0:
+        raise HTTPException(
+            404,
+            "No transcribed lines found or the manuscript has not been transcribed yet",
+        )
+
+    data = {
+        "manuscript_id": manuscript_id,
+        "lines": transcription.lines,
+        "plan": correction_plan.plan,
+        "type": correction_plan.type,
+    }
+
+    # Create a post request to the ML service
+    # with a timeout of 300 seconds (5 minutes)
+    async with httpx.AsyncClient(timeout=300.0) as client:
+        try:
+            response = await client.post(
+                f"{settings.ml_service_url}/api/process-manuscripts/correct",
+                json=data,
+            )
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise HTTPException(
+                status_code=502,
+                detail="ML service failed",
+            ) from exc
+
+    result = ManuscriptCorrectionResponse.model_validate(response.json())
+
+    return result
 
 
 # This function reads the transcribed lines from the database

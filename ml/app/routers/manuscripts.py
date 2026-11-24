@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from app.config import settings
 from app.schemas.manuscripts import ManuscriptProcessResponse, ManuscriptProcessPlan, ManuscriptTranslationResponse, \
-    TranslationPlan
+    TranslationPlan, ManuscriptCorrectionResponse, ManuscriptCorrectionPlan
 from services.classification import Classification, classify_page
 from services.pipeline import Task, Pipeline
 
@@ -79,6 +79,31 @@ def process_manuscript(process_plan: Annotated[str, Form()], file: Annotated[Upl
         overlay=overlay,
         data={step: {k: v for k, v in r.items() if k != "image_path"} for step, r in result.items()},
         message="Processing completed successfully" if result[plan.plan] else "Processing failed"
+    )
+
+@router.post("/correct", response_model=ManuscriptCorrectionResponse)
+def correct_manuscript(correction_plan: ManuscriptCorrectionPlan):
+    plan = correction_plan.plan
+    if plan != "Correct":
+        raise HTTPException(status_code=400, detail=f"Unknown step: {plan}")
+
+    # create the correction task for the pipeline
+    task = Task(input=plan, data={"lines": correction_plan.lines},
+                    options={"skip_dependencies": True, "type": correction_plan.type})
+
+    # create the pipeline and run it
+    pipeline = Pipeline(task)
+    if plan not in pipeline.actions:
+        raise HTTPException(status_code=400, detail=f"Unknown action: {plan}")
+
+    result = pipeline.run()
+
+    # Note: No confidence values are added yet
+    return ManuscriptCorrectionResponse(
+        manuscript_id=correction_plan.manuscript_id,
+        corrected_lines=result[plan],
+        success=True if result[plan] is not None else False,
+        message="Correction completed successfully" if result[plan] else "Correction failed"
     )
 
 

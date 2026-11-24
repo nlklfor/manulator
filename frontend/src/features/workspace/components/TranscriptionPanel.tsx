@@ -7,8 +7,9 @@
 //   "transcribing"            -> waiting for the HTR model
 //   "transcribed"/"corrected" -> the editable list of lines
 import { useState } from "react";
-import { CircleAlert, ScanLine } from "lucide-react";
+import { CircleAlert, CircleCheck, RotateCw, ScanLine, SpellCheck, X } from "lucide-react";
 import type { UploadStatus } from "@/features/upload-manuscript/types/upload";
+import type { CorrectionSuggestion } from "../api/correct-transcription";
 import type { TranscriptionLine } from "../types";
 import { NothingToReview, TranscriptionLines } from "./TranscriptionLines";
 
@@ -29,6 +30,16 @@ interface TranscriptionPanelProps {
   // Called with the id of the model the user picked
   onTranscribe: (modelId: string) => void;
   error: string | null;
+  // The optional "Run correction model" step
+  suggestions: CorrectionSuggestion[]; // not accepted or rejected yet
+  isCorrecting: boolean;
+  correctError: string | null;
+  noCorrectionsFound: boolean;
+  onRetryCorrection: () => void;
+  onDismissNoCorrections: () => void;
+  // Resolves once the line is saved, throws an Error if it could not be saved
+  onAcceptSuggestion: (suggestion: CorrectionSuggestion) => Promise<void>;
+  onRejectSuggestion: (suggestion: CorrectionSuggestion) => void;
 }
 
 export function TranscriptionPanel({
@@ -39,6 +50,14 @@ export function TranscriptionPanel({
   onSaveLine,
   onTranscribe,
   error,
+  suggestions,
+  isCorrecting,
+  correctError,
+  noCorrectionsFound,
+  onRetryCorrection,
+  onDismissNoCorrections,
+  onAcceptSuggestion,
+  onRejectSuggestion,
 }: TranscriptionPanelProps) {
   const [modelId, setModelId] = useState<string>(HTR_MODELS[0].id);
   const [lineFilter, setLineFilter] = useState<"all" | "review">("all");
@@ -47,10 +66,11 @@ export function TranscriptionPanel({
   const isTranscribing = status === "transcribing";
   const isTranscribed = status === "transcribed" || status === "corrected";
 
-  // Lines that still contain words the model was unsure about
-  const reviewCount = lines.filter((l) => l.lowConfWords.length > 0).length;
-  const visibleLines =
-    lineFilter === "review" ? lines.filter((l) => l.lowConfWords.length > 0) : lines;
+  const needsReview = (l: TranscriptionLine) =>
+    l.lowConfWords.length > 0 || suggestions.some((s) => s.lineN === l.n);
+  const reviewCount = lines.filter(needsReview).length;
+  const correctedCount = lines.filter((l) => l.originalText !== null).length;
+  const visibleLines = lineFilter === "review" ? lines.filter(needsReview) : lines;
 
   return (
     <>
@@ -60,7 +80,7 @@ export function TranscriptionPanel({
           <h2 className="text-[15px] font-semibold text-mt-text">Transcription</h2>
           <span className="text-xs text-mt-text-subtle">
             {isTranscribed
-              ? `${lines.length} lines · ${reviewCount ? `${reviewCount} to review` : "all reviewed"}`
+              ? `${lines.length} lines · ${correctedCount} corrected · ${reviewCount ? `${reviewCount} to review` : "all reviewed"}`
               : isTranscribing
                 ? "Working…"
                 : "No text yet"}
@@ -95,6 +115,17 @@ export function TranscriptionPanel({
           </div>
         )}
       </div>
+
+      {isTranscribed && (
+        <CorrectionStatus
+          count={suggestions.length}
+          isRunning={isCorrecting}
+          error={correctError}
+          noneFound={noCorrectionsFound}
+          onRetry={onRetryCorrection}
+          onDismissNoneFound={onDismissNoCorrections}
+        />
+      )}
 
       {/* Empty state: nothing transcribed yet */}
       {isUploaded && (
@@ -202,8 +233,101 @@ export function TranscriptionPanel({
             selectedN={selectedN}
             onSelectLine={onSelectLine}
             onSaveLine={onSaveLine}
+            suggestions={suggestions}
+            onAcceptSuggestion={onAcceptSuggestion}
+            onRejectSuggestion={onRejectSuggestion}
           />
         ))}
     </>
   );
+}
+
+interface CorrectionStatusProps {
+  count: number;
+  isRunning: boolean;
+  error: string | null;
+  noneFound: boolean;
+  onRetry: () => void;
+  onDismissNoneFound: () => void;
+}
+
+function CorrectionStatus({
+  count,
+  isRunning,
+  error,
+  noneFound,
+  onRetry,
+  onDismissNoneFound,
+}: CorrectionStatusProps) {
+  const stripClass = "flex shrink-0 items-center gap-2 border-b border-mt-border px-4 py-2 text-sm";
+
+  if (isRunning) {
+    return (
+      <div role="status" className={`${stripClass} bg-mt-accent-soft text-mt-accent-text`}>
+        <span
+          className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent"
+          aria-hidden="true"
+        />
+        <span>
+          <strong className="font-semibold">Checking transcription…</strong> The correction model is
+          looking for reading errors. This can take a minute.
+        </span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div role="alert" className={`${stripClass} bg-mt-danger-bg text-mt-danger-fg`}>
+        <CircleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span className="min-w-0 flex-1">
+          <strong className="font-semibold">Couldn&apos;t run the correction model.</strong> {error}
+        </span>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-mt-md border border-mt-danger-fg/40 bg-mt-raised px-2.5 text-xs font-medium text-mt-danger-fg hover:bg-mt-hover"
+        >
+          <RotateCw className="h-3.5 w-3.5" aria-hidden="true" />
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (noneFound) {
+    return (
+      <div role="status" className={`${stripClass} bg-mt-success-bg text-mt-success-fg`}>
+        <CircleCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span className="min-w-0 flex-1">
+          <strong className="font-semibold">No corrections found.</strong> The model did not find
+          any reading errors on this page.
+        </span>
+        <button
+          type="button"
+          onClick={onDismissNoneFound}
+          aria-label="Dismiss"
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-mt-md hover:bg-black/5"
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
+    );
+  }
+
+  if (count > 0) {
+    return (
+      <div role="status" className={`${stripClass} bg-mt-accent-soft text-mt-accent-text`}>
+        <SpellCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span>
+          <strong className="font-semibold">
+            {count} {count === 1 ? "correction" : "corrections"} left
+          </strong>{" "}
+          · Click a highlighted word to accept or reject it.
+        </span>
+      </div>
+    );
+  }
+
+  return null;
 }

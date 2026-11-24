@@ -24,6 +24,7 @@ export interface LibraryEntry {
 export interface TranscribedLine {
   index: number; // line number, starting at 0 (reading order)
   text: string;
+  original_text?: string; // the model's reading, only set while the user's correction differs from it
   bbox?: [number, number, number, number];
   baseline?: [number, number][];
   boundary?: [number, number][];

@@ -4,7 +4,7 @@ The database runs on [Supabase](https://supabase.com) (managed PostgreSQL + Auth
 Supabase Auth handles sign up, log in and passwords in its own `auth` schema.
 Our own tables live in the `public` schema.
 
-The SQL for our three tables is in Setup SQL at the bottom of this page.
+The SQL for our four tables is in Setup SQL at the bottom of this page.
 Run it in order on a new Supabase project, then configure Auth and Storage as described below.
 The SQL recreates the tables and their rules; it does not restore existing users, rows or uploaded files.
 
@@ -15,6 +15,8 @@ erDiagram
     "auth.users" ||--|| "public.profiles" : "has one"
     "auth.users" ||--o{ "public.manuscripts" : "owns"
     "public.manuscripts" ||--o{ "public.manuscript_files" : "contains"
+    "public.manuscripts" ||--o{ "public.manuscript_share_links" : "shared by link"
+    "auth.users" |o--o{ "public.manuscripts" : "shared (shared_by)"
     "auth.users" {
         uuid id PK
         text email
@@ -25,6 +27,7 @@ erDiagram
         timestamptz created_at
         text display_name "optional, max 50 characters"
         text avatar_url "optional, https link to the picture"
+        text username UK "optional, 3 to 30 characters: a-z, 0-9, _"
     }
     "public.manuscripts" {
         uuid id PK
@@ -33,6 +36,8 @@ erDiagram
         text document_type "required, e.g. Charter, max 50 characters"
         timestamptz created_at
         timestamptz updated_at
+        uuid shared_by FK "who sent this copy, empty for own uploads"
+        timestamptz shared_at "when the copy was received"
     }
     "public.manuscript_files" {
         uuid id PK
@@ -48,6 +53,16 @@ erDiagram
         text overlay_path "page with the detected lines drawn on it, in uploads"
         timestamptz created_at
     }
+    "public.manuscript_share_links" {
+        uuid id PK
+        uuid manuscript_id FK
+        uuid created_by FK "owner of the manuscript"
+        text token_hash UK "SHA-256 of the token in the link"
+        timestamptz expires_at "24 hours after creation"
+        timestamptz revoked_at "empty while the link is active"
+        integer use_count
+        timestamptz created_at
+    }
 ```
 
 `public.profiles`
@@ -61,6 +76,7 @@ One row per registered user. Created automatically at sign up; the app never ins
 | `created_at` | `timestamptz` | When the profile was created. Defaults to `now()`. |
 | `display_name` | `text` | Name shown in the app. Optional (can be empty), max 50 characters. Set at sign up or edited later by the user. |
 | `avatar_url` | `text` | Link to the profile picture (e.g. a `.webp` image). Optional, must start with `https://`. Only the link is stored, not the image. |
+| `username` | `text` | Unique name other users share manuscripts with. 3 to 30 characters: lowercase letters, digits and `_`. Set at sign up (saved in lowercase) or later on the profile page. Empty for accounts created before sharing existed, until the user picks one. |
 
 `public.manuscripts`
 
@@ -75,8 +91,11 @@ A user can create several manuscripts, and each manuscript can contain several f
 | `document_type` | `text` | What kind of document it is, chosen by the user when uploading, e.g. `Charter`, `Register`, `Letter`. Free text; must contain 1 to 50 characters after trimming. Defaults to `Other`. |
 | `created_at` | `timestamptz` | When the manuscript row was created. Defaults to `now()`. |
 | `updated_at` | `timestamptz` | Defaults to `now()`. A trigger updates it whenever the manuscript row changes. Changing its file rows alone does not update this timestamp. |
+| `shared_by` | `uuid` | For a copy received through sharing: the user who sent it. Empty for manuscripts the user uploaded. References `auth.users.id`; set to empty if the sender deletes their account, the copy itself stays. Only the backend sets it. |
+| `shared_at` | `timestamptz` | When the shared copy was received. Empty for own uploads. |
 
-The pair `(id, owner_id)` is unique so the files table can check both the manuscript and its owner.
+The pair `(id, owner_id)` is unique so the files and share links tables can check both the manuscript and its owner.
+A check refuses a copy shared with its own owner, and a copy that has a sender but no date.
 Indexes support listing a user's manuscripts newest first and searching within titles (`pg_trgm`).
 
 `public.manuscript_files`
@@ -100,7 +119,7 @@ an array column is not needed in the database.
 | `size_bytes` | `bigint` | File size in bytes. Must be greater than zero. The current backend's 20 MB limit is separate from this database check. |
 | `position` | `integer` | File order inside the manuscript, starting at 1. Can be changed later. Positions are not required to be unique. |
 | `status` | `text` | Processing step of the page: `uploading`, `uploaded`, `transcribing`, `transcribed` or `corrected`. Defaults to `uploaded`. |
-| `transcription` | `jsonb` | Transcribed lines, saved by the backend after the ML service has read the page. Empty (`NULL`) until then. Each line: `{"index", "text", "bbox", "baseline", "boundary"}`. |
+| `transcription` | `jsonb` | Transcribed lines, saved by the backend after the ML service has read the page. Empty (`NULL`) until then. Each line: `{"index", "text", "bbox", "baseline", "boundary"}`. A line the user has corrected also has `"original_text"` (the model's reading). |
 | `overlay_path` | `text` | Path inside `uploads` of the overlay image (the page with the detected lines drawn on it), e.g. `<owner_id>/overlays/<file>.jpg`. Saved with the transcription; the old image is deleted when the page is transcribed again. Empty until then. |
 | `created_at` | `timestamptz` | When the file row was created. Defaults to `now()`. |
 
@@ -110,6 +129,27 @@ with `ON DELETE CASCADE`; deleting the actual Storage objects is a separate oper
 
 Indexes support loading a manuscript's files in position order, listing a user's files,
 and searching within file names (`pg_trgm`).
+
+`public.manuscript_share_links`
+
+One row per share link a user created for one of their manuscripts. Anyone logged in who opens a valid link
+can add a copy of the manuscript to their own library. Sharing always makes a copy: the recipient gets new
+`manuscripts` and `manuscript_files` rows and their own files in `uploads`, so the copy survives if the owner
+deletes the original. Only the backend reads and writes this table.
+
+| Column | Type | Notes |
+| ------ | ---- | ----- |
+| `id` | `uuid` | Primary key. Generated automatically. |
+| `manuscript_id` | `uuid` | The manuscript the link shares. Deleting the manuscript deletes its links. |
+| `created_by` | `uuid` | The user who created the link. Must be the manuscript's owner (composite foreign key, like `manuscript_files`). |
+| `token_hash` | `text` | SHA-256 of the random token in the link, as 64 hex characters. Unique. The token itself is never stored. |
+| `expires_at` | `timestamptz` | The link stops working after this time. Defaults to 24 hours after creation. Cannot be changed later. |
+| `revoked_at` | `timestamptz` | Set when the owner revokes the link. Empty while the link is active. |
+| `use_count` | `integer` | How many times someone added the manuscript to their library with this link. Defaults to 0. |
+| `created_at` | `timestamptz` | When the link was created. Defaults to `now()`. |
+
+A link is valid when `revoked_at` is empty and `expires_at` is in the future. An index supports listing the
+links of one manuscript in the share dialog.
 
 File statuses
 
@@ -156,7 +196,7 @@ Triggers
 
 | Trigger | On | What it does |
 | ------- | -- | ------------ |
-| `on_auth_user_created` | insert into `auth.users` | Calls `handle_new_user()`, which creates the matching profile row. If a `display_name` was sent at sign up, it is saved too. |
+| `on_auth_user_created` | insert into `auth.users` | Calls `handle_new_user()`, which creates the matching profile row. If a `display_name` or `username` was sent at sign up, it is saved too (the username trimmed and in lowercase). An invalid or taken username makes the sign up fail. |
 | `on_auth_user_email_changed` | update of `auth.users.email` | Calls `handle_user_email_change()`, which copies the new email into the profile. |
 | `manuscripts_set_updated_at` | before update of `public.manuscripts` | Calls `set_updated_at()`, which sets `updated_at` to `now()`. |
 
@@ -167,14 +207,18 @@ API execution privileges are revoked for all three functions; they are intended 
 
 Security (Row Level Security)
 
-RLS is enabled on all three public tables. Together with column permissions, it controls which rows
+RLS is enabled on all four public tables. Together with column permissions, it controls which rows
 logged in users can reach and which fields they can change.
 
 | Table | What `authenticated` users can do with their own rows |
 | ----- | --------------------------------------------------- |
-| `profiles` | Read; update only `display_name` and `avatar_url`. Ownership is checked with `auth.uid() = id`. |
+| `profiles` | Read; update only `display_name`, `avatar_url` and `username`. Ownership is checked with `auth.uid() = id`. |
 | `manuscripts` | Read, create with a `title`, rename the `title`, and delete. Ownership is checked with `auth.uid() = owner_id`. |
 | `manuscript_files` | Read, add a file with `manuscript_id`, `file_name`, `storage_path`, `content_type`, `size_bytes`, `position` and `status`; update only `file_name`, `position` and `status`; delete. Ownership is checked with `auth.uid() = owner_id`. |
+| `manuscript_share_links` | Nothing. RLS is on without policies and all rights are revoked; only the backend uses the table. |
+
+Users cannot set `shared_by` or `shared_at` themselves, so nobody can fake a "Shared by" label.
+Usernames are looked up by the backend (exact match only), because users can only read their own profile.
 
 `anon` (not logged in) has no access to these tables. Profiles are created by the Auth trigger.
 Users cannot change their profile's `id`, `email` or `created_at`, and cannot insert or delete profiles.
@@ -188,7 +232,7 @@ so backend operations using that key must check the user's identity and ownershi
 Using the profile in the app
 
 The current app sends registration requests through the FastAPI backend. The backend includes
-`display_name` in Supabase Auth metadata, and the trigger saves it in the profile.
+`display_name` (and, with sharing, `username`) in Supabase Auth metadata, and the trigger saves them in the profile.
 The frontend reads the profile and edits the display name through Supabase's REST API,
 using the publishable key and the logged in user's access token.
 
@@ -198,7 +242,7 @@ The equivalent Supabase JavaScript calls below illustrate the database behaviour
 await supabase.auth.signUp({
   email,
   password,
-  options: { data: { display_name: "Alice" } },
+  options: { data: { display_name: "Alice", username: "alice" } },
 });
 ```
 
@@ -233,8 +277,9 @@ including the file status column. The library is loaded from the database:
 - `DELETE /api/upload-manuscripts/{id}` deletes the manuscript, its file rows and its files in Storage.
 - `PATCH /api/upload-manuscripts/{id}/lines/{index}` replaces the `text` of one line in
   `manuscript_files.transcription` with the researcher's correction and sets `status` to
-  `corrected`. The line's other fields are kept, and the model's original text is overwritten:
-  only the latest text is stored. No new column is needed. See `backend/README.md` for the
+  `corrected`. The line's other fields are kept. The first correction copies the model's reading
+  into the line's `original_text`, so the frontend can mark corrected lines; it is removed again if
+  the text is set back to the model's reading. No new column is needed. See `backend/README.md` for the
   request, response and status codes.
 
 `manuscript_files.status` is read and shown in the badges and filters. The backend sets it to
@@ -258,6 +303,10 @@ Deleting a manuscript or user removes the related database rows through the fore
 but it does not remove the actual uploaded objects. File cleanup must use the
 [Supabase Storage API](https://supabase.com/docs/guides/storage/management/delete-objects).
 Keep the object paths before deleting their metadata so the app can clean up the files.
+
+Sharing needs no extra bucket. A shared copy's files are copied inside `uploads` into the recipient's
+folder (`<recipient_id>/<new_manuscript_id>/...` and `<recipient_id>/overlays/...`), so they belong to
+the recipient and are not affected when the owner deletes the original.
 
 Profile picture uploads
 
@@ -291,8 +340,8 @@ Setting up a Supabase project
    - For a deployed frontend, add the same paths on its actual domain and set the Site URL accordingly.
      These URLs must match the backend's `FRONTEND_URL`; see
      [Supabase's redirect URL guide](https://supabase.com/docs/guides/auth/redirect-urls).
-3. **Run the SQL:** open *SQL Editor* and run the three Setup SQL blocks in order:
-   profiles, manuscripts, then manuscript files. Run them before registering application users.
+3. **Run the SQL:** open *SQL Editor* and run the four Setup SQL blocks in order:
+   profiles, manuscripts, manuscript files, then share links. Run them before registering application users.
 4. **Storage:** create `uploads` with **Public bucket off** and `avatars` with **Public bucket on**,
    then run the Avatar storage SQL. It sets the bucket limits and lets users
    upload their own profile picture.
@@ -366,6 +415,99 @@ GRANT INSERT (status), UPDATE (status)
     TO authenticated;
 
 COMMIT;
+```
+
+Add sharing (usernames, shared copies, share links)
+
+Run this once in the *SQL Editor* to add sharing (#214, #215) to an existing project.
+New projects don't need it: the Setup SQL below already includes it. It runs in one transaction,
+so if anything fails nothing is changed. It does not create a bucket: shared copies go into `uploads`.
+
+```sql
+-- Sharing (#214, task #215): usernames, where a shared copy came from, and share links.
+-- Run once in the SQL Editor of an existing project. New projects get the same result from the Setup SQL.
+BEGIN;
+
+-- 1. Usernames, so people can share with each other
+
+-- unique name to share with: 3 to 30 characters, lowercase letters, digits and _ (optional, so existing users can pick one later)
+ALTER TABLE public.profiles
+    ADD COLUMN username TEXT UNIQUE CONSTRAINT profiles_username_check CHECK (username ~ '^[a-z0-9_]{3,30}$');
+
+-- The sign up trigger also saves the username sent at sign up (user metadata), trimmed and in lowercase.
+-- An invalid or taken username makes the sign up fail, so the backend checks it before signing up.
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO public.profiles (id, email, display_name, username)
+    VALUES (
+        NEW.id,
+        NEW.email,
+        nullif(left(trim(NEW.raw_user_meta_data ->> 'display_name'), 50), ''),
+        nullif(lower(trim(NEW.raw_user_meta_data ->> 'username')), '')
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+
+-- Logged in users can also change their own username (the existing update policy limits it to their own row)
+GRANT UPDATE (username) ON TABLE public.profiles TO authenticated;
+
+-- 2. Where a shared copy came from
+
+ALTER TABLE public.manuscripts
+    -- who sent this copy; empty for manuscripts the user uploaded, and set to empty if the sender deletes their account
+    ADD COLUMN shared_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    -- when the copy was received
+    ADD COLUMN shared_at TIMESTAMPTZ,
+    -- nobody shares a manuscript with themselves, and a copy with a sender always has a date
+    ADD CONSTRAINT manuscripts_shared_check
+        CHECK (shared_by IS DISTINCT FROM owner_id AND (shared_by IS NULL OR shared_at IS NOT NULL));
+
+-- 3. Share links (valid 24 hours)
+
+-- Creates the share links table, one row per link a user created for one of their manuscripts
+CREATE TABLE public.manuscript_share_links (
+    -- sets unique id for row
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    -- the manuscript the link shares
+    manuscript_id UUID NOT NULL,
+    -- the user who created the link, always the owner of the manuscript
+    created_by UUID NOT NULL,
+    -- SHA-256 of the token in the link, as 64 hex characters; the token itself is never stored
+    token_hash TEXT NOT NULL UNIQUE CHECK (token_hash ~ '^[0-9a-f]{64}$'),
+    -- the link stops working after this time (24 hours after it was created)
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '24 hours'),
+    -- set when the owner revokes the link; empty while the link is active
+    revoked_at TIMESTAMPTZ,
+    -- how many times someone added the manuscript to their library with this link
+    use_count INTEGER NOT NULL DEFAULT 0 CHECK (use_count >= 0),
+    -- records when the link was created
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- a link cannot expire before it was created
+    CHECK (expires_at > created_at),
+    -- refuses a link to someone else's manuscript, and deletes the links with the manuscript
+    FOREIGN KEY (manuscript_id, created_by) REFERENCES public.manuscripts(id, owner_id) ON DELETE CASCADE
+);
+
+-- Speeds up listing the links of one manuscript in the share dialog
+CREATE INDEX manuscript_share_links_manuscript_idx ON public.manuscript_share_links (manuscript_id);
+
+-- Only the backend uses this table: no access for the browser. service_role is included because
+-- Supabase gives it full access to every new table, which would make the column list below useless.
+REVOKE ALL ON TABLE public.manuscript_share_links FROM anon, authenticated, service_role;
+-- The backend (secret key) creates, reads, revokes, counts and deletes links, but cannot change
+-- a link's manuscript, token or expiry
+GRANT SELECT, INSERT, DELETE ON TABLE public.manuscript_share_links TO service_role;
+GRANT UPDATE (revoked_at, use_count) ON TABLE public.manuscript_share_links TO service_role;
+
+-- RLS on and no policies: logged in users cannot reach the table even with their own token
+ALTER TABLE public.manuscript_share_links ENABLE ROW LEVEL SECURITY;
+
+COMMIT;
+
+-- Lets the Supabase API see the new columns and table right away
+NOTIFY pgrst, 'reload schema';
 ```
 
 Email
@@ -459,18 +601,22 @@ CREATE TABLE public.profiles (
     -- name shown in the app (optional, max 50 characters)
     display_name TEXT CHECK (char_length(display_name) <= 50),
     -- link to the profile picture, e.g. a .webp image (optional, must be an https link)
-    avatar_url TEXT CHECK (avatar_url ~ '^https://')
+    avatar_url TEXT CHECK (avatar_url ~ '^https://'),
+    -- unique name to share with: 3 to 30 characters, lowercase letters, digits and _ (optional, so existing users can pick one later)
+    username TEXT UNIQUE CONSTRAINT profiles_username_check CHECK (username ~ '^[a-z0-9_]{3,30}$')
 );
 
--- Creates a trigger function to automatically populate public.profiles (the display name comes from the sign up metadata)
+-- Creates a trigger function to automatically populate public.profiles (the display name and username come from the sign up metadata)
+-- An invalid or taken username makes the sign up fail, so the backend checks it before signing up.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.profiles (id, email, display_name)
+    INSERT INTO public.profiles (id, email, display_name, username)
     VALUES (
         NEW.id,
         NEW.email,
-        nullif(left(trim(NEW.raw_user_meta_data ->> 'display_name'), 50), '')
+        nullif(left(trim(NEW.raw_user_meta_data ->> 'display_name'), 50), ''),
+        nullif(lower(trim(NEW.raw_user_meta_data ->> 'username')), '')
     );
     RETURN NEW;
 END;
@@ -502,10 +648,10 @@ CREATE OR REPLACE TRIGGER on_auth_user_email_changed
 REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.handle_user_email_change() FROM PUBLIC, anon, authenticated;
 
--- Removes the full access Supabase gives to every new table, logged in users can only read and edit their name and picture (rows are created by the triggers)
+-- Removes the full access Supabase gives to every new table, logged in users can only read and edit their name, picture and username (rows are created by the triggers)
 REVOKE ALL ON TABLE public.profiles FROM anon, authenticated;
 GRANT SELECT ON TABLE public.profiles TO authenticated;
-GRANT UPDATE (display_name, avatar_url) ON TABLE public.profiles TO authenticated;
+GRANT UPDATE (display_name, avatar_url, username) ON TABLE public.profiles TO authenticated;
 
 -- Enables Row Level Security (RLS) to protect user data
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -548,8 +694,15 @@ CREATE TABLE public.manuscripts (
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
     -- records when the manuscript was last changed (kept up to date by the trigger below)
     updated_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-    -- lets manuscript_files check that a file and its manuscript have the same owner
-    UNIQUE (id, owner_id)
+    -- who sent this copy; empty for manuscripts the user uploaded, and set to empty if the sender deletes their account
+    shared_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    -- when the copy was received
+    shared_at TIMESTAMPTZ,
+    -- lets manuscript_files and manuscript_share_links check that they belong to the manuscript's owner
+    UNIQUE (id, owner_id),
+    -- nobody shares a manuscript with themselves, and a copy with a sender always has a date
+    CONSTRAINT manuscripts_shared_check
+        CHECK (shared_by IS DISTINCT FROM owner_id AND (shared_by IS NULL OR shared_at IS NOT NULL))
 );
 
 -- Speeds up the library view: a user's manuscripts, newest first
@@ -680,6 +833,53 @@ CREATE POLICY "Users can update own files"
 CREATE POLICY "Users can delete own files"
     ON public.manuscript_files FOR DELETE
     USING ((select auth.uid()) = owner_id);
+```
+
+Library part 3: share links
+
+Saved SQL Editor query name: `library_3_share_links`.
+
+Creates one row per share link, valid 24 hours, that only the backend can read and change.
+
+```sql
+
+-- Creates the share links table, one row per link a user created for one of their manuscripts
+CREATE TABLE public.manuscript_share_links (
+    -- sets unique id for row
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    -- the manuscript the link shares
+    manuscript_id UUID NOT NULL,
+    -- the user who created the link, always the owner of the manuscript
+    created_by UUID NOT NULL,
+    -- SHA-256 of the token in the link, as 64 hex characters; the token itself is never stored
+    token_hash TEXT NOT NULL UNIQUE CHECK (token_hash ~ '^[0-9a-f]{64}$'),
+    -- the link stops working after this time (24 hours after it was created)
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '24 hours'),
+    -- set when the owner revokes the link; empty while the link is active
+    revoked_at TIMESTAMPTZ,
+    -- how many times someone added the manuscript to their library with this link
+    use_count INTEGER NOT NULL DEFAULT 0 CHECK (use_count >= 0),
+    -- records when the link was created
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- a link cannot expire before it was created
+    CHECK (expires_at > created_at),
+    -- refuses a link to someone else's manuscript, and deletes the links with the manuscript
+    FOREIGN KEY (manuscript_id, created_by) REFERENCES public.manuscripts(id, owner_id) ON DELETE CASCADE
+);
+
+-- Speeds up listing the links of one manuscript in the share dialog
+CREATE INDEX manuscript_share_links_manuscript_idx ON public.manuscript_share_links (manuscript_id);
+
+-- Only the backend uses this table: no access for the browser. service_role is included because
+-- Supabase gives it full access to every new table, which would make the column list below useless.
+REVOKE ALL ON TABLE public.manuscript_share_links FROM anon, authenticated, service_role;
+-- The backend (secret key) creates, reads, revokes, counts and deletes links, but cannot change
+-- a link's manuscript, token or expiry
+GRANT SELECT, INSERT, DELETE ON TABLE public.manuscript_share_links TO service_role;
+GRANT UPDATE (revoked_at, use_count) ON TABLE public.manuscript_share_links TO service_role;
+
+-- RLS on and no policies: logged in users cannot reach the table even with their own token
+ALTER TABLE public.manuscript_share_links ENABLE ROW LEVEL SECURITY;
 ```
 
 Avatar storage
