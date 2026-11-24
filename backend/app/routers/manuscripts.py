@@ -53,6 +53,15 @@ async def classify_manuscript(
     return await manuscript.classify_file(file)
 
 
+# Suggests the classes of a page that is already uploaded (e.g. in the edit form).
+# Nothing is saved: the user checks the suggestions and saves them with PATCH.
+@router.post("/{manuscript_id}/classify", response_model=PageClasses)
+async def classify_uploaded_manuscript(
+    manuscript_id: UUID, user_id: str = Depends(get_current_user_id)
+):
+    return await manuscript.classify_manuscript(str(manuscript_id), user_id)
+
+
 @router.patch("/{manuscript_id}", response_model=ManuscriptUpdateResponse)
 def update_manuscript(
     manuscript_id: UUID,

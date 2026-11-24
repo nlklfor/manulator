@@ -26,3 +26,16 @@ export async function classifyPage(file: File, signal?: AbortSignal): Promise<Pa
     signal,
   });
 }
+
+// Same for a page that is already uploaded (e.g. "Classify again" in the edit form).
+// Nothing is saved: the user checks the suggestions and saves them with the form.
+export async function classifyUploadedPage(
+  manuscriptId: string,
+  signal?: AbortSignal,
+): Promise<PageClasses> {
+  return apiFetch<PageClasses>(`/api/upload-manuscripts/${manuscriptId}/classify`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getAuthToken()}` },
+    signal,
+  });
+}

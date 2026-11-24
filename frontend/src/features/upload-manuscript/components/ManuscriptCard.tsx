@@ -124,6 +124,7 @@ export function ManuscriptCard({ entry, onDeleted, onEdit }: ManuscriptCardProps
 
       {editing && (
         <EditManuscriptDialog
+          manuscriptId={entry.id}
           title={entry.fileName}
           classes={{
             documentType: entry.documentType,
