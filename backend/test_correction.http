@@ -1,0 +1,41 @@
+# Test the correction step.
+# Start the ML service first, from ml/: uv run uvicorn app.main:app --reload --port 8001
+
+### 1. Correct lines with typical OCR errors
+POST http://127.0.0.1:8001/api/process-manuscripts/correct
+Content-Type: application/json
+
+{
+  "manuscript_id": "test-correction",
+  "plan": "Correct",
+  "type": "lines",
+  "lines": [
+    {"index": 0, "text": "In nomine Domlni nostri Iesu Chrifti, amen."},
+    {"index": 1, "text": "Ego Carolus, rex Francorum, omnibus fidelibus salutem."},
+    {"index": 2, "text": "Notum sit omnibus quod monafterium sancti Galli terram accepit."},
+    {"index": 3, "text": "Haec terra iuxta flumen Rhenum fita eft"},
+    {"index": 4, "text": "Abbas fratres suos ad oratlonem vocavlt"}
+  ]
+}
+
+### 2. Edge cases: empty line and a line with no errors
+POST http://127.0.0.1:8001/api/process-manuscripts/correct
+Content-Type: application/json
+
+{
+  "manuscript_id": "test-correction-edge",
+  "lines": [
+    {"index": 0, "text": ""},
+    {"index": 1, "text": "Finis."}
+  ]
+}
+
+### 3. Wrong plan: should return 400
+POST http://127.0.0.1:8001/api/process-manuscripts/correct
+Content-Type: application/json
+
+{
+  "manuscript_id": "test-correction-bad",
+  "plan": "Translate",
+  "lines": [{"index": 0, "text": "Finis."}]
+}
