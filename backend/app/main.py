@@ -31,7 +31,6 @@ app.include_router(manuscripts_translation.router, prefix="/api")
 app.include_router(manuscripts_correction.router, prefix="/api")
 
 
-
 @app.get("/")
 def root():
     return {"message": "Hello this is the Manulator-App"}
