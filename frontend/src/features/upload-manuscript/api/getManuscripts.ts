@@ -11,6 +11,7 @@ export interface ManuscriptResponse extends UploadResponse {
   // Filled once the page is transcribed, otherwise null
   transcription: TranscribedLine[] | null;
   overlay_url: string | null; // page with the lines drawn on it, valid 1 day
+  shared_by_username: string | null; // set on copies received from another user
 }
 
 export async function getManuscripts(): Promise<ManuscriptResponse[]> {

@@ -13,8 +13,11 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ScanLine,
+  Share2,
   SpellCheck,
 } from "lucide-react";
+import { Toast } from "@/components/ui/Toast";
+import { ShareDialog } from "@/features/sharing/components/ShareDialog";
 import { useLibrary } from "@/features/upload-manuscript/context/LibraryContext";
 import { StatusBadge } from "@/features/upload-manuscript/components/StatusBadge";
 import { ImageViewer } from "./ImageViewer";
@@ -71,6 +74,8 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
   const [isTranslating, setIsTranslating] = useState(false);
   const [translateError, setTranslateError] = useState<string | null>(null);
   const [isTranslationOutdated, setIsTranslationOutdated] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
   // Counts translation requests, so the result of an outdated request is ignored
   const translationRequestRef = useRef(0);
   // Suggestions of the correction model the user has not accepted or rejected yet.
@@ -390,6 +395,17 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
           </button>
         )}
 
+        <button
+          type="button"
+          onClick={() => setIsShareOpen(true)}
+          // An upload that hasn't finished has no manuscript on the server yet
+          disabled={entry.status === "uploading" || entry.status === "upload-failed"}
+          className={`inline-flex h-9 items-center gap-1.5 rounded-mt-md border border-mt-border-strong bg-mt-raised px-3.5 text-sm font-medium text-mt-text hover:bg-mt-hover disabled:cursor-not-allowed disabled:opacity-40`}
+        >
+          <Share2 className="h-4 w-4" aria-hidden="true" />
+          Share
+        </button>
+
         {/* Export is not implemented yet, so the button stays disabled */}
         <button
           type="button"
@@ -401,6 +417,19 @@ export function WorkspacePage({ manuscriptId }: WorkspacePageProps) {
           Export
         </button>
       </header>
+
+      {isShareOpen && (
+        <ShareDialog
+          manuscriptId={entry.id}
+          title={entry.fileName}
+          onClose={() => setIsShareOpen(false)}
+          onShared={(username) => {
+            setIsShareOpen(false);
+            setShareMessage(`Sent to @${username}`);
+          }}
+        />
+      )}
+      {shareMessage && <Toast message={shareMessage} onClose={() => setShareMessage(null)} />}
 
       <div ref={splitRef} className="flex min-h-0 flex-1">
         {/* Left: the page image, or a narrow bar to show it again */}
