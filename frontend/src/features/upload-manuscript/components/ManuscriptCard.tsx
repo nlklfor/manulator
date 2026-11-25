@@ -25,6 +25,9 @@ export function ManuscriptCard({ entry, onDeleted, onEdit }: ManuscriptCardProps
   const [editing, setEditing] = useState(false);
   // Only manuscripts that are saved in the backend can be edited
   const canEdit = entry.status !== "uploading" && entry.status !== "upload-failed";
+  const classSummary = [entry.century, entry.script, entry.language, entry.region]
+    .filter(Boolean)
+    .join(" · ");
 
   async function handleDelete() {
     if (deleteLoading) {
@@ -81,6 +84,12 @@ export function ManuscriptCard({ entry, onDeleted, onEdit }: ManuscriptCardProps
             <span className="truncate">{entry.documentType}</span>
           </p>
         )}
+        {/* Classes of the page, e.g. "14th century · Cursiva · Latin" (unknown ones are left out) */}
+        {classSummary && (
+          <p className="truncate px-2.5 pt-0.5 text-xs text-mt-text-subtle" title={classSummary}>
+            {classSummary}
+          </p>
+        )}
       </Link>
       <div className="flex flex-col items-start gap-1 px-2.5 pb-2.5">
         <StatusBadge status={entry.status} className="mt-1.5" />
@@ -115,8 +124,15 @@ export function ManuscriptCard({ entry, onDeleted, onEdit }: ManuscriptCardProps
 
       {editing && (
         <EditManuscriptDialog
+          manuscriptId={entry.id}
           title={entry.fileName}
-          documentType={entry.documentType}
+          classes={{
+            documentType: entry.documentType,
+            century: entry.century ?? "",
+            script: entry.script ?? "",
+            language: entry.language ?? "",
+            region: entry.region ?? "",
+          }}
           onSave={async (details) => {
             await onEdit(entry.id, details);
             setEditing(false);

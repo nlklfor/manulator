@@ -64,3 +64,9 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
 }
+
+/* Chrome's arrow in fields with suggestions (<datalist>) would cover the field's clear
+   button; the suggestions still open when the user types or presses the down arrow */
+input[list]::-webkit-calendar-picker-indicator {
+  display: none !important;
+}

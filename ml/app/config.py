@@ -20,13 +20,13 @@ class Settings(BaseSettings):
     ml_service_url: str = "http://127.0.0.1:8001"
 
     max_upload_mb: int = 20
-    allowed_content_types: list[str] = ["image/jpeg", "image/png"]
 
     # Hugging Face access token, needed for the private translation model
     hf_token: str | None = None
 
     # The model that classifies uploaded pages (CLASSIFIER_MODEL in ml/.env):
-    # a Claude model, or "local:gemma-4-12b-it" / "local:qwen3.5-9b" for a free model on our GPU (see services/classification.py)
+    # a Claude model, "gemini:<model>", or "local:gemma-4-12b-it" / "local:qwen3.5-9b" for a free model on our GPU
+    # (see services/classification.py)
     classifier_model: str = "claude-haiku-5-5"
 
     # The correction model that fixes OCR errors in the transcribed text (CORRECTION_MODEL in ml/.env)
@@ -34,6 +34,9 @@ class Settings(BaseSettings):
 
     # Claude API key, needed for Claude models
     anthropic_api_key: str | None = None
+
+    # Google Gemini API key, needed for Gemini models
+    gemini_api_key: str | None = None
 
     # Our own GPU model server: the "llama-server" container on the app's Docker network (ml/eval/README.md)
     local_base_url: str = "http://llama-server:8080/v1"

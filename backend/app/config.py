@@ -22,7 +22,6 @@ class Settings(BaseSettings):
     ml_service_url: str = "http://127.0.0.1:8001"
 
     max_upload_mb: int = 20
-    allowed_content_types: list[str] = ["image/jpeg", "image/png", "application/pdf"]
 
     # Load the values above from backend/.env (from any folder the server starts in)
     model_config = SettingsConfigDict(

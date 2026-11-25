@@ -10,11 +10,12 @@ from app.schemas.manuscript import (
     ManuscriptResponse,
     ManuscriptUpdate,
     ManuscriptUpdateResponse,
+    PageClasses,
     UploadResponse,
 )
 from app.services.bucket import delete_file, get_file_urls, upload_file
 from app.services.database import get_admin_client
-from app.services.pdf import PdfError, first_page_to_png
+from app.services.images import PageError, content_type_of, is_supported, to_page_image
 from app.services.sharing import get_usernames
 
 logger = logging.getLogger(__name__)
@@ -36,15 +37,32 @@ def check_document_type(document_type: str) -> str:
     return document_type
 
 
+# The classes of a page: document type is required (check_document_type),
+# century, script, language and region are optional.
+# Returns the trimmed text, or None when it is empty.
+CLASS_FIELDS = ("century", "script", "language", "region")
+
+
+def check_class(name: str, value: str | None) -> str | None:
+    value = (value or "").strip()
+    if len(value) > 100:
+        raise HTTPException(422, f"{name.capitalize()} must be at most 100 characters.")
+    return value or None
+
+
 # Uploads the file, then saves a manuscript row and its file row.
 def save_upload(
-    file: UploadFile, user_id: str, title: str, document_type: str
+    file: UploadFile, user_id: str, title: str, classes: PageClasses
 ) -> UploadResponse:
     title = check_title(title)
-    document_type = check_document_type(document_type)
+    document_type = check_document_type(classes.document_type or "")
+    class_values = {
+        name: check_class(name, getattr(classes, name)) for name in CLASS_FIELDS
+    }
 
-    if file.content_type not in settings.allowed_content_types:
-        raise HTTPException(415, f"Unsupported file type: {file.content_type}")
+    content_type = content_type_of(file.content_type, file.filename)
+    if not is_supported(content_type):
+        raise HTTPException(415, f"Unsupported file type: {content_type}")
 
     # Measure the bytes ourselves: file.size can be None.
     # Reading 1 byte past the limit is enough to know the file is too large.
@@ -55,20 +73,17 @@ def save_upload(
         raise HTTPException(413, f"File exceeds the {settings.max_upload_mb} MB limit")
 
     filename = Path(file.filename or "").name[:255] or "upload"
-    content_type = file.content_type
 
-    # Only the first page of a PDF is used. It is stored as an image, so the preview
-    # and the recognition models can work with it like with any other scan.
-    if content_type == "application/pdf":
-        try:
-            data = first_page_to_png(data)
-        except PdfError as error:
-            logger.warning("PDF conversion failed: %s", error)
-            raise HTTPException(
-                422, "Could not read the PDF. It may be damaged or password protected."
-            ) from error
-        content_type = "image/png"
-        size = len(data)
+    # Only the first page of a PDF is used, and images browsers cannot show (e.g. TIFF)
+    # are converted. Both are stored as PNG, so the preview and the recognition models
+    # can work with them like with any other scan.
+    try:
+        data, stored_type = to_page_image(data, content_type)
+    except PageError as error:
+        logger.warning("Converting %s failed: %s", content_type, error.__cause__)
+        raise HTTPException(422, str(error)) from error
+    if stored_type != content_type:
+        content_type, size = stored_type, len(data)
         filename = Path(filename).stem + ".png"
 
     # No compression: it can blur handwriting and hurt text recognition
@@ -87,7 +102,12 @@ def save_upload(
         manuscript = (
             db.table("manuscripts")
             .insert(
-                {"owner_id": user_id, "title": title, "document_type": document_type}
+                {
+                    "owner_id": user_id,
+                    "title": title,
+                    "document_type": document_type,
+                    **class_values,
+                }
             )
             .execute()
             .data[0]
@@ -118,6 +138,7 @@ def save_upload(
         id=manuscript["id"],
         title=title,
         document_type=document_type,
+        **class_values,
         filename=filename,
         content_type=content_type,
         size=size,
@@ -132,7 +153,10 @@ def list_manuscripts(user_id: str) -> list[ManuscriptResponse]:
         # The admin client ignores RLS, so the owner must be checked here
         manuscripts = (
             db.table("manuscripts")
-            .select("id, title, document_type, created_at, shared_by")
+            .select(
+                "id, title, document_type, created_at, shared_by, "
+                "century, script, language, region"
+            )
             .eq("owner_id", user_id)
             .order("created_at", desc=True)
             .execute()
@@ -184,6 +208,7 @@ def list_manuscripts(user_id: str) -> list[ManuscriptResponse]:
             id=manuscript["id"],
             title=manuscript["title"],
             document_type=manuscript["document_type"],
+            **{name: manuscript.get(name) for name in CLASS_FIELDS},
             created_at=manuscript["created_at"],
             filename=file["file_name"],
             content_type=file["content_type"],
@@ -199,8 +224,8 @@ def list_manuscripts(user_id: str) -> list[ManuscriptResponse]:
     ]
 
 
-# Changes the title and/or the document type of a manuscript.
-# Fields that are None stay as they are.
+# Changes the title, the document type and/or the classes of a manuscript.
+# Fields that are None stay as they are; an empty class ("") is cleared.
 def update_manuscript(
     manuscript_id: str, user_id: str, update: ManuscriptUpdate
 ) -> ManuscriptUpdateResponse:
@@ -209,8 +234,11 @@ def update_manuscript(
         changes["title"] = check_title(update.title)
     if update.document_type is not None:
         changes["document_type"] = check_document_type(update.document_type)
+    for name in CLASS_FIELDS:
+        if getattr(update, name) is not None:
+            changes[name] = check_class(name, getattr(update, name))
     if not changes:
-        raise HTTPException(422, "Send a title or a document type to change.")
+        raise HTTPException(422, "Send at least one field to change.")
 
     db = get_admin_client()
     try:
@@ -234,7 +262,10 @@ def update_manuscript(
 
     row = result.data[0]
     return ManuscriptUpdateResponse(
-        id=row["id"], title=row["title"], document_type=row["document_type"]
+        id=row["id"],
+        title=row["title"],
+        document_type=row["document_type"],
+        **{name: row.get(name) for name in CLASS_FIELDS},
     )
 
 
